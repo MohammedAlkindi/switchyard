@@ -1,6 +1,13 @@
 import logging
+import os
 import sys
 import time
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not installed; rely on shell environment
 
 from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtGui import QColor, QPalette
@@ -13,7 +20,8 @@ def setup_logging() -> logging.Logger:
     logger = logging.getLogger("CortexAI")
     if logger.handlers:
         return logger
-    logger.setLevel(logging.DEBUG)
+    level = getattr(logging, os.environ.get("CORTEXAI_LOG_LEVEL", "DEBUG").upper(), logging.DEBUG)
+    logger.setLevel(level)
     fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
