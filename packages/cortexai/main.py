@@ -44,7 +44,9 @@ def _load_stylesheet() -> str:
 def main():
     log = setup_logging()
 
-    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
+    # Keep physical pixel sizes matching design specs on scaled Windows displays
+    os.environ.setdefault("QT_SCALE_FACTOR", "1")
+
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
 
     app = QApplication(sys.argv)
