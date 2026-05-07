@@ -1,22 +1,44 @@
 from pathlib import Path
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTextEdit
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit
 from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt
 
 
 class DocumentationTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
+        # ── Header ────────────────────────────────────────────────────────
+        header = QWidget()
+        header.setFixedHeight(48)
+        header.setAttribute(Qt.WA_StyledBackground, True)
+        header.setStyleSheet("background:#0F0F0F; border-bottom:1px solid #1C1C1C;")
+        h_row = QHBoxLayout(header)
+        h_row.setContentsMargins(22, 0, 22, 0)
+        title = QLabel("Documentation")
+        title.setStyleSheet("color:#E2E2E2; font-size:14px; font-weight:600; background:transparent;")
+        h_row.addWidget(title)
+        h_row.addStretch()
+        layout.addWidget(header)
+
+        # ── Content ───────────────────────────────────────────────────────
         self._display = QTextEdit()
         self._display.setReadOnly(True)
-        self._display.setFont(QFont("Segoe UI", 11))
+        self._display.setFont(QFont("Segoe UI", 13))
         self._display.setStyleSheet(
-            "background:#1e1e1e; color:#d4d4d4; border:1px solid #444; border-radius:4px; padding:8px;"
+            "QTextEdit { background:#0B0B0B; color:#ABABAB; border:none; "
+            "            padding:28px 36px; font-size:13px; line-height:1.65; }"
+            "QScrollBar:vertical { background:transparent; width:6px; }"
+            "QScrollBar::handle:vertical { background:#252525; border-radius:3px; min-height:30px; }"
+            "QScrollBar::handle:vertical:hover { background:#333; }"
+            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }"
         )
         self._display.setText(self._load_docs())
-        layout.addWidget(self._display)
+        layout.addWidget(self._display, 1)
 
     def _load_docs(self) -> str:
         doc_path = Path("docs/user_guide.txt")

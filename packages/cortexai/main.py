@@ -2,18 +2,18 @@ import logging
 import os
 import sys
 import time
+from pathlib import Path
 
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
-    pass  # python-dotenv not installed; rely on shell environment
+    pass
 
 from PyQt5.QtWidgets import QApplication, QMessageBox
-from PyQt5.QtGui import QColor, QPalette
 from PyQt5.QtCore import Qt
 
-from ui.main_window import MainWindow, SplashScreen
+import ui.theme as T
 
 
 def setup_logging() -> logging.Logger:
@@ -34,6 +34,13 @@ def setup_logging() -> logging.Logger:
     return logger
 
 
+def _load_stylesheet() -> str:
+    qss_path = Path(__file__).parent / "ui" / "styles.qss"
+    if qss_path.exists():
+        return qss_path.read_text(encoding="utf-8")
+    return ""
+
+
 def main():
     log = setup_logging()
 
@@ -45,24 +52,37 @@ def main():
     app.setApplicationVersion("1.0")
     app.setStyle("Fusion")
 
+    # Initialise font family (must happen after QApplication creation)
+    T.init_fonts()
+
+    # Apply global palette matching design system
+    from PyQt5.QtGui import QPalette, QColor
     palette = QPalette()
-    palette.setColor(QPalette.Window, QColor("#1e1e1e"))
-    palette.setColor(QPalette.WindowText, QColor("#d4d4d4"))
-    palette.setColor(QPalette.Base, QColor("#252526"))
-    palette.setColor(QPalette.AlternateBase, QColor("#2d2d2d"))
-    palette.setColor(QPalette.Text, QColor("#d4d4d4"))
-    palette.setColor(QPalette.Button, QColor("#2d2d2d"))
-    palette.setColor(QPalette.ButtonText, QColor("#d4d4d4"))
-    palette.setColor(QPalette.Highlight, QColor("#0e639c"))
-    palette.setColor(QPalette.HighlightedText, QColor("#ffffff"))
+    palette.setColor(QPalette.Window,          QColor(T.BG_BASE))
+    palette.setColor(QPalette.WindowText,      QColor(T.TEXT_PRIMARY))
+    palette.setColor(QPalette.Base,            QColor(T.BG_ELEVATED))
+    palette.setColor(QPalette.AlternateBase,   QColor(T.BG_SURFACE))
+    palette.setColor(QPalette.Text,            QColor(T.TEXT_PRIMARY))
+    palette.setColor(QPalette.Button,          QColor(T.BG_ELEVATED))
+    palette.setColor(QPalette.ButtonText,      QColor(T.TEXT_PRIMARY))
+    palette.setColor(QPalette.Highlight,       QColor(T.BRAND_PRIMARY))
+    palette.setColor(QPalette.HighlightedText, QColor(T.TEXT_ON_BRAND))
+    palette.setColor(QPalette.PlaceholderText, QColor(T.TEXT_TERTIARY))
     app.setPalette(palette)
+
+    # Apply global QSS stylesheet
+    qss = _load_stylesheet()
+    if qss:
+        app.setStyleSheet(qss)
+
+    from ui.main_window import SplashScreen, MainWindow
 
     splash = SplashScreen()
     splash.show()
 
     for i in range(0, 101, 20):
         splash.set_progress(i)
-        time.sleep(0.05)
+        time.sleep(0.04)
 
     try:
         window = MainWindow()
@@ -72,7 +92,10 @@ def main():
     except Exception as e:
         splash.close()
         log.critical(f"Fatal startup error: {e}", exc_info=True)
-        QMessageBox.critical(None, "Fatal Error", f"Failed to start:\n{e}\n\nSee cortexai.log for details.")
+        QMessageBox.critical(
+            None, "Fatal Error",
+            f"Failed to start CortexAI:\n{e}\n\nSee cortexai.log for details."
+        )
         sys.exit(1)
 
 

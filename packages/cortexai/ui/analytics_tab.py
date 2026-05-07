@@ -4,10 +4,10 @@ from typing import Dict
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
-    QTextEdit, QFileDialog, QMessageBox,
+    QFileDialog, QMessageBox, QGridLayout, QFrame,
 )
 from PyQt5.QtGui import QFont, QColor, QPainter, QSyntaxHighlighter, QTextCharFormat
-from PyQt5.QtCore import Qt, QRegularExpression
+from PyQt5.QtCore import Qt, QRegularExpression, QMargins
 
 try:
     from PyQt5.QtChart import QChart, QChartView, QLineSeries, QValueAxis
@@ -26,13 +26,12 @@ class CodeHighlighter(QSyntaxHighlighter):
         keyword_fmt = QTextCharFormat()
         keyword_fmt.setForeground(QColor("#569CD6"))
         keyword_fmt.setFontWeight(QFont.Bold)
-        keywords = [
+        for kw in [
             "def", "class", "import", "from", "return", "if", "else", "elif",
             "for", "while", "try", "except", "with", "as", "pass", "break",
             "continue", "True", "False", "None", "and", "or", "not", "in",
             "is", "lambda", "yield", "async", "await",
-        ]
-        for kw in keywords:
+        ]:
             self._rules.append((QRegularExpression(rf"\b{kw}\b"), keyword_fmt))
 
         string_fmt = QTextCharFormat()
@@ -50,10 +49,52 @@ class CodeHighlighter(QSyntaxHighlighter):
 
     def highlightBlock(self, text: str):
         for pattern, fmt in self._rules:
-            match_iter = pattern.globalMatch(text)
-            while match_iter.hasNext():
-                match = match_iter.next()
-                self.setFormat(match.capturedStart(), match.capturedLength(), fmt)
+            it = pattern.globalMatch(text)
+            while it.hasNext():
+                m = it.next()
+                self.setFormat(m.capturedStart(), m.capturedLength(), fmt)
+
+
+class MetricCard(QFrame):
+    def __init__(self, title: str, value: str = "—", unit: str = "", parent=None):
+        super().__init__(parent)
+        self._unit = unit
+        self.setFrameShape(QFrame.NoFrame)
+        self.setStyleSheet(
+            "QFrame { background:#161616; border:1px solid #1E1E1E; border-radius:8px; }"
+            "QLabel { border:none; background:transparent; }"
+        )
+        self.setMinimumHeight(80)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(4)
+
+        self._title_lbl = QLabel(title.upper())
+        self._title_lbl.setStyleSheet(
+            "color:#404040; font-size:10px; font-weight:700; letter-spacing:0.8px;"
+        )
+
+        val_row = QHBoxLayout()
+        val_row.setSpacing(4)
+
+        self._value_lbl = QLabel(value)
+        self._value_lbl.setStyleSheet(
+            "color:#E2E2E2; font-size:22px; font-weight:600; letter-spacing:-0.5px;"
+        )
+        val_row.addWidget(self._value_lbl)
+
+        if unit:
+            unit_lbl = QLabel(unit)
+            unit_lbl.setStyleSheet("color:#444; font-size:12px; padding-top:6px;")
+            val_row.addWidget(unit_lbl)
+        val_row.addStretch()
+
+        layout.addWidget(self._title_lbl)
+        layout.addLayout(val_row)
+
+    def set_value(self, value: str):
+        self._value_lbl.setText(value)
 
 
 class AnalyticsTab(QWidget):
@@ -67,28 +108,81 @@ class AnalyticsTab(QWidget):
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-        self._metrics_display = QTextEdit()
-        self._metrics_display.setReadOnly(True)
-        self._metrics_display.setFont(QFont("Consolas", 11))
-        self._metrics_display.setStyleSheet(
-            "background:#1e1e1e; color:#d4d4d4; border:1px solid #444; border-radius:4px;"
+        # ── Header ────────────────────────────────────────────────────────
+        header = QWidget()
+        header.setFixedHeight(48)
+        header.setAttribute(Qt.WA_StyledBackground, True)
+        header.setStyleSheet("background:#0F0F0F; border-bottom:1px solid #1C1C1C;")
+        h_row = QHBoxLayout(header)
+        h_row.setContentsMargins(22, 0, 16, 0)
+        h_row.setSpacing(8)
+
+        title = QLabel("Analytics")
+        title.setStyleSheet("color:#E2E2E2; font-size:14px; font-weight:600; background:transparent;")
+        h_row.addWidget(title)
+        h_row.addStretch()
+
+        _btn_style = (
+            "QPushButton { background:transparent; color:#555; border:1px solid #252525; "
+            "    border-radius:5px; padding:0 12px; font-size:12px; }"
+            "QPushButton:hover { background:#1A1A1A; color:#CCC; border-color:#333; }"
         )
-        layout.addWidget(QLabel("System Metrics"))
-        layout.addWidget(self._metrics_display)
+        refresh_btn = QPushButton("Refresh")
+        refresh_btn.setFixedHeight(28)
+        refresh_btn.setStyleSheet(_btn_style)
+        refresh_btn.clicked.connect(self._manual_refresh)
+
+        export_btn = QPushButton("Export CSV")
+        export_btn.setFixedHeight(28)
+        export_btn.setStyleSheet(_btn_style)
+        export_btn.clicked.connect(self._export_csv)
+
+        h_row.addWidget(refresh_btn)
+        h_row.addWidget(export_btn)
+        h_row.addSpacing(6)
+        layout.addWidget(header)
+
+        # ── Content ───────────────────────────────────────────────────────
+        content = QWidget()
+        content.setAttribute(Qt.WA_StyledBackground, True)
+        content.setStyleSheet("background:#0B0B0B;")
+        c_layout = QVBoxLayout(content)
+        c_layout.setContentsMargins(20, 20, 20, 20)
+        c_layout.setSpacing(16)
+
+        section_lbl = QLabel("SYSTEM")
+        section_lbl.setStyleSheet(
+            "color:#303030; font-size:10px; font-weight:700; letter-spacing:0.9px;"
+        )
+        c_layout.addWidget(section_lbl)
+
+        grid = QGridLayout()
+        grid.setSpacing(10)
+
+        self._cards = {
+            "cpu":     MetricCard("CPU",     "—", "%"),
+            "memory":  MetricCard("Memory",  "—", "%"),
+            "disk":    MetricCard("Disk",    "—", "%"),
+            "threads": MetricCard("Threads", "—"),
+            "uptime":  MetricCard("Uptime",  "—", "s"),
+            "net":     MetricCard("Net I/O", "—"),
+        }
+        positions = [
+            ("cpu", 0, 0), ("memory", 0, 1), ("disk",    0, 2),
+            ("threads", 1, 0), ("uptime", 1, 1), ("net", 1, 2),
+        ]
+        for key, row, col in positions:
+            grid.addWidget(self._cards[key], row, col)
+
+        c_layout.addLayout(grid)
 
         if HAS_CHART:
-            self._setup_chart(layout)
+            self._setup_chart(c_layout)
 
-        btn_row = QHBoxLayout()
-        refresh_btn = QPushButton("Refresh")
-        refresh_btn.clicked.connect(self._manual_refresh)
-        export_btn = QPushButton("Export CSV")
-        export_btn.clicked.connect(self._export_csv)
-        btn_row.addWidget(refresh_btn)
-        btn_row.addWidget(export_btn)
-        btn_row.addStretch()
-        layout.addLayout(btn_row)
+        layout.addWidget(content, 1)
 
     def _setup_chart(self, layout):
         self._cpu_series = QLineSeries()
@@ -97,45 +191,57 @@ class AnalyticsTab(QWidget):
         self._mem_series.setName("Memory %")
 
         chart = QChart()
-        chart.setTitle("Real-Time System Performance")
+        chart.setTitle("")
+        chart.setBackgroundBrush(QColor("#161616"))
+        chart.setPlotAreaBackgroundBrush(QColor("#161616"))
+        chart.setPlotAreaBackgroundVisible(True)
         chart.setTheme(QChart.ChartThemeDark)
         chart.addSeries(self._cpu_series)
         chart.addSeries(self._mem_series)
+        chart.legend().setLabelColor(QColor("#555"))
+        chart.setMargins(QMargins(8, 8, 8, 8))
 
-        self._axis_x = QValueAxis()
+        def _axis(title: str) -> QValueAxis:
+            ax = QValueAxis()
+            ax.setTitleText(title)
+            ax.setTitleBrush(QColor("#444"))
+            ax.setLabelsColor(QColor("#444"))
+            ax.setGridLineColor(QColor("#1C1C1C"))
+            return ax
+
+        self._axis_x = _axis("Seconds")
         self._axis_x.setRange(0, self._max_points)
         self._axis_x.setLabelFormat("%d")
-        self._axis_x.setTitleText("Seconds")
 
-        self._axis_y = QValueAxis()
+        self._axis_y = _axis("Usage (%)")
         self._axis_y.setRange(0, 100)
-        self._axis_y.setTitleText("Usage (%)")
 
         chart.addAxis(self._axis_x, Qt.AlignBottom)
         chart.addAxis(self._axis_y, Qt.AlignLeft)
-        self._cpu_series.attachAxis(self._axis_x)
-        self._cpu_series.attachAxis(self._axis_y)
-        self._mem_series.attachAxis(self._axis_x)
-        self._mem_series.attachAxis(self._axis_y)
+        for series in (self._cpu_series, self._mem_series):
+            series.attachAxis(self._axis_x)
+            series.attachAxis(self._axis_y)
 
         chart_view = QChartView(chart)
         chart_view.setRenderHint(QPainter.Antialiasing)
-        chart_view.setMinimumHeight(200)
+        chart_view.setMinimumHeight(180)
+        chart_view.setStyleSheet(
+            "QChartView { border:1px solid #1E1E1E; border-radius:8px; background:#161616; }"
+        )
         layout.addWidget(chart_view)
 
+    # ── Data ──────────────────────────────────────────────────────────────
+
     def _on_metrics(self, metrics: Dict):
-        lines = [
-            f"CPU:        {metrics.get('cpu', 'N/A')}%",
-            f"Memory:     {metrics.get('memory', 'N/A')}%",
-            f"Disk:       {metrics.get('disk', 'N/A')}%",
-            f"Threads:    {metrics.get('threads', 'N/A')}",
-            f"Uptime:     {int(metrics.get('uptime_s', 0))}s",
-            f"Net Sent:   {metrics.get('net_sent_mb', 'N/A')} MB",
-            f"Net Recv:   {metrics.get('net_recv_mb', 'N/A')} MB",
-        ]
-        if "gpu" in metrics and metrics["gpu"] is not None:
-            lines.append(f"GPU Mem:    {metrics['gpu']:.1f}%")
-        self._metrics_display.setText("\n".join(lines))
+        self._cards["cpu"].set_value(str(metrics.get("cpu", "—")))
+        self._cards["memory"].set_value(str(metrics.get("memory", "—")))
+        self._cards["disk"].set_value(str(metrics.get("disk", "—")))
+        self._cards["threads"].set_value(str(metrics.get("threads", "—")))
+        self._cards["uptime"].set_value(str(int(metrics.get("uptime_s", 0))))
+
+        sent = metrics.get("net_sent_mb", "—")
+        recv = metrics.get("net_recv_mb", "—")
+        self._cards["net"].set_value(f"{sent}↑  {recv}↓")
 
         if HAS_CHART:
             self._chart_data["cpu"].append(metrics.get("cpu", 0))
