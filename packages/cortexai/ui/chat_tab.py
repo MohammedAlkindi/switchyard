@@ -4,10 +4,10 @@ from typing import Dict, List, Optional
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
-    QTextEdit, QPlainTextEdit,
+    QTextEdit, QPlainTextEdit, QShortcut,
 )
 from PyQt5.QtGui import QFont, QTextCursor
-from PyQt5.QtCore import QShortcut, QKeySequence
+from PyQt5.QtCore import QKeySequence
 
 from clients.anthropic_client import AnthropicClient, ChatWorker
 from core.conversation import ConversationEntry
