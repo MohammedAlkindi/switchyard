@@ -25,7 +25,7 @@ class PluginManager:
                     self._plugins.append(plugin)
                     log.info(f"Loaded plugin: {path.stem}")
             except Exception as e:
-                log.warning(f"Failed to load plugin {path.stem}: {e}")
+                log.warning(f"Failed to load plugin {path.stem}: {e}", exc_info=True)
 
     def get_all(self) -> List[Any]:
         return list(self._plugins)

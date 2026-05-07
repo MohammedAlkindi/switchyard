@@ -21,11 +21,18 @@ from ui.components.message_bubble import UserBubble, AssistantBubble
 from ui.components.input_bar import InputBar
 from ui.components.model_switcher import ModelSwitcher
 from ui.components.toast import show_toast
+from ui.components.search_bar import ConvSearchBar
 from core.conversation_store import ConversationStore
+from ui.tabs.settings_tab import load_user_settings
 
 log = logging.getLogger("CortexAI")
 
-_NAME = "Mohammed"
+
+def _display_name() -> str:
+    try:
+        return load_user_settings().get("display_name", "Mohammed") or "Mohammed"
+    except Exception:
+        return "Mohammed"
 
 
 def _greeting() -> str:
@@ -95,6 +102,13 @@ class ChatTab(QWidget):
 
         self._scroll.setWidget(self._msg_container)
         v.addWidget(self._scroll, 1)
+
+        # Inline search bar (hidden by default)
+        self._search_bar = ConvSearchBar()
+        self._search_bar.search_requested.connect(self._on_search)
+        self._search_bar.closed.connect(self._hide_search)
+        self._search_bar.hide()
+        v.addWidget(self._search_bar)
 
         # Error / network banner (hidden by default)
         self._error_banner = _ErrorBanner()
@@ -217,10 +231,17 @@ class ChatTab(QWidget):
     def _on_stop(self):
         if self._worker:
             self._worker.cancel()
-            self._worker = None
+            try:
+                self._worker.finished_ok.disconnect()
+                self._worker.error_occurred.disconnect()
+                self._worker.token_ready.disconnect()
+            except TypeError:
+                pass
+            # Don't null the worker — let the thread finish naturally
         if self._last_assistant_bubble:
             self._last_assistant_bubble.finish_stream()
         self._input_bar.set_streaming(False)
+        self._worker = None
         log.debug("ChatTab: generation stopped by user")
 
     def _retry_last(self):
@@ -234,10 +255,16 @@ class ChatTab(QWidget):
     def _on_regenerate(self):
         if self._messages and self._messages[-1]["role"] == "assistant":
             self._messages.pop()
-            if self._last_assistant_bubble:
-                self._last_assistant_bubble.start_stream()
-            self._input_bar.set_streaming(True)
-            self._start_worker(list(self._messages))
+        if self._last_assistant_bubble:
+            self._msg_v.removeWidget(self._last_assistant_bubble)
+            self._last_assistant_bubble.deleteLater()
+        self._last_assistant_bubble = AssistantBubble(self._model_label)
+        self._last_assistant_bubble.regen_requested.connect(self._on_regenerate)
+        self._last_assistant_bubble.copy_requested.connect(self._on_copy)
+        self._insert_message_widget(self._last_assistant_bubble)
+        self._last_assistant_bubble.start_stream()
+        self._input_bar.set_streaming(True)
+        self._start_worker(list(self._messages))
 
     def _on_copy(self, text: str):
         QApplication.clipboard().setText(text)
@@ -278,6 +305,28 @@ class ChatTab(QWidget):
                 self._last_assistant_bubble = w
             self._insert_message_widget(w)
         self._scroll_to_bottom()
+
+    def toggle_search(self):
+        if self._search_bar.isVisible():
+            self._hide_search()
+        else:
+            self._search_bar.show()
+            self._search_bar.focus()
+
+    def _hide_search(self):
+        self._search_bar.hide()
+        self._input_bar.focus_input()
+
+    def _on_search(self, query: str):
+        # Basic: count occurrences across all messages
+        if not query:
+            self._search_bar.set_results(0)
+            return
+        count = sum(
+            query.lower() in m.get("content", "").lower()
+            for m in self._messages
+        )
+        self._search_bar.set_results(count)
 
     def clear_chat(self):
         self.new_conversation()
@@ -341,7 +390,7 @@ class ChatTab(QWidget):
                     w.deleteLater()
 
     def _scroll_to_bottom(self):
-        QTimer.singleShot(30, lambda: (
+        QTimer.singleShot(50, lambda: (
             self._scroll.verticalScrollBar().setValue(
                 self._scroll.verticalScrollBar().maximum()
             )
@@ -387,7 +436,7 @@ class _EmptyState(QWidget):
         logo_row.addStretch()
         v.addLayout(logo_row)
 
-        greeting = QLabel(f"{_greeting()}, {_NAME}.")
+        greeting = QLabel(f"{_greeting()}, {_display_name()}.")
         greeting.setFont(QFont(T.FONT_FAMILY, T.FONT_SIZES["2xl"], T.FONT_WEIGHTS["medium"]))
         greeting.setStyleSheet(f"color: {T.TEXT_PRIMARY}; background: transparent;")
         greeting.setAlignment(Qt.AlignCenter)

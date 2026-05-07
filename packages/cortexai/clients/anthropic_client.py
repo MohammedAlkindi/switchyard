@@ -2,6 +2,8 @@ import logging
 import os
 from typing import Any, Callable, Dict, List, Optional
 
+_DEFAULT_MAX_TOKENS = int(os.environ.get("CORTEXAI_MAX_TOKENS", 2048))
+
 from PyQt5.QtCore import QThread, pyqtSignal
 
 log = logging.getLogger("CortexAI")
@@ -28,7 +30,12 @@ class AnthropicClient:
             self._client = None
             return
         key = self._api_key or os.environ.get("ANTHROPIC_API_KEY", "")
-        self._client = anthropic.Anthropic(api_key=key) if key else None
+        if key:
+            self._client = anthropic.Anthropic(api_key=key)
+            # Remove key from env after loading into SDK to reduce exposure
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+        else:
+            self._client = None
 
     def set_api_key(self, key: str):
         self._api_key = key.strip()
@@ -106,11 +113,17 @@ class AnthropicClient:
 
 
 class ChatWorker(QThread):
-    """Non-streaming chat worker (kept for backward compatibility)."""
+    """Non-streaming chat worker — deprecated, use StreamingChatWorker instead."""
     response_ready = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
 
     def __init__(self, client: AnthropicClient, messages: List[Dict], system: str, parent=None):
+        import warnings
+        warnings.warn(
+            "ChatWorker is deprecated; use StreamingChatWorker instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         super().__init__(parent)
         self._client   = client
         self._messages = messages
@@ -136,7 +149,7 @@ class StreamingChatWorker(QThread):
         messages: List[Dict],
         system: str,
         model: str = AnthropicClient.DEFAULT_MODEL,
-        max_tokens: int = 2048,
+        max_tokens: int = None,
         parent=None,
     ):
         super().__init__(parent)
@@ -144,7 +157,7 @@ class StreamingChatWorker(QThread):
         self._messages   = messages
         self._system     = system
         self._model      = model
-        self._max_tokens = max_tokens
+        self._max_tokens = max_tokens or int(os.environ.get("CORTEXAI_MAX_TOKENS", 2048))
         self._cancelled  = False
 
     def cancel(self):

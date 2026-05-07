@@ -1,3 +1,9 @@
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  LEGACY REFERENCE FILE — NOT USED AT RUNTIME                ║
+# ║  Active code lives in core/, clients/, services/, ui/        ║
+# ║  Do NOT import from this file or modify it.                  ║
+# ╚══════════════════════════════════════════════════════════════╝
+
 """
 CortexAI - AI Chat Desktop Application
 A PyQt5-based chat UI with multi-model support, analytics, and plugin system.

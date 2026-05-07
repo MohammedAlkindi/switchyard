@@ -12,8 +12,12 @@ from ui.strings import INPUT_PLACEHOLDER, SEND_TOOLTIP, STOP_TOOLTIP, TOKEN_COUN
 
 log = logging.getLogger("CortexAI")
 
-_APPROX_CHARS_PER_TOKEN = 4
 _MAX_TOKENS = 200_000
+
+
+def _estimate_tokens(text: str) -> int:
+    words = len(text.split())
+    return max(1, int(words * 1.3))
 
 
 class InputBar(QWidget):
@@ -56,6 +60,7 @@ class InputBar(QWidget):
             f"color: {T.TEXT_PRIMARY}; padding: 0; }}"
         )
         self._input.send_requested.connect(self._on_send)
+        self._input.stop_requested.connect(self.stop_requested)
         self._input.textChanged.connect(self._on_text_changed)
         self._input.focusChanged.connect(self._update_container_style)
         v.addWidget(self._input)
@@ -144,8 +149,8 @@ class InputBar(QWidget):
 
     def _on_text_changed(self) -> None:
         text  = self._input.toPlainText()
-        count = max(1, len(text) // _APPROX_CHARS_PER_TOKEN)
-        self._token_label.setText(TOKEN_COUNT_FMT.format(count=count if text else 0))
+        count = _estimate_tokens(text) if text else 0
+        self._token_label.setText(TOKEN_COUNT_FMT.format(count=count))
         self._send_btn.set_enabled(bool(text.strip()) and not self._is_streaming)
 
     def _on_send(self) -> None:
@@ -164,6 +169,7 @@ class InputBar(QWidget):
 
 class _AutoGrowEdit(QPlainTextEdit):
     send_requested = pyqtSignal()
+    stop_requested = pyqtSignal()
     focusChanged   = pyqtSignal(bool)
 
     MIN_H = 28
@@ -184,7 +190,7 @@ class _AutoGrowEdit(QPlainTextEdit):
                 self.send_requested.emit()
                 return
         elif event.key() == Qt.Key_Escape:
-            self.send_requested.emit()  # treated by parent as stop
+            self.stop_requested.emit()
         else:
             super().keyPressEvent(event)
 

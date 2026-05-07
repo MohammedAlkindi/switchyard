@@ -1,9 +1,60 @@
 import hashlib
 import logging
+import os
 import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
+
+_DISK_PATH = "C:\\" if os.name == "nt" else "/"
+
+
+class MetricsWorker(__import__("PyQt5.QtCore", fromlist=["QThread"]).QThread):
+    metrics_ready = __import__("PyQt5.QtCore", fromlist=["pyqtSignal"]).pyqtSignal(dict)
+
+    def __init__(self, disk_path: str, start_time: datetime, parent=None):
+        super().__init__(parent)
+        self._disk_path = disk_path
+        self._start_time = start_time
+
+    def run(self):
+        import psutil
+        try:
+            import pynvml
+            _has_nvml = True
+        except ImportError:
+            _has_nvml = False
+
+        while not self.isInterruptionRequested():
+            metrics = {
+                "timestamp": datetime.now().isoformat(),
+                "cpu": psutil.cpu_percent(),
+                "memory": psutil.virtual_memory().percent,
+                "threads": threading.active_count(),
+                "uptime_s": (datetime.now() - self._start_time).total_seconds(),
+            }
+            try:
+                metrics["disk"] = psutil.disk_usage(self._disk_path).percent
+            except Exception:
+                metrics["disk"] = 0
+            try:
+                net = psutil.net_io_counters()
+                metrics["net_sent_mb"] = round(net.bytes_sent / 1e6, 2)
+                metrics["net_recv_mb"] = round(net.bytes_recv / 1e6, 2)
+            except Exception:
+                pass
+            if _has_nvml:
+                try:
+                    import pynvml as nvml
+                    nvml.nvmlInit()
+                    handle = nvml.nvmlDeviceGetHandleByIndex(0)
+                    info = nvml.nvmlDeviceGetMemoryInfo(handle)
+                    nvml.nvmlShutdown()
+                    metrics["gpu"] = (info.used / info.total) * 100
+                except Exception:
+                    pass
+            self.metrics_ready.emit(metrics)
+            self.msleep(5000)
 
 import psutil
 import yaml
@@ -55,6 +106,8 @@ class AICore(QObject):
         self.config = self._load_config()
         self._telemetry_start = datetime.now()
         self.anthropic_client = AnthropicClient()
+        self._translation_cache: Dict[str, str] = {}
+        self._sentiment_cache: Dict[str, Dict] = {}
 
         self._setup_telemetry_timer()
         self._setup_security()
@@ -98,43 +151,34 @@ class AICore(QObject):
         log.info("Encryption key loaded.")
 
     def _setup_telemetry_timer(self):
-        self._timer = QTimer(self)
-        self._timer.timeout.connect(self._collect_metrics)
-        self._timer.start(5000)
+        self._metrics_worker = MetricsWorker(_DISK_PATH, self._telemetry_start, parent=self)
+        self._metrics_worker.metrics_ready.connect(self.performance_metrics)
+        self._metrics_worker.start()
 
     def _collect_metrics(self):
+        """Called manually (e.g. from analytics Refresh button) — emit a one-shot reading."""
+        import psutil as _psutil
         metrics = {
             "timestamp": datetime.now().isoformat(),
-            "cpu": psutil.cpu_percent(),
-            "memory": psutil.virtual_memory().percent,
-            "disk": psutil.disk_usage("/").percent,
+            "cpu": _psutil.cpu_percent(),
+            "memory": _psutil.virtual_memory().percent,
             "threads": threading.active_count(),
             "uptime_s": (datetime.now() - self._telemetry_start).total_seconds(),
         }
         try:
-            net = psutil.net_io_counters()
+            metrics["disk"] = _psutil.disk_usage(_DISK_PATH).percent
+        except Exception:
+            metrics["disk"] = 0
+        try:
+            net = _psutil.net_io_counters()
             metrics["net_sent_mb"] = round(net.bytes_sent / 1e6, 2)
             metrics["net_recv_mb"] = round(net.bytes_recv / 1e6, 2)
         except Exception:
             pass
-        if HAS_NVML:
-            metrics["gpu"] = self._get_gpu_usage()
         self.performance_metrics.emit(metrics)
-
-    def _get_gpu_usage(self) -> Optional[float]:
-        try:
-            pynvml.nvmlInit()
-            handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-            info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-            pynvml.nvmlShutdown()
-            return (info.used / info.total) * 100
-        except Exception:
-            return None
 
     def translate(self, text: str, target_lang: str = "fr") -> str:
         cache_key = hashlib.md5(f"{text}{target_lang}".encode()).hexdigest()
-        if not hasattr(self, "_translation_cache"):
-            self._translation_cache = {}
         if cache_key in self._translation_cache:
             return self._translation_cache[cache_key]
         model_name = "translation"
@@ -156,8 +200,6 @@ class AICore(QObject):
             return f"[Translation error: {e}]"
 
     def analyze_sentiment(self, text: str) -> Dict:
-        if not hasattr(self, "_sentiment_cache"):
-            self._sentiment_cache = {}
         key = hashlib.md5(text.encode()).hexdigest()
         if key in self._sentiment_cache:
             return self._sentiment_cache[key]

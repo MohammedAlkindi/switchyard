@@ -1,7 +1,11 @@
+from __future__ import annotations
+
+import json
 import logging
 import os
 import platform
 import sys
+from pathlib import Path
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
@@ -10,6 +14,23 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
+
+_SETTINGS_PATH = Path("configs/user_settings.json")
+
+
+def load_user_settings() -> dict:
+    if _SETTINGS_PATH.exists():
+        try:
+            return json.loads(_SETTINGS_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {"max_tokens": 2048, "temperature": 0.7, "default_model": "claude-sonnet-4-20250514",
+            "system_prompt": "", "display_name": "Mohammed"}
+
+
+def save_user_settings(settings: dict):
+    _SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _SETTINGS_PATH.write_text(json.dumps(settings, indent=2, ensure_ascii=False), encoding="utf-8")
 
 import ui.theme as T
 from ui.strings import (
@@ -37,13 +58,20 @@ _SUB_NAVS = [
 class SettingsTab(QWidget):
     """Full settings page with sub-navigation."""
 
-    api_key_changed  = pyqtSignal(str)
-    model_changed    = pyqtSignal(str)
+    api_key_changed       = pyqtSignal(str)
+    model_changed         = pyqtSignal(str)
+    conversations_cleared = pyqtSignal()
+    settings_changed      = pyqtSignal(dict)  # emits full user_settings dict
 
     def __init__(self, ai_core, parent=None):
         super().__init__(parent)
         self._ai_core = ai_core
+        self._conv_store = None
         self._setup_ui()
+
+    def set_conversation_store(self, store):
+        self._conv_store = store
+        self._panel_data.set_conversation_store(store)
 
     def _setup_ui(self):
         self.setStyleSheet(f"background: {T.BG_BASE};")
@@ -88,9 +116,11 @@ class SettingsTab(QWidget):
         self._panel_api      = _ApiKeysPanel(self._ai_core)
         self._panel_api.api_key_changed.connect(self.api_key_changed)
         self._panel_models   = _ModelsPanel()
+        self._panel_models.settings_changed.connect(self.settings_changed)
         self._panel_features = _FeaturesPanel()
         self._panel_appear   = _AppearancePanel()
         self._panel_data     = _DataPanel(self._ai_core)
+        self._panel_data.conversations_cleared.connect(self.conversations_cleared)
         self._panel_about    = _AboutPanel()
 
         for p in (self._panel_api, self._panel_models, self._panel_features,
@@ -328,8 +358,11 @@ class _ApiKeysPanel(QWidget):
 
 
 class _ModelsPanel(QWidget):
+    settings_changed = pyqtSignal(dict)
+
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._settings = load_user_settings()
         outer, v = _scroll_panel()
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -338,12 +371,17 @@ class _ModelsPanel(QWidget):
         _section(v, SETTINGS_MODELS)
 
         v.addWidget(_field_label("Default Model"))
-        combo = QComboBox()
-        from ui.strings import MODELS as _MODELS
+        self._model_combo = QComboBox()
+        from ui.strings import MODELS as _MODELS, DEFAULT_MODEL_ID
         for m in _MODELS:
-            combo.addItem(m["label"], m["id"])
-        combo.setFixedHeight(36)
-        v.addWidget(combo)
+            self._model_combo.addItem(m["label"], m["id"])
+        default_idx = next(
+            (i for i, m in enumerate(_MODELS) if m["id"] == self._settings.get("default_model", DEFAULT_MODEL_ID)),
+            0,
+        )
+        self._model_combo.setCurrentIndex(default_idx)
+        self._model_combo.setFixedHeight(36)
+        v.addWidget(self._model_combo)
 
         v.addWidget(_field_label("Performance Mode"))
         perf = QComboBox()
@@ -353,26 +391,29 @@ class _ModelsPanel(QWidget):
 
         v.addWidget(_field_label("Max Tokens"))
         tok_row = QHBoxLayout()
-        tok_slider = QSlider(Qt.Horizontal)
-        tok_slider.setRange(256, 8192)
-        tok_slider.setValue(2048)
-        tok_row.addWidget(tok_slider)
-        tok_lbl = QLabel("2048 tokens (~1500 words)")
+        self._tok_slider = QSlider(Qt.Horizontal)
+        self._tok_slider.setRange(256, 8192)
+        self._tok_slider.setValue(self._settings.get("max_tokens", 2048))
+        tok_row.addWidget(self._tok_slider)
+        tok_val = self._settings.get("max_tokens", 2048)
+        tok_lbl = QLabel(f"{tok_val} tokens (~{int(tok_val*0.75)} words)")
         tok_lbl.setFont(QFont(T.FONT_FAMILY, T.FONT_SIZES["sm"]))
         tok_lbl.setStyleSheet(f"color: {T.TEXT_TERTIARY}; background: transparent;")
         tok_row.addWidget(tok_lbl)
-        tok_slider.valueChanged.connect(
-            lambda v: tok_lbl.setText(f"{v} tokens (~{int(v*0.75)} words)")
+        self._tok_slider.valueChanged.connect(
+            lambda val: tok_lbl.setText(f"{val} tokens (~{int(val*0.75)} words)")
         )
         v.addLayout(tok_row)
 
         v.addWidget(_field_label("Temperature"))
         temp_row = QHBoxLayout()
-        temp_slider = QSlider(Qt.Horizontal)
-        temp_slider.setRange(0, 100)
-        temp_slider.setValue(70)
-        temp_row.addWidget(temp_slider)
-        temp_lbl = QLabel("0.70  — Balanced")
+        self._temp_slider = QSlider(Qt.Horizontal)
+        self._temp_slider.setRange(0, 100)
+        self._temp_slider.setValue(int(self._settings.get("temperature", 0.7) * 100))
+        temp_row.addWidget(self._temp_slider)
+        temp_init = self._settings.get("temperature", 0.7)
+        temp_desc = "Precise" if temp_init < 0.3 else ("Creative" if temp_init > 0.7 else "Balanced")
+        temp_lbl = QLabel(f"{temp_init:.2f}  — {temp_desc}")
         temp_lbl.setFont(QFont(T.FONT_FAMILY, T.FONT_SIZES["sm"]))
         temp_lbl.setStyleSheet(f"color: {T.TEXT_TERTIARY}; background: transparent;")
         temp_row.addWidget(temp_lbl)
@@ -380,16 +421,33 @@ class _ModelsPanel(QWidget):
             t = val / 100.0
             desc = "Precise" if t < 0.3 else ("Creative" if t > 0.7 else "Balanced")
             temp_lbl.setText(f"{t:.2f}  — {desc}")
-        temp_slider.valueChanged.connect(_temp_changed)
+        self._temp_slider.valueChanged.connect(_temp_changed)
         v.addLayout(temp_row)
 
         v.addWidget(_field_label("System Prompt"))
-        sys_prompt = QPlainTextEdit()
-        sys_prompt.setPlaceholderText("Custom instructions prepended to every conversation…")
-        sys_prompt.setMinimumHeight(100)
-        v.addWidget(sys_prompt)
+        self._sys_prompt = QPlainTextEdit()
+        self._sys_prompt.setPlaceholderText("Custom instructions prepended to every conversation…")
+        self._sys_prompt.setMinimumHeight(100)
+        self._sys_prompt.setPlainText(self._settings.get("system_prompt", ""))
+        v.addWidget(self._sys_prompt)
+
+        save_btn = _primary_btn(SETTINGS_SAVE, 120)
+        save_btn.clicked.connect(self._save)
+        v.addWidget(save_btn)
 
         v.addStretch()
+
+    def _save(self):
+        settings = {
+            "max_tokens":     self._tok_slider.value(),
+            "temperature":    self._temp_slider.value() / 100.0,
+            "default_model":  self._model_combo.currentData(),
+            "system_prompt":  self._sys_prompt.toPlainText().strip(),
+            "display_name":   self._settings.get("display_name", "Mohammed"),
+        }
+        save_user_settings(settings)
+        self._settings = settings
+        self.settings_changed.emit(settings)
 
     def reset(self):
         pass
@@ -479,9 +537,12 @@ class _AppearancePanel(QWidget):
 
 
 class _DataPanel(QWidget):
+    conversations_cleared = pyqtSignal()
+
     def __init__(self, ai_core, parent=None):
         super().__init__(parent)
         self._ai_core = ai_core
+        self._conv_store = None
         outer, v = _scroll_panel()
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -517,6 +578,9 @@ class _DataPanel(QWidget):
 
         v.addStretch()
 
+    def set_conversation_store(self, store):
+        self._conv_store = store
+
     def _export(self, fmt: str):
         path, _ = QFileDialog.getSaveFileName(
             self, f"Export Conversations",  "",
@@ -538,6 +602,10 @@ class _DataPanel(QWidget):
             QMessageBox.Yes | QMessageBox.No,
         )
         if reply == QMessageBox.Yes:
+            if self._conv_store:
+                for conv in self._conv_store.list_recent(limit=10000):
+                    self._conv_store.delete(conv["id"])
+            self.conversations_cleared.emit()
             show_toast("All conversations cleared", "info", self)
 
     def reset(self):

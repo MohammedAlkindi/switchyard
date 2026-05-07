@@ -3,7 +3,9 @@ import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
+
+from PyQt5.QtCore import QTimer
 
 log = logging.getLogger("CortexAI")
 
@@ -20,7 +22,12 @@ class ConversationStore:
     def __init__(self):
         _CONV_DIR.mkdir(parents=True, exist_ok=True)
         self._cache: Dict[str, dict] = {}
+        self._dirty: Set[str] = set()
         self._load_all()
+        self._flush_timer = QTimer()
+        self._flush_timer.setInterval(2000)
+        self._flush_timer.timeout.connect(self._flush_dirty)
+        self._flush_timer.start()
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -49,6 +56,7 @@ class ConversationStore:
 
     def list_recent(self, limit: int = 50) -> List[dict]:
         convs = list(self._cache.values())
+        # ISO 8601 timestamps sort correctly as strings — this is intentional
         convs.sort(key=lambda c: c.get("updated_at", ""), reverse=True)
         return convs[:limit]
 
@@ -80,7 +88,7 @@ class ConversationStore:
             raw = content.strip().replace("\n", " ")
             conv["title"] = raw[:52] + ("…" if len(raw) > 52 else "")
 
-        self._save(cid)
+        self._dirty.add(cid)
 
     def rename(self, cid: str, title: str) -> None:
         conv = self._cache.get(cid)
@@ -88,7 +96,7 @@ class ConversationStore:
             return
         conv["title"] = title[:80]
         conv["updated_at"] = _now()
-        self._save(cid)
+        self._dirty.add(cid)
 
     def delete(self, cid: str) -> None:
         if cid not in self._cache:
@@ -105,13 +113,24 @@ class ConversationStore:
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
+    def _flush_dirty(self):
+        for cid in list(self._dirty):
+            self._save(cid)
+        self._dirty.clear()
+
     def _load_all(self):
         for path in _CONV_DIR.glob("*.json"):
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
+                if "id" not in data:
+                    raise ValueError("Missing 'id' field")
                 self._cache[data["id"]] = data
             except Exception as e:
-                log.warning(f"Failed to load conversation {path.name}: {e}")
+                log.warning(f"Corrupt conversation file {path.name}: {e} — moving to .bak")
+                try:
+                    path.rename(path.with_suffix(".json.bak"))
+                except Exception:
+                    pass
 
     def _save(self, cid: str):
         conv = self._cache.get(cid)

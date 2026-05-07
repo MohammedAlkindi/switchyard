@@ -1,5 +1,6 @@
 import csv
 import logging
+from datetime import datetime
 from typing import Dict
 
 from PyQt5.QtWidgets import (
@@ -25,10 +26,14 @@ class AnalyticsTab(QWidget):
     def __init__(self, ai_core, parent=None):
         super().__init__(parent)
         self._ai_core = ai_core
+        self._conv_store = None
         self._chart_data: Dict = {"cpu": [], "memory": []}
         self._max_points = 60
         self._setup_ui()
         ai_core.performance_metrics.connect(self._on_metrics)
+
+    def set_conversation_store(self, store):
+        self._conv_store = store
 
     def _setup_ui(self):
         self.setStyleSheet(f"background: {T.BG_BASE};")
@@ -167,7 +172,27 @@ class AnalyticsTab(QWidget):
         )
         layout.addWidget(view)
 
+    def _refresh_usage_stats(self):
+        if not self._conv_store:
+            return
+        today = datetime.now().date().isoformat()
+        convs = self._conv_store.list_recent(limit=10000)
+        msg_count = sum(
+            len([m for m in c.get("messages", []) if m["role"] == "user"])
+            for c in convs
+            if c.get("updated_at", "")[:10] == today
+        )
+        total_tokens = sum(
+            c.get("metadata", {}).get("total_tokens", 0)
+            for c in convs
+            if c.get("updated_at", "")[:10] == today
+        )
+        self._usage_cards["messages"].set_value(str(msg_count))
+        self._usage_cards["tokens"].set_value(f"{total_tokens:,}")
+        self._usage_cards["cost"].set_value(f"${total_tokens * 0.000003:.4f}")
+
     def _on_metrics(self, metrics: Dict):
+        self._refresh_usage_stats()
         self._sys_cards["cpu"].set_value(str(metrics.get("cpu", "—")))
         self._sys_cards["memory"].set_value(str(metrics.get("memory", "—")))
         self._sys_cards["disk"].set_value(str(metrics.get("disk", "—")))

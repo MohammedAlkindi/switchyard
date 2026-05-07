@@ -136,6 +136,12 @@ class AssistantBubble(QWidget):
         self._cursor_timer.setInterval(530)
         self._cursor_timer.timeout.connect(self._blink_cursor)
 
+        # Render debounce — flush pending tokens at ~12fps instead of per token
+        self._pending_tokens: list = []
+        self._render_timer = QTimer(self)
+        self._render_timer.setInterval(80)
+        self._render_timer.timeout.connect(self._flush_tokens)
+
         # Action bar (hidden until hover)
         self._action_bar = _ActionBar()
         self._action_bar.hide()
@@ -148,11 +154,20 @@ class AssistantBubble(QWidget):
     def start_stream(self):
         self._raw_text  = ""
         self._streaming = True
+        self._pending_tokens = []
         self._cursor_timer.start()
         self._body.setHtml(f'<span style="color:{T.TEXT_TERTIARY};">|</span>')
 
     def append_token(self, token: str):
         self._raw_text += token
+        self._pending_tokens.append(token)
+        if not self._render_timer.isActive():
+            self._render_timer.start()
+
+    def _flush_tokens(self):
+        if not self._pending_tokens:
+            return
+        self._pending_tokens.clear()
         html = render(self._raw_text) + (
             f'<span style="color:{T.TEXT_PRIMARY}; font-weight:600;">|</span>'
             if self._streaming else ""
@@ -161,10 +176,11 @@ class AssistantBubble(QWidget):
         self._adjust_height()
 
     def finish_stream(self):
+        self._render_timer.stop()
+        self._pending_tokens.clear()
         self._streaming = False
         self._cursor_timer.stop()
-        html = render(self._raw_text)
-        self._body.setHtml(html)
+        self._body.setHtml(render(self._raw_text))
         self._adjust_height()
 
     def set_text(self, text: str):
@@ -192,6 +208,11 @@ class AssistantBubble(QWidget):
         self._body.setHtml(html)
 
     def _adjust_height(self):
+        QTimer.singleShot(0, self._do_adjust_height)
+
+    def _do_adjust_height(self):
+        if self._body.viewport().width() < 10:
+            return
         doc = self._body.document()
         doc.setTextWidth(self._body.viewport().width())
         h = int(doc.size().height()) + 4
@@ -206,11 +227,18 @@ class AssistantBubble(QWidget):
             self._action_bar.show()
 
     def leaveEvent(self, _e):
-        self._action_bar.hide()
+        # Small delay so the action bar doesn't vanish when cursor moves to a button inside it
+        QTimer.singleShot(80, self._hide_action_bar_if_not_hovered)
+
+    def _hide_action_bar_if_not_hovered(self):
+        if not self.underMouse():
+            self._action_bar.hide()
 
     def reset(self):
         self._raw_text = ""
         self._streaming = False
+        self._pending_tokens = []
+        self._render_timer.stop()
         self._cursor_timer.stop()
         self._body.clear()
         self._action_bar.hide()
@@ -230,10 +258,10 @@ class _ActionBar(QWidget):
         row.setSpacing(T.SPACING["xs"])
 
         for label, tip, sig in (
-            ("⎘", "Copy",       self.copy_clicked),
-            ("↻", "Regenerate", self.regen_clicked),
-            ("↑", "Good",       None),
-            ("↓", "Bad",        None),
+            ("Copy",  "Copy response",    self.copy_clicked),
+            ("Retry", "Regenerate",       self.regen_clicked),
+            ("👍",    "Good response",    None),
+            ("👎",    "Bad response",     None),
         ):
             btn = _IconBtn(label, tip)
             if sig:

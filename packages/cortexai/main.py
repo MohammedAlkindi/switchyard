@@ -4,6 +4,34 @@ import sys
 import time
 from pathlib import Path
 
+
+def _ensure_dirs():
+    """Create required runtime directories for packaged app."""
+    for d in ["configs", "configs/conversations", "plugins", "logs"]:
+        Path(d).mkdir(parents=True, exist_ok=True)
+
+
+def _start_api_server(ai_core, port: int):
+    """Start FastAPI server in a background thread."""
+    try:
+        import uvicorn
+        from api.server import create_api_app
+        api_app = create_api_app(ai_core)
+        if api_app:
+            import threading
+            t = threading.Thread(
+                target=uvicorn.run,
+                kwargs={"app": api_app, "host": "127.0.0.1", "port": port, "log_level": "warning"},
+                daemon=True,
+            )
+            t.start()
+            log_inst = logging.getLogger("CortexAI")
+            log_inst.info(f"FastAPI server started on port {port}")
+    except ImportError:
+        logging.getLogger("CortexAI").info("uvicorn not installed — REST API disabled")
+    except Exception as e:
+        logging.getLogger("CortexAI").warning(f"FastAPI server failed to start: {e}")
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -43,6 +71,7 @@ def _load_stylesheet() -> str:
 
 def main():
     log = setup_logging()
+    _ensure_dirs()
 
     # Keep physical pixel sizes matching design specs on scaled Windows displays
     os.environ.setdefault("QT_SCALE_FACTOR", "1")
@@ -81,13 +110,14 @@ def main():
 
     splash = SplashScreen()
     splash.show()
-
-    for i in range(0, 101, 20):
-        splash.set_progress(i)
-        time.sleep(0.04)
+    splash.set_progress(25)
 
     try:
         window = MainWindow()
+        splash.set_progress(75)
+        port = int(os.environ.get("CORTEXAI_API_PORT", 8000))
+        _start_api_server(window._ai_core, port)
+        splash.set_progress(100)
         splash.finish(window)
         window.show()
         sys.exit(app.exec_())

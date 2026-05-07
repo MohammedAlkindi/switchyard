@@ -74,8 +74,14 @@ SPACING = {
 }
 
 
+_FONTS_INITIALIZED = False
+
+
 def init_fonts() -> str:
-    global FONT_FAMILY
+    global FONT_FAMILY, _FONTS_INITIALIZED
+    if _FONTS_INITIALIZED:
+        return FONT_FAMILY
+    _FONTS_INITIALIZED = True
     db = QFontDatabase()
     families = db.families()
     for preferred in ["Inter", "Segoe UI", "SF Pro Display", "Ubuntu"]:

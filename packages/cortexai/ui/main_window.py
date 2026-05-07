@@ -1,11 +1,13 @@
+import json
 import logging
 import platform
 import sys
+from pathlib import Path
 
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel,
     QStackedWidget, QSplashScreen, QApplication, QProgressBar,
-    QSystemTrayIcon, QMenu, QShortcut,
+    QSystemTrayIcon, QMenu, QShortcut, QFileDialog,
 )
 from PyQt5.QtGui import QColor, QFont, QPixmap, QPainter, QKeySequence
 from PyQt5.QtCore import Qt, QRect
@@ -18,6 +20,7 @@ from ui.components.sidebar import Sidebar
 from ui.tabs.chat_tab import ChatTab
 from ui.tabs.analytics_tab import AnalyticsTab
 from ui.tabs.settings_tab import SettingsTab
+from ui.tabs.plugins_tab import PluginsTab
 from ui.components.toast import show_toast
 
 try:
@@ -144,6 +147,8 @@ class MainWindow(QMainWindow):
         self._chat_tab.open_settings_requested.connect(lambda: self._on_nav_changed("settings"))
         self._chat_tab.conversation_updated.connect(self._on_conv_updated)
         self._settings_tab.api_key_changed.connect(self._on_api_key_change)
+        self._settings_tab.conversations_cleared.connect(self._on_conversations_cleared)
+        self._settings_tab.settings_changed.connect(self._on_settings_changed)
 
         self._stack.addWidget(self._chat_tab)       # 0 – chat
         self._stack.addWidget(self._analytics_tab)  # 1 – analytics
@@ -156,8 +161,8 @@ class MainWindow(QMainWindow):
             placeholder = _Placeholder("Docs")
             self._stack.addWidget(placeholder)      # 2 – docs
 
-        placeholder_plugins = _Placeholder("Plugins")
-        self._stack.addWidget(placeholder_plugins)  # 3 – plugins
+        self._plugins_tab = PluginsTab(self._ai_core.plugin_manager)
+        self._stack.addWidget(self._plugins_tab)    # 3 – plugins
 
         self._stack.addWidget(self._settings_tab)   # 4 – settings
 
@@ -177,8 +182,10 @@ class MainWindow(QMainWindow):
             "Ctrl+4":       lambda: self._on_nav_changed("plugins"),
             "Ctrl+5":       lambda: self._on_nav_changed("settings"),
             "Ctrl+L":       self._chat_tab.clear_chat,
+            "Ctrl+E":       self._export_current_conversation,
+            "Ctrl+F":       self._chat_tab.toggle_search,
             "Ctrl+Shift+C": self._copy_last,
-            "Ctrl+K":       self._chat_tab._on_model_pill_clicked,
+            "Ctrl+K":       lambda: self._chat_tab._on_model_pill_clicked() if self._stack.currentIndex() == 0 else None,
             "Ctrl+/":       self._show_shortcuts_help,
         })
 
@@ -207,6 +214,16 @@ class MainWindow(QMainWindow):
         self._sidebar.set_key_status(ok)
         from ui.strings import DEFAULT_MODEL_ID
         self._sidebar.set_model_name(DEFAULT_MODEL_ID)
+        # Inject conversation store into settings so _clear_all works
+        self._settings_tab.set_conversation_store(self._chat_tab._store)
+        # Inject store into analytics for usage stats
+        self._analytics_tab.set_conversation_store(self._chat_tab._store)
+        # Apply persisted settings
+        from ui.tabs.settings_tab import load_user_settings
+        saved = load_user_settings()
+        system_prompt = saved.get("system_prompt", "").strip()
+        if system_prompt:
+            self._chat_tab.SYSTEM_PROMPT = system_prompt
 
     def _on_new_chat(self):
         self._chat_tab.new_conversation()
@@ -228,6 +245,15 @@ class MainWindow(QMainWindow):
     def _on_conv_updated(self, conv: dict):
         self._sidebar.add_or_update_conversation(conv)
         self._sidebar.set_active_conversation(conv["id"])
+
+    def _on_conversations_cleared(self):
+        self._chat_tab.new_conversation()
+        self._sidebar.load_conversations([])
+
+    def _on_settings_changed(self, settings: dict):
+        system_prompt = settings.get("system_prompt", "").strip()
+        if system_prompt:
+            self._chat_tab.SYSTEM_PROMPT = system_prompt
 
     # ── Nav ───────────────────────────────────────────────────────────────────
 
@@ -253,6 +279,26 @@ class MainWindow(QMainWindow):
         self._sidebar.set_key_status(ok)
         show_toast("API key saved" if ok else "API key cleared", "success" if ok else "info", self)
 
+    def _export_current_conversation(self):
+        from ui.strings import NOTHING_TO_EXPORT, EXPORT_SAVED_FMT
+        cid = self._chat_tab._conv_id
+        if not cid:
+            show_toast(NOTHING_TO_EXPORT, "info", self)
+            return
+        conv = self._chat_tab._store.get(cid)
+        if not conv or not conv.get("messages"):
+            show_toast(NOTHING_TO_EXPORT, "info", self)
+            return
+        safe_title = conv["title"][:30].replace("/", "-").replace("\\", "-")
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Conversation", f"{safe_title}.json", "JSON Files (*.json)"
+        )
+        if path:
+            Path(path).write_text(
+                json.dumps(conv, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+            show_toast(EXPORT_SAVED_FMT.format(path=path), "success", self)
+
     def _copy_last(self):
         text = self._chat_tab.get_last_assistant_text()
         if text:
@@ -260,51 +306,8 @@ class MainWindow(QMainWindow):
             show_toast("Copied to clipboard", "success", self)
 
     def _show_shortcuts_help(self):
-        from ui.strings import SHORTCUT_DEFS, SHORTCUTS_TITLE
-        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QGridLayout, QLabel, QPushButton
-        dlg = QDialog(self)
-        dlg.setWindowTitle(SHORTCUTS_TITLE)
-        dlg.setMinimumWidth(460)
-        dlg.setStyleSheet(
-            f"QDialog {{ background: {T.BG_ELEVATED}; color: {T.TEXT_PRIMARY}; }}"
-            f"QLabel {{ background: transparent; }}"
-        )
-        v = QVBoxLayout(dlg)
-        v.setContentsMargins(T.SPACING["2xl"], T.SPACING["2xl"], T.SPACING["2xl"], T.SPACING["2xl"])
-        v.setSpacing(T.SPACING["lg"])
-
-        title = QLabel(SHORTCUTS_TITLE)
-        title.setFont(QFont(T.FONT_FAMILY, T.FONT_SIZES["lg"], T.FONT_WEIGHTS["semibold"]))
-        title.setStyleSheet(f"color: {T.TEXT_PRIMARY};")
-        v.addWidget(title)
-
-        grid = QGridLayout()
-        grid.setSpacing(T.SPACING["sm"])
-        for i, (keys, desc) in enumerate(SHORTCUT_DEFS):
-            k = QLabel(keys)
-            k.setFont(QFont("Consolas", T.FONT_SIZES["sm"]))
-            k.setStyleSheet(
-                f"background: {T.BG_OVERLAY}; color: {T.BRAND_PRIMARY}; "
-                f"border-radius: {T.RADIUS['sm']}px; padding: 2px 6px;"
-            )
-            d = QLabel(desc)
-            d.setFont(QFont(T.FONT_FAMILY, T.FONT_SIZES["base"]))
-            d.setStyleSheet(f"color: {T.TEXT_SECONDARY};")
-            grid.addWidget(k, i, 0)
-            grid.addWidget(d, i, 1)
-        v.addLayout(grid)
-
-        close_btn = QPushButton("Close")
-        close_btn.setFixedHeight(36)
-        close_btn.setCursor(Qt.PointingHandCursor)
-        close_btn.setStyleSheet(
-            f"QPushButton {{ background: {T.BG_OVERLAY}; color: {T.TEXT_PRIMARY}; "
-            f"  border: none; border-radius: {T.RADIUS['md']}px; }}"
-            f"QPushButton:hover {{ background: {T.BG_BORDER}; }}"
-        )
-        close_btn.clicked.connect(dlg.accept)
-        v.addWidget(close_btn)
-        dlg.exec_()
+        from ui.components.shortcuts_dialog import ShortcutsDialog
+        ShortcutsDialog(self).exec_()
 
 
 class _Placeholder(QWidget):

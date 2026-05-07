@@ -43,7 +43,12 @@ python main.py
 
 ## Tests
 
-No test suite yet.
+```bash
+pip install pytest pytest-qt
+pytest
+```
+
+Tests live in `tests/` — run them before any PR.
 
 ## Adding a new AI provider
 
@@ -70,6 +75,31 @@ FastAPI server runs on port 8000 by default.
 - `POST /v1/completions` — generate a completion
 - `GET /v1/models` — list available models
 - Swagger UI available at `http://localhost:8000/docs`
+
+## Known legacy files (do not use)
+
+- `monolithic/CortexAI.py` — legacy single-file reference, not active code
+
+## Persistence layer
+
+- Conversations: `configs/conversations/{uuid}.json`
+- Audit log: `configs/audit.jsonl` (append-only JSONL, never overwrite)
+- Billing: `configs/billing.jsonl` (append-only JSONL)
+- User settings: `configs/user_settings.json`
+- All `configs/` files are runtime-generated and gitignored
+
+## Signal conventions
+
+- UI widgets emit signals — they do NOT call business logic directly
+- `ai_core` signals flow: `AICore` → UI (one direction)
+- Conversation updates: `ChatTab.conversation_updated(dict)` → `MainWindow` → `Sidebar`
+
+## Threading rules
+
+- All Anthropic API calls must happen in a `QThread` subclass (`StreamingChatWorker`)
+- Never call `psutil` blocking methods on the main thread — use `MetricsWorker`
+- `QTimer` callbacks run on the main thread — keep them under 5ms
+- `ConversationStore` uses a 2-second write-debounce — do not call `_save()` directly
 
 ## What not to do
 

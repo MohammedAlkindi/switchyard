@@ -50,11 +50,15 @@ def render(text: str) -> str:
             i += 1
             continue
 
-        # Unordered list
-        if re.match(r"^[\*\-\+]\s+", line):
+        # Unordered list (with basic 2-level nesting)
+        if re.match(r"^( {0,3})[\*\-\+]\s+", line):
             items: list[str] = []
-            while i < len(lines) and re.match(r"^[\*\-\+]\s+", lines[i]):
-                items.append(f"<li>{_inline(lines[i][2:])}</li>")
+            while i < len(lines) and re.match(r"^( {0,3})[\*\-\+]\s+", lines[i]):
+                m2 = re.match(r"^( *)([\*\-\+])\s+(.*)$", lines[i])
+                indent = len(m2.group(1)) if m2 else 0
+                content = m2.group(3) if m2 else lines[i][2:]
+                pad = "padding-left:30px;" if indent >= 2 else ""
+                items.append(f'<li style="{pad}">{_inline(content)}</li>')
                 i += 1
             out.append(
                 f'<ul style="margin:6px 0 6px 0; padding-left:20px; color:{T.TEXT_PRIMARY};">'
@@ -120,6 +124,16 @@ def _inline(text: str) -> str:
     text = re.sub(r"_(.+?)_", r"<i>\1</i>", text)
     # Strikethrough
     text = re.sub(r"~~(.+?)~~", r"<s>\1</s>", text)
+    # Links [text](url) — must run before html escaping modifies the brackets
+    # Note: html.escape already ran, so & is &amp; — but brackets are safe
+    text = re.sub(
+        r"\[([^\]]+)\]\(([^)]+)\)",
+        lambda m: (
+            f'<a href="{m.group(2)}" style="color:{T.BRAND_PRIMARY}; '
+            f'text-decoration:underline;">{m.group(1)}</a>'
+        ),
+        text,
+    )
     # Inline code
     text = re.sub(
         r"`([^`]+)`",

@@ -146,6 +146,34 @@ vite.config.ts.timestamp-*
 .venv/
 __pycache__/
 *.pyc
+*.pyo
+.pytest_cache/
+
+# CortexAI runtime artifacts
+configs/conversations/
+configs/encryption.key
+configs/audit.jsonl
+configs/billing.jsonl
+configs/user_settings.json
+configs/config.yaml
+
+# PyInstaller
+*.spec
+dist/
+build/
+
+# Logs
+*.log
+*.log.*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
 
 # Claude Code
-.claude
+.claude/settings.local.json

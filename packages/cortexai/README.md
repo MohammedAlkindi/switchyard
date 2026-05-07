@@ -77,6 +77,49 @@ CortexAI/
 └── configs/             # YAML config and encryption key (auto-generated)
 ```
 
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+N` | New conversation |
+| `Ctrl+K` | Switch model |
+| `Ctrl+,` | Open settings |
+| `Ctrl+L` | Clear conversation |
+| `Ctrl+E` | Export conversation |
+| `Ctrl+F` | Search in conversation |
+| `Ctrl+/` | Show all shortcuts |
+| `Enter` | Send message |
+| `Shift+Enter` | New line |
+| `Escape` | Stop generation |
+
+## REST API
+
+When FastAPI + uvicorn are installed (`pip install fastapi uvicorn[standard]`), CortexAI starts a local REST server on port 8000:
+
+```bash
+curl http://localhost:8000/v1/models
+curl -X POST http://localhost:8000/v1/completions \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello", "model": "claude-sonnet-4-20250514"}'
+```
+
+Swagger UI: http://localhost:8000/docs
+
+## Building a Release (Windows)
+
+```bash
+pip install pyinstaller
+pyinstaller CortexAI.spec
+# Output: dist/CortexAI.exe
+```
+
+## Tests
+
+```bash
+pip install pytest
+pytest
+```
+
 ## Logs
 
 Runtime logs are written to `cortexai.log` in the project root.

@@ -63,7 +63,7 @@ MODELS = [
     },
     {
         "provider":    "anthropic",
-        "id":          "claude-opus-4-5",
+        "id":          "claude-opus-4-20250514",
         "label":       "claude-opus-4",
         "description": "Most capable. Best for complex tasks.",
         "recommended": True,

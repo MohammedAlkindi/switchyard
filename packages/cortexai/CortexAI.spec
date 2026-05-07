@@ -1,16 +1,27 @@
 # -*- mode: python ; coding: utf-8 -*-
-
+from PyInstaller.utils.hooks import collect_submodules
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
-    hiddenimports=[],
+    datas=[
+        ('ui/styles.qss', 'ui'),
+        ('assets/icon.ico', 'assets'),
+        ('.env.example', '.'),
+    ],
+    hiddenimports=[
+        'PyQt5.sip',
+        'PyQt5.QtChart',
+        'anthropic',
+        'psutil',
+        'yaml',
+        'dotenv',
+    ] + collect_submodules('PyQt5'),
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['torch', 'transformers', 'pynvml'],
     noarchive=False,
     optimize=0,
 )
