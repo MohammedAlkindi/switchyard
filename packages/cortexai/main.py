@@ -54,11 +54,15 @@ def setup_logging() -> logging.Logger:
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
     ch.setFormatter(fmt)
-    fh = logging.FileHandler("logs/cortexai.log", encoding="utf-8")
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(fmt)
     logger.addHandler(ch)
-    logger.addHandler(fh)
+    try:
+        log_path = Path("logs/cortexai.log")
+        fh = logging.FileHandler(str(log_path), encoding="utf-8")
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(fmt)
+        logger.addHandler(fh)
+    except OSError:
+        pass  # fall back to console-only logging
     return logger
 
 
@@ -70,7 +74,10 @@ def _load_stylesheet() -> str:
 
 
 def main():
-    _ensure_dirs()
+    try:
+        _ensure_dirs()
+    except OSError as e:
+        print(f"Warning: could not create directories: {e}", file=sys.stderr)
     log = setup_logging()
 
     # Keep physical pixel sizes matching design specs on scaled Windows displays

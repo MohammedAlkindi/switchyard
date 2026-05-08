@@ -7,8 +7,8 @@ def _make_manager(tmp):
     audit_path = Path(tmp) / "audit.jsonl"
     import importlib
     import services.compliance as mod
-    importlib.reload(mod)
-    mod._AUDIT_PATH = audit_path
+    importlib.reload(mod)  # reset module state first
+    mod._AUDIT_PATH = audit_path  # patch after reload, before creating manager
     return mod.ComplianceManager(), audit_path
 
 

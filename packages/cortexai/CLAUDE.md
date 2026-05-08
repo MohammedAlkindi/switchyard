@@ -135,6 +135,41 @@ by all provider workers.
 `ui/tabs/chat_tab._CACHED_DISPLAY_NAME` is a module-level cache.
 Invalidate it in `MainWindow._on_settings_changed` when display_name changes.
 
+## API Key persistence
+
+API keys entered in Settings → API Keys are stored in `configs/user_settings.json`
+under the key `"anthropic_api_key"`. This file is gitignored. Prefer using `.env`
+for keys as it is loaded at startup and is more portable.
+
+The `AnthropicClient` build order:
+1. Explicit `api_key` argument
+2. `ANTHROPIC_API_KEY` environment variable (removed from env after reading)
+3. `configs/user_settings.json` → `anthropic_api_key`
+
+## Search implementation
+
+`ChatTab` maintains `_search_results` (list of message indices), `_search_cursor`
+(current position), and `_search_query` (active query). These are reset on every
+`new_conversation()` and `load_conversation()`.
+
+The `ConvSearchBar` emits three signals:
+- `search_changed(str)` — text changed
+- `next_requested()` — ▼ button or Enter key
+- `prev_requested()` — ▲ button
+
+## Markdown table support
+
+`ui/components/markdown_renderer.py` supports: headings, bold, italic, code blocks,
+inline code, links, lists (ordered + unordered, 2-level nesting), blockquotes,
+horizontal rules, and tables. Tables require a separator row (|---|---| format).
+
+## OpenAI routing (updated)
+
+OpenAI API key is currently only supported via environment variable `OPENAI_API_KEY`.
+It is NOT persisted to `user_settings.json` (only the Anthropic key is persisted).
+Add OpenAI key persistence to `_ApiKeysPanel._save_oai` following the same pattern
+as `_save_ant`.
+
 ## What not to do
 
 - Do not edit files in `configs/` — they are auto-generated at runtime
@@ -142,3 +177,4 @@ Invalidate it in `MainWindow._on_settings_changed` when display_name changes.
 - Do not add UI logic to `core/` or `clients/`
 - Do not catch and silently swallow exceptions — log them
 - Do not commit `.env` or any file containing real API keys
+- Do not commit `configs/user_settings.json` — it may contain API keys

@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-_SETTINGS_PATH = Path("configs/user_settings.json")
+_SETTINGS_PATH = Path(__file__).parent.parent / "configs" / "user_settings.json"
 
 _DEFAULTS = {
     "max_tokens": 2048,
@@ -19,6 +19,8 @@ def load_user_settings() -> dict:
             return json.loads(_SETTINGS_PATH.read_text(encoding="utf-8"))
         except Exception:
             pass
+    # Returns a shallow copy — nested dicts (e.g. "features") are shared references.
+    # Always call save_user_settings() to persist changes.
     return dict(_DEFAULTS)
 
 

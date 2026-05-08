@@ -79,6 +79,15 @@ def render(text: str) -> str:
             )
             continue
 
+        # Table detection (pipe-delimited with separator row)
+        if line.startswith("|") and i + 1 < len(lines) and re.match(r"^\|[-| :]+\|", lines[i + 1]):
+            table_lines: list[str] = []
+            while i < len(lines) and lines[i].startswith("|"):
+                table_lines.append(lines[i])
+                i += 1
+            out.append(_table(table_lines))
+            continue
+
         # Blockquote
         if line.startswith("> "):
             bq_lines: list[str] = []
@@ -146,6 +155,40 @@ def _inline(text: str) -> str:
         text,
     )
     return text
+
+
+# ── Table ─────────────────────────────────────────────────────────────────────
+
+def _table(lines: list) -> str:
+    if len(lines) < 2:
+        return ""
+    headers = [c.strip() for c in lines[0].strip("|").split("|")]
+    # Index 1 is the separator row — skip it
+    rows = [
+        [c.strip() for c in line.strip("|").split("|")]
+        for line in lines[2:]
+    ]
+    th_cells = "".join(
+        f'<th style="padding:6px 12px; border-bottom:1px solid {T.BG_BORDER}; '
+        f'text-align:left; color:{T.TEXT_SECONDARY}; font-weight:600;">'
+        f'{_inline(h)}</th>'
+        for h in headers
+    )
+    tr_rows = "".join(
+        "<tr>" + "".join(
+            f'<td style="padding:6px 12px; border-bottom:1px solid {T.BG_BORDER}; '
+            f'color:{T.TEXT_PRIMARY};">{_inline(cell)}</td>'
+            for cell in row[:len(headers)]
+        ) + "</tr>"
+        for row in rows
+    )
+    return (
+        f'<table style="border-collapse:collapse; width:100%; margin:8px 0; '
+        f'background:{T.BG_ELEVATED}; border-radius:{T.RADIUS["md"]}px;">'
+        f"<thead><tr>{th_cells}</tr></thead>"
+        f"<tbody>{tr_rows}</tbody>"
+        f"</table>"
+    )
 
 
 # ── Code block ────────────────────────────────────────────────────────────────

@@ -10,8 +10,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 def _make_manager(tmp_dir):
     import services.billing as mod
-    importlib.reload(mod)
-    mod._BILLING_PATH = Path(tmp_dir) / "billing.jsonl"
+    importlib.reload(mod)  # reset module state first
+    mod._BILLING_PATH = Path(tmp_dir) / "billing.jsonl"  # patch after reload, before creating manager
     return mod.BillingManager()
 
 

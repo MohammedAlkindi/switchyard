@@ -64,3 +64,10 @@ def test_ordered_list():
     assert "<ol" in result
     assert "first" in result
     assert "second" in result
+
+
+def test_table():
+    result = render("| Col A | Col B |\n|---|---|\n| val1 | val2 |")
+    assert "<table" in result
+    assert "Col A" in result
+    assert "val1" in result

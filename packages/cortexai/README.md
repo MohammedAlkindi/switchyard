@@ -154,6 +154,31 @@ pip install pytest pytest-qt pytest-mock
 pytest
 ```
 
+## Security Notes
+
+- API keys in `.env` are loaded at startup and never written to disk by the app
+- API keys entered in Settings are stored in `configs/user_settings.json` (gitignored)
+- Never commit `.env` or `configs/user_settings.json`
+- The audit log at `configs/audit.jsonl` is append-only and gitignored
+- `configs/encryption.key` is auto-generated and gitignored
+
+## Search
+
+Press `Ctrl+F` to open the in-conversation search bar. Type to find messages,
+use ▲/▼ to navigate between results, and press `Escape` or ✕ to close.
+
+## Markdown Support
+
+The chat renderer supports:
+- **Bold**, *italic*, ~~strikethrough~~
+- `inline code` and fenced code blocks with language labels
+- # Headings (H1–H6)
+- Ordered and unordered lists (2-level nesting)
+- [Links](https://example.com)
+- > Blockquotes
+- Tables
+- Horizontal rules (`---`)
+
 ## Logs
 
 Runtime logs are written to `logs/cortexai.log`.

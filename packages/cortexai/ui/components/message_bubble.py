@@ -138,6 +138,12 @@ class AssistantBubble(QWidget):
         self._render_timer.setInterval(530)
         self._render_timer.timeout.connect(self._flush_tokens)
 
+        # Owned hide timer — prevents use-after-free on singleShot with deleted self
+        self._hide_timer = QTimer(self)
+        self._hide_timer.setSingleShot(True)
+        self._hide_timer.setInterval(80)
+        self._hide_timer.timeout.connect(self._hide_action_bar_if_not_hovered)
+
         # Action bar (hidden until hover)
         self._action_bar = _ActionBar()
         self._action_bar.hide()
@@ -162,6 +168,9 @@ class AssistantBubble(QWidget):
             self._render_timer.start()
 
     def _flush_tokens(self):
+        if not self._streaming and not self._pending_tokens:
+            self._render_timer.stop()
+            return
         if not self._pending_tokens and self._streaming:
             # No new tokens — still blink cursor
             self._cursor_visible = not self._cursor_visible
@@ -200,6 +209,7 @@ class AssistantBubble(QWidget):
             return
         doc = self._body.document()
         doc.setTextWidth(self._body.viewport().width())
+        doc.documentLayout().update()
         h = int(doc.size().height()) + 4
         self._body.setFixedHeight(max(h, 20))
 
@@ -212,8 +222,7 @@ class AssistantBubble(QWidget):
             self._action_bar.show()
 
     def leaveEvent(self, _e):
-        # Small delay so the action bar doesn't vanish when cursor moves to a button inside it
-        QTimer.singleShot(80, self._hide_action_bar_if_not_hovered)
+        self._hide_timer.start()
 
     def _hide_action_bar_if_not_hovered(self):
         if not self.underMouse():

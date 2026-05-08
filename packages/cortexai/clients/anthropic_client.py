@@ -31,9 +31,18 @@ class AnthropicClient:
             return
         key = self._api_key or os.environ.get("ANTHROPIC_API_KEY", "")
         if key:
-            self._client = anthropic.Anthropic(api_key=key)
-            # Remove key from env after loading into SDK to reduce exposure
+            # The env var is removed after loading to reduce key exposure in process memory.
+            # api/server.py uses ai_core.anthropic_client directly — not a new instance —
+            # so this does not affect the REST API.
             os.environ.pop("ANTHROPIC_API_KEY", None)
+        if not key:
+            try:
+                from core.user_settings import load_user_settings
+                key = load_user_settings().get("anthropic_api_key", "")
+            except Exception:
+                pass
+        if key:
+            self._client = anthropic.Anthropic(api_key=key)
         else:
             self._client = None
 

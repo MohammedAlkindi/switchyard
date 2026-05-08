@@ -36,9 +36,9 @@ def _display_name() -> str:
     global _CACHED_DISPLAY_NAME
     if _CACHED_DISPLAY_NAME is None:
         try:
-            _CACHED_DISPLAY_NAME = load_user_settings().get("display_name", "") or "there"
+            _CACHED_DISPLAY_NAME = load_user_settings().get("display_name", "").strip()
         except Exception:
-            _CACHED_DISPLAY_NAME = "there"
+            _CACHED_DISPLAY_NAME = ""
     return _CACHED_DISPLAY_NAME
 
 
@@ -76,6 +76,10 @@ class ChatTab(QWidget):
 
         saved = load_user_settings()
         self.system_prompt = saved.get("system_prompt", "").strip() or _DEFAULT_SYSTEM_PROMPT
+
+        self._search_results: list = []
+        self._search_cursor: int = -1
+        self._search_query: str = ""
 
         self._model_switcher = ModelSwitcher(self)
         self._model_switcher.model_selected.connect(self._on_model_selected)
@@ -290,6 +294,9 @@ class ChatTab(QWidget):
     def new_conversation(self):
         self._on_stop()
         self._messages.clear()
+        self._search_results = []
+        self._search_cursor = -1
+        self._search_query = ""
         self._conv_id = None
         self._last_assistant_bubble = None
         self._show_empty_state()
@@ -306,6 +313,9 @@ class ChatTab(QWidget):
             {"role": m["role"], "content": m["content"]}
             for m in conv["messages"]
         ]
+        self._search_results = []
+        self._search_cursor = -1
+        self._search_query = ""
         self._remove_state_widgets()
         self._clear_messages()
         for m in conv["messages"]:
@@ -333,20 +343,39 @@ class ChatTab(QWidget):
         self._input_bar.focus_input()
 
     def _on_search(self, query: str):
+        self._search_query = query
         if not query:
+            self._search_results = []
+            self._search_cursor = -1
             self._search_bar.set_results(0)
             return
-        count = sum(
-            query.lower() in m.get("content", "").lower()
-            for m in self._messages
-        )
-        self._search_bar.set_results(count)
+        self._search_results = [
+            i for i, m in enumerate(self._messages)
+            if query.lower() in m.get("content", "").lower()
+        ]
+        self._search_cursor = 0 if self._search_results else -1
+        self._search_bar.set_results(len(self._search_results), self._search_cursor)
+        if self._search_results:
+            self._scroll_to_message_index(self._search_results[self._search_cursor])
 
     def _on_search_next(self):
-        pass
+        if not self._search_results:
+            return
+        self._search_cursor = (self._search_cursor + 1) % len(self._search_results)
+        self._search_bar.set_results(len(self._search_results), self._search_cursor)
+        self._scroll_to_message_index(self._search_results[self._search_cursor])
 
     def _on_search_prev(self):
-        pass
+        if not self._search_results:
+            return
+        self._search_cursor = (self._search_cursor - 1) % len(self._search_results)
+        self._search_bar.set_results(len(self._search_results), self._search_cursor)
+        self._scroll_to_message_index(self._search_results[self._search_cursor])
+
+    def _scroll_to_message_index(self, msg_idx: int):
+        item = self._msg_v.itemAt(msg_idx)
+        if item and item.widget():
+            self._scroll.ensureWidgetVisible(item.widget())
 
     def clear_chat(self):
         self.new_conversation()
@@ -411,10 +440,13 @@ class ChatTab(QWidget):
         QTimer.singleShot(50, self._do_scroll)
 
     def _do_scroll(self):
-        if self._scroll:
-            self._scroll.verticalScrollBar().setValue(
-                self._scroll.verticalScrollBar().maximum()
-            )
+        try:
+            if self._scroll and not self._scroll.isHidden():
+                self._scroll.verticalScrollBar().setValue(
+                    self._scroll.verticalScrollBar().maximum()
+                )
+        except RuntimeError:
+            pass  # Widget was deleted
 
     @staticmethod
     def _friendly_error(raw: str) -> str:

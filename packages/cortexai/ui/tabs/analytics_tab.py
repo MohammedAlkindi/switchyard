@@ -26,10 +26,10 @@ log = logging.getLogger("CortexAI")
 
 
 class AnalyticsTab(QWidget):
-    def __init__(self, ai_core, conv_store=None, parent=None):
+    def __init__(self, ai_core, parent=None):
         super().__init__(parent)
         self._ai_core = ai_core
-        self._conv_store = conv_store
+        self._conv_store = None  # set via set_conversation_store()
         self._chart_data: Dict = {"cpu": [], "memory": []}
         self._max_points = 60
         self._usage_cache_time = 0.0

@@ -321,6 +321,10 @@ class _ApiKeysPanel(QWidget):
         self._ant_status.setText("● Connected" if ok else "○ Invalid / empty key")
         self._ant_status.setStyleSheet(f"color: {color}; background: transparent;")
         self.api_key_changed.emit(key)
+        if ok and key:
+            existing = load_user_settings()
+            existing["anthropic_api_key"] = key
+            save_user_settings(existing)
         show_toast(API_KEY_SAVED_TOAST if ok else API_KEY_INVALID_TOAST,
                    "success" if ok else "error", self)
 
@@ -516,29 +520,32 @@ class _AppearancePanel(QWidget):
 
         _section(v, SETTINGS_APPEARANCE)
 
+        settings = load_user_settings()
+
         v.addWidget(_field_label("Theme"))
-        theme = QComboBox()
-        theme.addItems(["Dark", "Light", "System"])
-        theme.setFixedHeight(36)
-        v.addWidget(theme)
+        self._theme_combo = QComboBox()
+        self._theme_combo.addItems(["Dark", "Light", "System"])
+        self._theme_combo.setCurrentText(settings.get("theme", "Dark"))
+        self._theme_combo.setFixedHeight(36)
+        v.addWidget(self._theme_combo)
 
         v.addWidget(_field_label("Font Size"))
-        font_size = QComboBox()
-        font_size.addItems(["Small", "Medium", "Large"])
-        font_size.setCurrentIndex(1)
-        font_size.setFixedHeight(36)
-        v.addWidget(font_size)
+        self._font_size_combo = QComboBox()
+        self._font_size_combo.addItems(["Small", "Medium", "Large"])
+        self._font_size_combo.setCurrentText(settings.get("font_size", "Medium"))
+        self._font_size_combo.setFixedHeight(36)
+        v.addWidget(self._font_size_combo)
 
         v.addWidget(_field_label("Message Density"))
-        density = QComboBox()
-        density.addItems(["Comfortable", "Compact"])
-        density.setFixedHeight(36)
-        v.addWidget(density)
+        self._density_combo = QComboBox()
+        self._density_combo.addItems(["Comfortable", "Compact"])
+        self._density_combo.setCurrentText(settings.get("density", "Comfortable"))
+        self._density_combo.setFixedHeight(36)
+        v.addWidget(self._density_combo)
 
         v.addWidget(_field_label("Display Name"))
         self._name_input = QLineEdit()
         self._name_input.setPlaceholderText("Your name (shown in greetings)")
-        settings = load_user_settings()
         self._name_input.setText(settings.get("display_name", ""))
         v.addWidget(self._name_input)
 
@@ -551,6 +558,9 @@ class _AppearancePanel(QWidget):
     def _save(self):
         existing = load_user_settings()
         existing["display_name"] = self._name_input.text().strip()
+        existing["theme"] = self._theme_combo.currentText()
+        existing["font_size"] = self._font_size_combo.currentText()
+        existing["density"] = self._density_combo.currentText()
         save_user_settings(existing)
         self.settings_changed.emit(existing)
         show_toast("Appearance saved", "success", self)

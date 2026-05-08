@@ -19,7 +19,11 @@ class BillingManager:
                     self._records.append(json.loads(line))
                 except Exception:
                     pass
-        self._file_handle = open(_BILLING_PATH, "a", encoding="utf-8")
+        try:
+            self._file_handle = open(_BILLING_PATH, "a", encoding="utf-8")
+        except Exception as e:
+            log.error(f"Failed to open billing log: {e}")
+            self._file_handle = None
 
     def log_usage(self, user: str, model: str, tokens: int, cost: float):
         record = {
@@ -30,11 +34,12 @@ class BillingManager:
             "cost": cost,
         }
         self._records.append(record)
-        try:
-            self._file_handle.write(json.dumps(record) + "\n")
-            self._file_handle.flush()
-        except Exception as e:
-            log.error(f"Failed to write billing record: {e}")
+        if self._file_handle:
+            try:
+                self._file_handle.write(json.dumps(record) + "\n")
+                self._file_handle.flush()
+            except Exception as e:
+                log.error(f"Failed to write billing record: {e}")
 
     def get_report(self, user: Optional[str] = None) -> List[Dict]:
         if user:
@@ -48,3 +53,4 @@ class BillingManager:
     def close(self):
         if self._file_handle and not self._file_handle.closed:
             self._file_handle.close()
+            self._file_handle = None

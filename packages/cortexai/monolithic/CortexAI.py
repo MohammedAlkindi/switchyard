@@ -138,6 +138,8 @@ def setup_logging() -> logging.Logger:
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
     ch.setFormatter(fmt)
+    # NOTE: This monolithic file uses cortexai.log in the root directory.
+    # The modular app (main.py) logs to logs/cortexai.log.
     fh = logging.FileHandler("cortexai.log", encoding="utf-8")
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(fmt)

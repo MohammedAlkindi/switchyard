@@ -80,10 +80,12 @@ class OpenAIClient:
             with self._client.chat.completions.stream(
                 model=model, messages=all_msgs, max_tokens=max_tokens
             ) as stream:
-                for text in stream.text_stream:
+                for chunk in stream:
                     if stop_check():
                         break
-                    on_token(text)
+                    delta = chunk.choices[0].delta if chunk.choices else None
+                    if delta and delta.content:
+                        on_token(delta.content)
         except Exception as e:
             log.error(f"OpenAI streaming error: {e}", exc_info=True)
             raise
