@@ -1,11 +1,11 @@
+from __future__ import annotations
+
 import json
 import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Set
-
-from PyQt5.QtCore import QTimer
+from typing import Dict, List, Optional
 
 log = logging.getLogger("CortexAI")
 
@@ -17,17 +17,14 @@ def _now() -> str:
 
 
 class ConversationStore:
-    """Persistent JSON-backed conversation storage."""
+    """Persistent JSON-backed conversation storage with lazy-init flush timer."""
 
     def __init__(self):
         _CONV_DIR.mkdir(parents=True, exist_ok=True)
         self._cache: Dict[str, dict] = {}
-        self._dirty: Set[str] = set()
+        self._dirty: set[str] = set()
+        self._flush_timer = None  # lazy init — requires QApplication to exist
         self._load_all()
-        self._flush_timer = QTimer()
-        self._flush_timer.setInterval(2000)
-        self._flush_timer.timeout.connect(self._flush_dirty)
-        self._flush_timer.start()
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -56,7 +53,6 @@ class ConversationStore:
 
     def list_recent(self, limit: int = 50) -> List[dict]:
         convs = list(self._cache.values())
-        # ISO 8601 timestamps sort correctly as strings — this is intentional
         convs.sort(key=lambda c: c.get("updated_at", ""), reverse=True)
         return convs[:limit]
 
@@ -83,12 +79,12 @@ class ConversationStore:
         conv["metadata"]["message_count"] += 1
         conv["metadata"]["total_tokens"]  += tokens
 
-        # Auto-title from first user message
         if role == "user" and conv["title"] == "New conversation":
             raw = content.strip().replace("\n", " ")
             conv["title"] = raw[:52] + ("…" if len(raw) > 52 else "")
 
         self._dirty.add(cid)
+        self._ensure_timer()
 
     def rename(self, cid: str, title: str) -> None:
         conv = self._cache.get(cid)
@@ -112,6 +108,14 @@ class ConversationStore:
         return conv["messages"] if conv else []
 
     # ── Internal ──────────────────────────────────────────────────────────────
+
+    def _ensure_timer(self):
+        if self._flush_timer is None:
+            from PyQt5.QtCore import QTimer
+            self._flush_timer = QTimer()
+            self._flush_timer.setInterval(2000)
+            self._flush_timer.timeout.connect(self._flush_dirty)
+            self._flush_timer.start()
 
     def _flush_dirty(self):
         for cid in list(self._dirty):

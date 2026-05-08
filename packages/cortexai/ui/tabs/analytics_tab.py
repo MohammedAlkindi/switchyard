@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import csv
 import logging
+import time
 from datetime import datetime
 from typing import Dict
 
@@ -9,7 +12,7 @@ from PyQt5.QtWidgets import (
     QProgressBar,
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont, QPainter
+from PyQt5.QtGui import QColor, QFont, QPainter, QBrush
 
 try:
     from PyQt5.QtChart import QChart, QChartView, QLineSeries, QValueAxis
@@ -23,12 +26,14 @@ log = logging.getLogger("CortexAI")
 
 
 class AnalyticsTab(QWidget):
-    def __init__(self, ai_core, parent=None):
+    def __init__(self, ai_core, conv_store=None, parent=None):
         super().__init__(parent)
         self._ai_core = ai_core
-        self._conv_store = None
+        self._conv_store = conv_store
         self._chart_data: Dict = {"cpu": [], "memory": []}
         self._max_points = 60
+        self._usage_cache_time = 0.0
+        self._usage_cache: dict = {}
         self._setup_ui()
         ai_core.performance_metrics.connect(self._on_metrics)
 
@@ -41,7 +46,6 @@ class AnalyticsTab(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Header
         header = QWidget()
         header.setFixedHeight(52)
         header.setAttribute(Qt.WA_StyledBackground, True)
@@ -61,14 +65,12 @@ class AnalyticsTab(QWidget):
             h_row.addWidget(btn)
         layout.addWidget(header)
 
-        # Scrollable content
         content = QWidget()
         content.setStyleSheet(f"background: {T.BG_BASE};")
         c = QVBoxLayout(content)
         c.setContentsMargins(T.SPACING["xl"], T.SPACING["xl"], T.SPACING["xl"], T.SPACING["xl"])
         c.setSpacing(T.SPACING["xl"])
 
-        # Stat cards row
         c.addWidget(_section_label("AI USAGE"))
         usage_grid = QGridLayout()
         usage_grid.setSpacing(T.SPACING["md"])
@@ -82,7 +84,6 @@ class AnalyticsTab(QWidget):
             usage_grid.addWidget(card, 0, i)
         c.addLayout(usage_grid)
 
-        # System metrics
         c.addWidget(_section_label("SYSTEM"))
         sys_grid = QGridLayout()
         sys_grid.setSpacing(T.SPACING["md"])
@@ -102,7 +103,6 @@ class AnalyticsTab(QWidget):
             sys_grid.addWidget(self._sys_cards[key], row, col)
         c.addLayout(sys_grid)
 
-        # Metric bars
         c.addWidget(_section_label("REAL-TIME"))
         self._bars: Dict[str, _MetricBar] = {
             "CPU":     _MetricBar("CPU"),
@@ -112,7 +112,6 @@ class AnalyticsTab(QWidget):
         for bar in self._bars.values():
             c.addWidget(bar)
 
-        # Chart
         if HAS_CHART:
             self._setup_chart(c)
 
@@ -124,7 +123,7 @@ class AnalyticsTab(QWidget):
         self._cpu_series = QLineSeries()
         self._cpu_series.setName("CPU %")
         pen = self._cpu_series.pen()
-        pen.setColor(__import__("PyQt5.QtGui", fromlist=["QColor"]).QColor(T.BRAND_PRIMARY))
+        pen.setColor(QColor(T.BRAND_PRIMARY))
         pen.setWidth(2)
         self._cpu_series.setPen(pen)
 
@@ -133,22 +132,21 @@ class AnalyticsTab(QWidget):
 
         chart = QChart()
         chart.setTitle("")
-        from PyQt5.QtGui import QColor as QC, QBrush
-        chart.setBackgroundBrush(QBrush(QC(T.BG_ELEVATED)))
-        chart.setPlotAreaBackgroundBrush(QBrush(QC(T.BG_ELEVATED)))
+        chart.setBackgroundBrush(QBrush(QColor(T.BG_ELEVATED)))
+        chart.setPlotAreaBackgroundBrush(QBrush(QColor(T.BG_ELEVATED)))
         chart.setPlotAreaBackgroundVisible(True)
         chart.setTheme(QChart.ChartThemeDark)
         chart.addSeries(self._cpu_series)
         chart.addSeries(self._mem_series)
-        chart.legend().setLabelColor(QC(T.TEXT_TERTIARY))
+        chart.legend().setLabelColor(QColor(T.TEXT_TERTIARY))
         chart.setMargins(_QMargins(8, 8, 8, 8))
 
         def _axis(title):
             ax = QValueAxis()
             ax.setTitleText(title)
-            ax.setTitleBrush(QC(T.TEXT_TERTIARY))
-            ax.setLabelsColor(QC(T.TEXT_TERTIARY))
-            ax.setGridLineColor(QC(T.BG_BORDER))
+            ax.setTitleBrush(QColor(T.TEXT_TERTIARY))
+            ax.setLabelsColor(QColor(T.TEXT_TERTIARY))
+            ax.setGridLineColor(QColor(T.BG_BORDER))
             return ax
 
         self._axis_x = _axis("Seconds")
@@ -173,23 +171,48 @@ class AnalyticsTab(QWidget):
         layout.addWidget(view)
 
     def _refresh_usage_stats(self):
+        now = time.monotonic()
+        if now - self._usage_cache_time < 30 and self._usage_cache:
+            self._apply_usage_cache()
+            return
         if not self._conv_store:
             return
         today = datetime.now().date().isoformat()
         convs = self._conv_store.list_recent(limit=10000)
+
+        today_convs = [c for c in convs if c.get("updated_at", "")[:10] == today]
         msg_count = sum(
             len([m for m in c.get("messages", []) if m["role"] == "user"])
-            for c in convs
-            if c.get("updated_at", "")[:10] == today
+            for c in today_convs
         )
         total_tokens = sum(
-            c.get("metadata", {}).get("total_tokens", 0)
-            for c in convs
-            if c.get("updated_at", "")[:10] == today
+            c.get("metadata", {}).get("total_tokens", 0) for c in today_convs
         )
-        self._usage_cards["messages"].set_value(str(msg_count))
-        self._usage_cards["tokens"].set_value(f"{total_tokens:,}")
-        self._usage_cards["cost"].set_value(f"${total_tokens * 0.000003:.4f}")
+        cost = total_tokens * 0.000003
+
+        latencies = [
+            m.get("latency_ms", 0)
+            for c in today_convs
+            for m in c.get("messages", [])
+            if m["role"] == "assistant" and m.get("latency_ms", 0) > 0
+        ]
+        avg_latency = int(sum(latencies) / len(latencies)) if latencies else 0
+
+        self._usage_cache = {
+            "messages": msg_count,
+            "tokens": total_tokens,
+            "cost": cost,
+            "latency": avg_latency,
+        }
+        self._usage_cache_time = now
+        self._apply_usage_cache()
+
+    def _apply_usage_cache(self):
+        self._usage_cards["messages"].set_value(str(self._usage_cache.get("messages", "—")))
+        self._usage_cards["tokens"].set_value(f'{self._usage_cache.get("tokens", 0):,}')
+        self._usage_cards["cost"].set_value(f'${self._usage_cache.get("cost", 0):.4f}')
+        avg = self._usage_cache.get("latency", 0)
+        self._usage_cards["latency"].set_value(str(avg) if avg else "—")
 
     def _on_metrics(self, metrics: Dict):
         self._refresh_usage_stats()
@@ -202,7 +225,6 @@ class AnalyticsTab(QWidget):
         recv = metrics.get("net_recv_mb", "—")
         self._sys_cards["net"].set_value(f"{sent}↑ {recv}↓")
 
-        # Metric bars
         cpu = metrics.get("cpu", 0)
         mem = metrics.get("memory", 0)
         disk = metrics.get("disk", 0)

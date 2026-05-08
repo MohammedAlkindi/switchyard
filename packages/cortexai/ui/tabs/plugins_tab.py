@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
@@ -9,6 +10,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 
 import ui.theme as T
+from ui.components.toast import show_toast
 
 log = logging.getLogger("CortexAI")
 
@@ -16,9 +18,10 @@ log = logging.getLogger("CortexAI")
 class PluginsTab(QWidget):
     """Lists loaded plugins and their status."""
 
-    def __init__(self, plugin_manager, parent=None):
+    def __init__(self, plugin_manager, ai_core_ref, parent=None):
         super().__init__(parent)
         self._plugin_manager = plugin_manager
+        self._ai_core_ref = ai_core_ref
         self._setup_ui()
 
     def _setup_ui(self):
@@ -27,7 +30,6 @@ class PluginsTab(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Header
         header = QWidget()
         header.setFixedHeight(52)
         header.setAttribute(Qt.WA_StyledBackground, True)
@@ -51,7 +53,6 @@ class PluginsTab(QWidget):
         h_row.addWidget(reload_btn)
         root.addWidget(header)
 
-        # Scrollable list
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet(f"QScrollArea {{ border: none; background: {T.BG_BASE}; }}")
@@ -67,7 +68,6 @@ class PluginsTab(QWidget):
         self._refresh_list()
 
     def _refresh_list(self):
-        # Clear existing items
         while self._list_layout.count() > 0:
             item = self._list_layout.takeAt(0)
             if item.widget():
@@ -98,11 +98,23 @@ class PluginsTab(QWidget):
         row.setContentsMargins(T.SPACING["lg"], T.SPACING["md"],
                                 T.SPACING["lg"], T.SPACING["md"])
 
-        name = getattr(plugin, "__class__", type(plugin)).__name__
-        name_lbl = QLabel(name)
+        name = getattr(plugin, "name", None) or type(plugin).__name__
+        description = getattr(plugin, "description", "No description provided.")
+        version = getattr(plugin, "version", "1.0.0")
+
+        col = QVBoxLayout()
+        col.setSpacing(2)
+        name_lbl = QLabel(f"{name}  v{version}")
         name_lbl.setFont(QFont(T.FONT_FAMILY, T.FONT_SIZES["base"], T.FONT_WEIGHTS["medium"]))
         name_lbl.setStyleSheet(f"color: {T.TEXT_PRIMARY};")
-        row.addWidget(name_lbl)
+        col.addWidget(name_lbl)
+
+        desc_lbl = QLabel(description)
+        desc_lbl.setFont(QFont(T.FONT_FAMILY, T.FONT_SIZES["xs"]))
+        desc_lbl.setStyleSheet(f"color: {T.TEXT_TERTIARY}; background: transparent; border: none;")
+        col.addWidget(desc_lbl)
+
+        row.addLayout(col)
         row.addStretch()
 
         status = QLabel("● Loaded")
@@ -112,15 +124,22 @@ class PluginsTab(QWidget):
         return frame
 
     def _open_folder(self):
+        import subprocess
         from pathlib import Path
-        plugins_dir = str(Path("plugins").resolve())
-        os.startfile(plugins_dir) if os.name == "nt" else None
+        plugins_dir = Path("plugins").resolve()
+        plugins_dir.mkdir(exist_ok=True)
+        if os.name == "nt":
+            os.startfile(str(plugins_dir))
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", str(plugins_dir)])
+        else:
+            subprocess.Popen(["xdg-open", str(plugins_dir)])
 
     def _reload(self):
         self._plugin_manager._plugins.clear()
-        from core.ai_core import AICore
-        # Reload — host is not easily accessible here, just refresh the display
+        self._plugin_manager.load_all(self._ai_core_ref)
         self._refresh_list()
+        show_toast("Plugins reloaded", "success", self)
 
     @staticmethod
     def _hdr_btn(text: str) -> QPushButton:

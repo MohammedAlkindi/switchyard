@@ -54,7 +54,7 @@ def setup_logging() -> logging.Logger:
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
     ch.setFormatter(fmt)
-    fh = logging.FileHandler("cortexai.log", encoding="utf-8")
+    fh = logging.FileHandler("logs/cortexai.log", encoding="utf-8")
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(fmt)
     logger.addHandler(ch)
@@ -70,8 +70,8 @@ def _load_stylesheet() -> str:
 
 
 def main():
-    log = setup_logging()
     _ensure_dirs()
+    log = setup_logging()
 
     # Keep physical pixel sizes matching design specs on scaled Windows displays
     os.environ.setdefault("QT_SCALE_FACTOR", "1")
@@ -83,10 +83,8 @@ def main():
     app.setApplicationVersion("1.0")
     app.setStyle("Fusion")
 
-    # Initialise font family (must happen after QApplication creation)
     T.init_fonts()
 
-    # Apply global palette matching design system
     from PyQt5.QtGui import QPalette, QColor
     palette = QPalette()
     palette.setColor(QPalette.Window,          QColor(T.BG_BASE))
@@ -101,7 +99,6 @@ def main():
     palette.setColor(QPalette.PlaceholderText, QColor(T.TEXT_TERTIARY))
     app.setPalette(palette)
 
-    # Apply global QSS stylesheet
     qss = _load_stylesheet()
     if qss:
         app.setStyleSheet(qss)
@@ -110,11 +107,12 @@ def main():
 
     splash = SplashScreen()
     splash.show()
-    splash.set_progress(25)
+    splash.set_progress(10)
 
     try:
-        window = MainWindow()
-        splash.set_progress(75)
+        splash.set_progress(20)
+        window = MainWindow(progress_callback=splash.set_progress)
+        splash.set_progress(98)
         port = int(os.environ.get("CORTEXAI_API_PORT", 8000))
         _start_api_server(window._ai_core, port)
         splash.set_progress(100)
@@ -126,7 +124,7 @@ def main():
         log.critical(f"Fatal startup error: {e}", exc_info=True)
         QMessageBox.critical(
             None, "Fatal Error",
-            f"Failed to start CortexAI:\n{e}\n\nSee cortexai.log for details."
+            f"Failed to start CortexAI:\n{e}\n\nSee logs/cortexai.log for details."
         )
         sys.exit(1)
 

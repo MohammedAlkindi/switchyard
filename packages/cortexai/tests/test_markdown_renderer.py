@@ -1,37 +1,10 @@
 import sys
 import os
-import types
 
 # Ensure project root is on path
 _ROOT = os.path.dirname(os.path.dirname(__file__))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
-
-# Provide a stub for ui.theme before importing the renderer so PyQt5 is not required
-theme = types.ModuleType("ui.theme")
-theme.BG_ELEVATED = "#1a1a24"
-theme.BG_BORDER = "#2a2a3a"
-theme.BRAND_PRIMARY = "#d4a574"
-theme.BRAND_MUTED = "#8b6b47"
-theme.TEXT_PRIMARY = "#f0ede8"
-theme.TEXT_SECONDARY = "#9b97a0"
-theme.TEXT_TERTIARY = "#5a5760"
-theme.FONT_SIZES = {"xs": 11, "sm": 12, "base": 13, "md": 14,
-                    "lg": 16, "xl": 20, "2xl": 24, "3xl": 30}
-theme.RADIUS = {"sm": 4, "md": 8, "lg": 12, "xl": 16, "2xl": 20, "full": 999}
-
-# Register ui and ui.components as module stubs so importlib can find them
-ui_mod = types.ModuleType("ui")
-ui_mod.__path__ = [os.path.join(_ROOT, "ui")]
-ui_mod.__package__ = "ui"
-sys.modules["ui"] = ui_mod
-
-ui_comp = types.ModuleType("ui.components")
-ui_comp.__path__ = [os.path.join(_ROOT, "ui", "components")]
-ui_comp.__package__ = "ui.components"
-sys.modules["ui.components"] = ui_comp
-sys.modules["ui.theme"] = theme
-ui_mod.theme = theme
 
 from ui.components.markdown_renderer import render, _inline  # noqa: E402
 

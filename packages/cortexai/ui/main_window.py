@@ -75,8 +75,10 @@ class SplashScreen(QSplashScreen):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, progress_callback=None):
         super().__init__()
+        self._progress_cb = progress_callback or (lambda v: None)
+
         self.setWindowTitle("CortexAI")
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.resize(1280, 820)
@@ -86,11 +88,15 @@ class MainWindow(QMainWindow):
 
         self._ai_core = AICore(parent=self)
         self._ai_core.status_update.connect(self._on_status_update)
+        self._progress_cb(40)
 
         self._setup_ui()
+        self._progress_cb(70)
+
         self._setup_shortcuts()
         self._setup_tray()
         self._load_conversations()
+        self._progress_cb(95)
 
         log.info("MainWindow ready.")
 
@@ -103,40 +109,33 @@ class MainWindow(QMainWindow):
         root_v.setContentsMargins(0, 0, 0, 0)
         root_v.setSpacing(0)
 
-        # Custom title bar
         self._title_bar = TitleBar()
         root_v.addWidget(self._title_bar)
 
-        # Separator
         sep = QWidget()
         sep.setFixedHeight(1)
         sep.setStyleSheet(f"background: {T.BG_BORDER};")
         root_v.addWidget(sep)
 
-        # Body: sidebar + main content
         body = QWidget()
         body_h = QHBoxLayout(body)
         body_h.setContentsMargins(0, 0, 0, 0)
         body_h.setSpacing(0)
 
-        # Sidebar
         self._sidebar = Sidebar()
         self._sidebar.nav_changed.connect(self._on_nav_changed)
         self._sidebar.new_chat_requested.connect(self._on_new_chat)
         self._sidebar.conversation_selected.connect(self._on_conv_selected)
         self._sidebar.conversation_deleted.connect(self._on_conv_deleted)
         self._sidebar.conversation_renamed.connect(self._on_conv_renamed)
-        # Keep legacy compat for any residual wiring
         self._sidebar.api_key_changed.connect(self._on_api_key_change)
         body_h.addWidget(self._sidebar)
 
-        # Separator
         v_sep = QWidget()
         v_sep.setFixedWidth(1)
         v_sep.setStyleSheet(f"background: {T.BG_BORDER};")
         body_h.addWidget(v_sep)
 
-        # Stacked content
         self._stack = QStackedWidget()
         self._stack.setStyleSheet(f"background: {T.BG_BASE};")
 
@@ -161,7 +160,7 @@ class MainWindow(QMainWindow):
             placeholder = _Placeholder("Docs")
             self._stack.addWidget(placeholder)      # 2 – docs
 
-        self._plugins_tab = PluginsTab(self._ai_core.plugin_manager)
+        self._plugins_tab = PluginsTab(self._ai_core.plugin_manager, self._ai_core)
         self._stack.addWidget(self._plugins_tab)    # 3 – plugins
 
         self._stack.addWidget(self._settings_tab)   # 4 – settings
@@ -214,16 +213,13 @@ class MainWindow(QMainWindow):
         self._sidebar.set_key_status(ok)
         from ui.strings import DEFAULT_MODEL_ID
         self._sidebar.set_model_name(DEFAULT_MODEL_ID)
-        # Inject conversation store into settings so _clear_all works
         self._settings_tab.set_conversation_store(self._chat_tab._store)
-        # Inject store into analytics for usage stats
         self._analytics_tab.set_conversation_store(self._chat_tab._store)
-        # Apply persisted settings
-        from ui.tabs.settings_tab import load_user_settings
+        from core.user_settings import load_user_settings
         saved = load_user_settings()
         system_prompt = saved.get("system_prompt", "").strip()
         if system_prompt:
-            self._chat_tab.SYSTEM_PROMPT = system_prompt
+            self._chat_tab.system_prompt = system_prompt
 
     def _on_new_chat(self):
         self._chat_tab.new_conversation()
@@ -253,7 +249,9 @@ class MainWindow(QMainWindow):
     def _on_settings_changed(self, settings: dict):
         system_prompt = settings.get("system_prompt", "").strip()
         if system_prompt:
-            self._chat_tab.SYSTEM_PROMPT = system_prompt
+            self._chat_tab.system_prompt = system_prompt
+        import ui.tabs.chat_tab as ct
+        ct._CACHED_DISPLAY_NAME = settings.get("display_name") or None
 
     # ── Nav ───────────────────────────────────────────────────────────────────
 
@@ -308,6 +306,18 @@ class MainWindow(QMainWindow):
     def _show_shortcuts_help(self):
         from ui.components.shortcuts_dialog import ShortcutsDialog
         ShortcutsDialog(self).exec_()
+
+    # ── Shutdown ──────────────────────────────────────────────────────────────
+
+    def closeEvent(self, event):
+        if hasattr(self._ai_core, "_metrics_worker"):
+            self._ai_core._metrics_worker.requestInterruption()
+            self._ai_core._metrics_worker.wait(2000)
+        if hasattr(self._chat_tab, "_store"):
+            self._chat_tab._store._flush_dirty()
+        self._ai_core.compliance.close()
+        self._ai_core.billing.close()
+        event.accept()
 
 
 class _Placeholder(QWidget):

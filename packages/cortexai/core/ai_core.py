@@ -6,62 +6,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-_DISK_PATH = "C:\\" if os.name == "nt" else "/"
-
-
-class MetricsWorker(__import__("PyQt5.QtCore", fromlist=["QThread"]).QThread):
-    metrics_ready = __import__("PyQt5.QtCore", fromlist=["pyqtSignal"]).pyqtSignal(dict)
-
-    def __init__(self, disk_path: str, start_time: datetime, parent=None):
-        super().__init__(parent)
-        self._disk_path = disk_path
-        self._start_time = start_time
-
-    def run(self):
-        import psutil
-        try:
-            import pynvml
-            _has_nvml = True
-        except ImportError:
-            _has_nvml = False
-
-        while not self.isInterruptionRequested():
-            metrics = {
-                "timestamp": datetime.now().isoformat(),
-                "cpu": psutil.cpu_percent(),
-                "memory": psutil.virtual_memory().percent,
-                "threads": threading.active_count(),
-                "uptime_s": (datetime.now() - self._start_time).total_seconds(),
-            }
-            try:
-                metrics["disk"] = psutil.disk_usage(self._disk_path).percent
-            except Exception:
-                metrics["disk"] = 0
-            try:
-                net = psutil.net_io_counters()
-                metrics["net_sent_mb"] = round(net.bytes_sent / 1e6, 2)
-                metrics["net_recv_mb"] = round(net.bytes_recv / 1e6, 2)
-            except Exception:
-                pass
-            if _has_nvml:
-                try:
-                    import pynvml as nvml
-                    nvml.nvmlInit()
-                    handle = nvml.nvmlDeviceGetHandleByIndex(0)
-                    info = nvml.nvmlDeviceGetMemoryInfo(handle)
-                    nvml.nvmlShutdown()
-                    metrics["gpu"] = (info.used / info.total) * 100
-                except Exception:
-                    pass
-            self.metrics_ready.emit(metrics)
-            self.msleep(5000)
-
 import psutil
 import yaml
-from PyQt5.QtCore import QObject, QTimer, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtSignal
 
 from clients.anthropic_client import AnthropicClient
 from core.conversation import ConversationEntry
+from core.metrics_worker import MetricsWorker
 from core.model_manager import HAS_TRANSFORMERS, ModelManager
 from services.billing import BillingManager
 from services.compliance import ComplianceManager
@@ -70,6 +21,7 @@ from services.rate_limiter import RateLimiter
 
 log = logging.getLogger("CortexAI")
 
+_DISK_PATH = "C:\\" if os.name == "nt" else "/"
 _CONFIGS_DIR = Path(__file__).parent.parent / "configs"
 
 try:
@@ -157,20 +109,19 @@ class AICore(QObject):
 
     def _collect_metrics(self):
         """Called manually (e.g. from analytics Refresh button) — emit a one-shot reading."""
-        import psutil as _psutil
         metrics = {
             "timestamp": datetime.now().isoformat(),
-            "cpu": _psutil.cpu_percent(),
-            "memory": _psutil.virtual_memory().percent,
+            "cpu": psutil.cpu_percent(),
+            "memory": psutil.virtual_memory().percent,
             "threads": threading.active_count(),
             "uptime_s": (datetime.now() - self._telemetry_start).total_seconds(),
         }
         try:
-            metrics["disk"] = _psutil.disk_usage(_DISK_PATH).percent
+            metrics["disk"] = psutil.disk_usage(_DISK_PATH).percent
         except Exception:
             metrics["disk"] = 0
         try:
-            net = _psutil.net_io_counters()
+            net = psutil.net_io_counters()
             metrics["net_sent_mb"] = round(net.bytes_sent / 1e6, 2)
             metrics["net_recv_mb"] = round(net.bytes_recv / 1e6, 2)
         except Exception:

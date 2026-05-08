@@ -12,10 +12,12 @@ log = logging.getLogger("CortexAI")
 
 
 class ConvSearchBar(QWidget):
-    """Inline search bar that highlights matching text in the chat scroll area."""
+    """Inline search bar for the chat view."""
 
-    search_requested = pyqtSignal(str)
-    closed           = pyqtSignal()
+    search_changed = pyqtSignal(str)   # text changed
+    next_requested = pyqtSignal()      # ▼ button
+    prev_requested = pyqtSignal()      # ▲ button
+    closed         = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -38,8 +40,8 @@ class ConvSearchBar(QWidget):
             f"  padding: 4px 10px; }}"
             f"QLineEdit:focus {{ border-color: {T.BRAND_PRIMARY}; }}"
         )
-        self._input.textChanged.connect(self._on_text_changed)
-        self._input.returnPressed.connect(self._on_next)
+        self._input.textChanged.connect(self.search_changed)
+        self._input.returnPressed.connect(self.next_requested)
         row.addWidget(self._input, 1)
 
         self._count = QLabel("No results")
@@ -47,7 +49,7 @@ class ConvSearchBar(QWidget):
         self._count.setStyleSheet(f"color: {T.TEXT_TERTIARY}; background: transparent;")
         row.addWidget(self._count)
 
-        for label, slot in (("▲", self._on_prev), ("▼", self._on_next)):
+        for label, sig in (("▲", self.prev_requested), ("▼", self.next_requested)):
             btn = QPushButton(label)
             btn.setFixedSize(28, 28)
             btn.setCursor(Qt.PointingHandCursor)
@@ -57,7 +59,7 @@ class ConvSearchBar(QWidget):
                 f"  border: 1px solid {T.BG_BORDER}; border-radius: {T.RADIUS['sm']}px; }}"
                 f"QPushButton:hover {{ color: {T.TEXT_PRIMARY}; border-color: {T.BG_OVERLAY}; }}"
             )
-            btn.clicked.connect(slot)
+            btn.clicked.connect(sig)
             row.addWidget(btn)
 
         close = QPushButton("✕")
@@ -73,7 +75,6 @@ class ConvSearchBar(QWidget):
         row.addWidget(close)
 
         self._current = 0
-        self._matches: list = []
 
     def focus(self):
         self._input.setFocus()
@@ -85,12 +86,3 @@ class ConvSearchBar(QWidget):
             self._count.setText("No results")
         else:
             self._count.setText(f"{current + 1} / {count}")
-
-    def _on_text_changed(self, text: str):
-        self.search_requested.emit(text)
-
-    def _on_next(self):
-        self.search_requested.emit(self._input.text() + "\x00next")
-
-    def _on_prev(self):
-        self.search_requested.emit(self._input.text() + "\x00prev")

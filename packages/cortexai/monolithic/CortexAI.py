@@ -145,7 +145,7 @@ def setup_logging() -> logging.Logger:
     logger.addHandler(fh)
     return logger
 
-log = setup_logging()
+log = logging.getLogger("CortexAI")
 
 # ======================
 # ENUMS & DATACLASSES

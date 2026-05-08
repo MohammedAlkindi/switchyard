@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -23,16 +25,21 @@ from ui.components.model_switcher import ModelSwitcher
 from ui.components.toast import show_toast
 from ui.components.search_bar import ConvSearchBar
 from core.conversation_store import ConversationStore
-from ui.tabs.settings_tab import load_user_settings
+from core.user_settings import load_user_settings
 
 log = logging.getLogger("CortexAI")
 
+_CACHED_DISPLAY_NAME: Optional[str] = None
+
 
 def _display_name() -> str:
-    try:
-        return load_user_settings().get("display_name", "Mohammed") or "Mohammed"
-    except Exception:
-        return "Mohammed"
+    global _CACHED_DISPLAY_NAME
+    if _CACHED_DISPLAY_NAME is None:
+        try:
+            _CACHED_DISPLAY_NAME = load_user_settings().get("display_name", "") or "there"
+        except Exception:
+            _CACHED_DISPLAY_NAME = "there"
+    return _CACHED_DISPLAY_NAME
 
 
 def _greeting() -> str:
@@ -44,18 +51,17 @@ def _greeting() -> str:
     return GREETING_EVENING
 
 
+_DEFAULT_SYSTEM_PROMPT = (
+    "You are CortexAI, a helpful, accurate, and concise AI assistant built into a "
+    "desktop application. Respond clearly and use markdown formatting where appropriate."
+)
+
+
 class ChatTab(QWidget):
     """Main chat tab — empty state, message list, streaming, persistence."""
 
-    SYSTEM_PROMPT = (
-        "You are CortexAI, a helpful, accurate, and concise AI assistant built into a "
-        "desktop application. Respond clearly and use markdown formatting where appropriate."
-    )
-
-    # Emitted so main window can switch to settings
     open_settings_requested = pyqtSignal()
-    # Emitted when a new conversation is created / updated (for sidebar)
-    conversation_updated = pyqtSignal(dict)
+    conversation_updated    = pyqtSignal(dict)
 
     def __init__(self, ai_core, parent=None):
         super().__init__(parent)
@@ -67,6 +73,9 @@ class ChatTab(QWidget):
         self._messages: List[Dict[str, str]] = []
         self._model_id = DEFAULT_MODEL_ID
         self._model_label = self._label_for_id(DEFAULT_MODEL_ID)
+
+        saved = load_user_settings()
+        self.system_prompt = saved.get("system_prompt", "").strip() or _DEFAULT_SYSTEM_PROMPT
 
         self._model_switcher = ModelSwitcher(self)
         self._model_switcher.model_selected.connect(self._on_model_selected)
@@ -81,7 +90,6 @@ class ChatTab(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(0)
 
-        # Scroll area for messages + empty state
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -105,18 +113,18 @@ class ChatTab(QWidget):
 
         # Inline search bar (hidden by default)
         self._search_bar = ConvSearchBar()
-        self._search_bar.search_requested.connect(self._on_search)
+        self._search_bar.search_changed.connect(self._on_search)
+        self._search_bar.next_requested.connect(self._on_search_next)
+        self._search_bar.prev_requested.connect(self._on_search_prev)
         self._search_bar.closed.connect(self._hide_search)
         self._search_bar.hide()
         v.addWidget(self._search_bar)
 
-        # Error / network banner (hidden by default)
         self._error_banner = _ErrorBanner()
         self._error_banner.retry_clicked.connect(self._retry_last)
         self._error_banner.hide()
         v.addWidget(self._error_banner)
 
-        # Input bar
         self._input_bar = InputBar()
         self._input_bar.send_requested.connect(self._on_send)
         self._input_bar.stop_requested.connect(self._on_stop)
@@ -124,10 +132,8 @@ class ChatTab(QWidget):
         self._input_bar.set_model_label(self._model_label)
         v.addWidget(self._input_bar)
 
-        # Show empty state initially
         self._show_empty_state()
 
-        # Check if API key is set
         if not self._ai_core.anthropic_client.ready:
             self._show_no_key_state()
 
@@ -150,29 +156,23 @@ class ChatTab(QWidget):
             self._show_no_key_state()
             return
 
-        # Remove empty / no-key state widget if present
         self._remove_state_widgets()
 
-        # Create conversation on first message
         if self._conv_id is None:
             conv = self._store.create(model=self._model_id)
             self._conv_id = conv["id"]
 
-        # Add user bubble
         ts = datetime.now().strftime("%H:%M")
         bubble = UserBubble(text, ts)
         self._insert_message_widget(bubble)
 
-        # Record in store and messages list
         self._store.add_message(self._conv_id, "user", text)
         self._messages.append({"role": "user", "content": text})
 
-        # Notify sidebar
         conv = self._store.get(self._conv_id)
         if conv:
             self.conversation_updated.emit(conv)
 
-        # Create assistant bubble and start streaming
         self._last_assistant_bubble = AssistantBubble(self._model_label)
         self._last_assistant_bubble.regen_requested.connect(self._on_regenerate)
         self._last_assistant_bubble.copy_requested.connect(self._on_copy)
@@ -187,13 +187,29 @@ class ChatTab(QWidget):
 
     def _start_worker(self, messages: List[Dict]):
         from clients.anthropic_client import StreamingChatWorker
-        self._worker = StreamingChatWorker(
-            self._ai_core.anthropic_client,
-            messages,
-            self.SYSTEM_PROMPT,
-            self._model_id,
-            parent=self,
-        )
+        from clients.openai_client import OpenAIClient
+
+        if self._model_id.startswith("gpt-"):
+            oai_client = OpenAIClient()
+            if not oai_client.ready:
+                self._on_stream_error("No OpenAI API key set. Add it in Settings → API Keys.")
+                return
+            from clients.openai_client import OpenAIStreamingWorker
+            self._worker = OpenAIStreamingWorker(
+                oai_client, messages, self.system_prompt, self._model_id, parent=self
+            )
+        elif self._model_id == "auto":
+            effective_model = "claude-sonnet-4-20250514"
+            self._worker = StreamingChatWorker(
+                self._ai_core.anthropic_client,
+                messages, self.system_prompt, effective_model, parent=self
+            )
+        else:
+            self._worker = StreamingChatWorker(
+                self._ai_core.anthropic_client,
+                messages, self.system_prompt, self._model_id, parent=self
+            )
+
         self._worker.token_ready.connect(self._on_token)
         self._worker.finished_ok.connect(self._on_stream_done)
         self._worker.error_occurred.connect(self._on_stream_error)
@@ -237,7 +253,6 @@ class ChatTab(QWidget):
                 self._worker.token_ready.disconnect()
             except TypeError:
                 pass
-            # Don't null the worker — let the thread finish naturally
         if self._last_assistant_bubble:
             self._last_assistant_bubble.finish_stream()
         self._input_bar.set_streaming(False)
@@ -318,7 +333,6 @@ class ChatTab(QWidget):
         self._input_bar.focus_input()
 
     def _on_search(self, query: str):
-        # Basic: count occurrences across all messages
         if not query:
             self._search_bar.set_results(0)
             return
@@ -327,6 +341,12 @@ class ChatTab(QWidget):
             for m in self._messages
         )
         self._search_bar.set_results(count)
+
+    def _on_search_next(self):
+        pass
+
+    def _on_search_prev(self):
+        pass
 
     def clear_chat(self):
         self.new_conversation()
@@ -364,13 +384,11 @@ class ChatTab(QWidget):
         self._remove_state_widgets()
         prompt = CHIP_PROMPTS.get(chip_text, chip_text)
         self._input_bar.focus_input()
-        # Pre-fill input
         self._input_bar._input.setPlainText(prompt)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _insert_message_widget(self, w: QWidget):
-        # Insert before the trailing stretch
         idx = self._msg_v.count() - 1
         self._msg_v.insertWidget(idx, w)
 
@@ -390,11 +408,13 @@ class ChatTab(QWidget):
                     w.deleteLater()
 
     def _scroll_to_bottom(self):
-        QTimer.singleShot(50, lambda: (
+        QTimer.singleShot(50, self._do_scroll)
+
+    def _do_scroll(self):
+        if self._scroll:
             self._scroll.verticalScrollBar().setValue(
                 self._scroll.verticalScrollBar().maximum()
             )
-        ))
 
     @staticmethod
     def _friendly_error(raw: str) -> str:
@@ -422,7 +442,6 @@ class _EmptyState(QWidget):
         v.setAlignment(Qt.AlignCenter)
         v.setSpacing(T.SPACING["lg"])
 
-        # Logo mark
         logo = QLabel("C")
         logo.setFixedSize(48, 48)
         logo.setAlignment(Qt.AlignCenter)
@@ -436,7 +455,8 @@ class _EmptyState(QWidget):
         logo_row.addStretch()
         v.addLayout(logo_row)
 
-        greeting = QLabel(f"{_greeting()}, {_display_name()}.")
+        name = _display_name()
+        greeting = QLabel(f"{_greeting()}, {name}." if name else f"{_greeting()}.")
         greeting.setFont(QFont(T.FONT_FAMILY, T.FONT_SIZES["2xl"], T.FONT_WEIGHTS["medium"]))
         greeting.setStyleSheet(f"color: {T.TEXT_PRIMARY}; background: transparent;")
         greeting.setAlignment(Qt.AlignCenter)
@@ -450,7 +470,6 @@ class _EmptyState(QWidget):
 
         v.addSpacing(T.SPACING["lg"])
 
-        # Chips
         chips_row = QHBoxLayout()
         chips_row.setSpacing(T.SPACING["sm"])
         chips_row.addStretch()

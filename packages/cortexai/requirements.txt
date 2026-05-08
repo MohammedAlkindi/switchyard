@@ -27,4 +27,5 @@ PyYAML>=6.0
 
 # ── Development ───────────────────────────────────────────────────────────────
 # pytest>=7.0
-# pytest-qt>=4.0
+# pytest-qt>=4.0        ← required for qtbot fixture in UI tests
+# pytest-mock>=3.0      ← required for cleaner mock patching

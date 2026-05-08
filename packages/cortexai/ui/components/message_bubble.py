@@ -130,16 +130,12 @@ class AssistantBubble(QWidget):
         self._body.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         outer.addWidget(self._body)
 
-        # Cursor timer for streaming
         self._cursor_visible = True
-        self._cursor_timer   = QTimer(self)
-        self._cursor_timer.setInterval(530)
-        self._cursor_timer.timeout.connect(self._blink_cursor)
 
-        # Render debounce — flush pending tokens at ~12fps instead of per token
+        # Render debounce + cursor blink at 530ms interval
         self._pending_tokens: list = []
         self._render_timer = QTimer(self)
-        self._render_timer.setInterval(80)
+        self._render_timer.setInterval(530)
         self._render_timer.timeout.connect(self._flush_tokens)
 
         # Action bar (hidden until hover)
@@ -154,8 +150,9 @@ class AssistantBubble(QWidget):
     def start_stream(self):
         self._raw_text  = ""
         self._streaming = True
+        self._cursor_visible = True
         self._pending_tokens = []
-        self._cursor_timer.start()
+        self._render_timer.start()
         self._body.setHtml(f'<span style="color:{T.TEXT_TERTIARY};">|</span>')
 
     def append_token(self, token: str):
@@ -165,13 +162,14 @@ class AssistantBubble(QWidget):
             self._render_timer.start()
 
     def _flush_tokens(self):
-        if not self._pending_tokens:
-            return
+        if not self._pending_tokens and self._streaming:
+            # No new tokens — still blink cursor
+            self._cursor_visible = not self._cursor_visible
         self._pending_tokens.clear()
-        html = render(self._raw_text) + (
-            f'<span style="color:{T.TEXT_PRIMARY}; font-weight:600;">|</span>'
-            if self._streaming else ""
-        )
+        cursor = "|" if (self._streaming and self._cursor_visible) else ""
+        html = render(self._raw_text)
+        if cursor:
+            html += f'<span style="color:{T.TEXT_PRIMARY}; font-weight:600;">{cursor}</span>'
         self._body.setHtml(html)
         self._adjust_height()
 
@@ -179,7 +177,6 @@ class AssistantBubble(QWidget):
         self._render_timer.stop()
         self._pending_tokens.clear()
         self._streaming = False
-        self._cursor_timer.stop()
         self._body.setHtml(render(self._raw_text))
         self._adjust_height()
 
@@ -194,18 +191,6 @@ class AssistantBubble(QWidget):
         return self._raw_text
 
     # ── Internal ──────────────────────────────────────────────────────────────
-
-    def _blink_cursor(self):
-        if not self._streaming:
-            return
-        self._cursor_visible = not self._cursor_visible
-        cursor_html = (
-            f'<span style="color:{T.TEXT_PRIMARY}; font-weight:600;">|</span>'
-            if self._cursor_visible else
-            '<span style="color:transparent;">|</span>'
-        )
-        html = render(self._raw_text) + cursor_html
-        self._body.setHtml(html)
 
     def _adjust_height(self):
         QTimer.singleShot(0, self._do_adjust_height)
@@ -239,7 +224,6 @@ class AssistantBubble(QWidget):
         self._streaming = False
         self._pending_tokens = []
         self._render_timer.stop()
-        self._cursor_timer.stop()
         self._body.clear()
         self._action_bar.hide()
 

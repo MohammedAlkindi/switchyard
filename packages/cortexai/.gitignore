@@ -147,7 +147,11 @@ vite.config.ts.timestamp-*
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+*.pyw
 .pytest_cache/
+htmlcov/
+.coverage
 
 # CortexAI runtime artifacts
 configs/conversations/
@@ -156,9 +160,11 @@ configs/audit.jsonl
 configs/billing.jsonl
 configs/user_settings.json
 configs/config.yaml
+configs/*.jsonl
 
 # PyInstaller
 *.spec
+*.manifest
 dist/
 build/
 
@@ -168,8 +174,11 @@ build/
 
 # OS
 .DS_Store
+__MACOSX/
+*.DS_Store
 Thumbs.db
 desktop.ini
+$RECYCLE.BIN/
 
 # IDE
 .vscode/

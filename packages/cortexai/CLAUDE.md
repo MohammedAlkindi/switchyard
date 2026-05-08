@@ -44,7 +44,7 @@ python main.py
 ## Tests
 
 ```bash
-pip install pytest pytest-qt
+pip install pytest pytest-qt pytest-mock
 pytest
 ```
 
@@ -97,9 +97,43 @@ FastAPI server runs on port 8000 by default.
 ## Threading rules
 
 - All Anthropic API calls must happen in a `QThread` subclass (`StreamingChatWorker`)
+- All OpenAI API calls must happen in `OpenAIStreamingWorker` in `clients/openai_client.py`
 - Never call `psutil` blocking methods on the main thread — use `MetricsWorker`
 - `QTimer` callbacks run on the main thread — keep them under 5ms
 - `ConversationStore` uses a 2-second write-debounce — do not call `_save()` directly
+
+## Module: core/metrics_worker.py
+
+`MetricsWorker` runs system metric collection in a background `QThread`.
+It is started by `AICore._setup_telemetry_timer()` and must be stopped
+in `MainWindow.closeEvent()` via `requestInterruption()` + `wait()`.
+
+## Module: core/user_settings.py
+
+Centralised settings persistence. Both `ui/tabs/settings_tab.py` and
+`ui/tabs/chat_tab.py` must import from here — never cross-import between
+UI tab files.
+
+## OpenAI routing
+
+When `model_id` starts with `"gpt-"`, `ChatTab._start_worker` routes to
+`OpenAIStreamingWorker` in `clients/openai_client.py`. The shared signal
+interface (`token_ready`, `finished_ok`, `error_occurred`) must be maintained
+by all provider workers.
+
+## App shutdown sequence
+
+`MainWindow.closeEvent`:
+1. `MetricsWorker.requestInterruption()` + `wait(2000)`
+2. `ConversationStore._flush_dirty()` — write any pending conversations
+3. `ComplianceManager.close()` — flush audit file handle
+4. `BillingManager.close()` — flush billing file handle
+5. `event.accept()`
+
+## Display name caching
+
+`ui/tabs/chat_tab._CACHED_DISPLAY_NAME` is a module-level cache.
+Invalidate it in `MainWindow._on_settings_changed` when display_name changes.
 
 ## What not to do
 

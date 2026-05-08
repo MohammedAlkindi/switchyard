@@ -19,6 +19,7 @@ class ComplianceManager:
                     self._log.append(json.loads(line))
                 except Exception:
                     pass
+        self._file_handle = open(_AUDIT_PATH, "a", encoding="utf-8")
 
     def record(self, user: str, action: str, resource: str, region: Optional[str] = None):
         entry = {
@@ -30,13 +31,13 @@ class ComplianceManager:
         }
         self._log.append(entry)
         try:
-            with open(_AUDIT_PATH, "a", encoding="utf-8") as f:
-                f.write(json.dumps(entry) + "\n")
+            self._file_handle.write(json.dumps(entry) + "\n")
+            self._file_handle.flush()
         except Exception as e:
             log.error(f"Failed to write audit log: {e}")
         log.debug(f"Audit: {entry}")
 
-    def export(self, path: str):
+    def export(self, path: str) -> str:
         existing_path = Path(path)
         if existing_path.exists():
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -46,6 +47,11 @@ class ComplianceManager:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(self._log, f, indent=2)
         log.info(f"Audit log exported to {path}")
+        return path
 
     def get_log(self) -> List[Dict]:
         return list(self._log)
+
+    def close(self):
+        if self._file_handle and not self._file_handle.closed:
+            self._file_handle.close()

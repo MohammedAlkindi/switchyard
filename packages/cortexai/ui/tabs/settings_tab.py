@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import logging
 import os
@@ -15,23 +16,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
 
-_SETTINGS_PATH = Path("configs/user_settings.json")
-
-
-def load_user_settings() -> dict:
-    if _SETTINGS_PATH.exists():
-        try:
-            return json.loads(_SETTINGS_PATH.read_text(encoding="utf-8"))
-        except Exception:
-            pass
-    return {"max_tokens": 2048, "temperature": 0.7, "default_model": "claude-sonnet-4-20250514",
-            "system_prompt": "", "display_name": "Mohammed"}
-
-
-def save_user_settings(settings: dict):
-    _SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _SETTINGS_PATH.write_text(json.dumps(settings, indent=2, ensure_ascii=False), encoding="utf-8")
-
+from core.user_settings import load_user_settings, save_user_settings
 import ui.theme as T
 from ui.strings import (
     SETTINGS_API_KEYS, SETTINGS_MODELS, SETTINGS_FEATURES,
@@ -61,7 +46,7 @@ class SettingsTab(QWidget):
     api_key_changed       = pyqtSignal(str)
     model_changed         = pyqtSignal(str)
     conversations_cleared = pyqtSignal()
-    settings_changed      = pyqtSignal(dict)  # emits full user_settings dict
+    settings_changed      = pyqtSignal(dict)
 
     def __init__(self, ai_core, parent=None):
         super().__init__(parent)
@@ -90,7 +75,6 @@ class SettingsTab(QWidget):
         nav_v.setContentsMargins(0, T.SPACING["xl"], 0, T.SPACING["xl"])
         nav_v.setSpacing(2)
 
-        # Header
         hdr = QLabel("Settings")
         hdr.setFont(QFont(T.FONT_FAMILY, T.FONT_SIZES["lg"], T.FONT_WEIGHTS["semibold"]))
         hdr.setStyleSheet(
@@ -99,7 +83,7 @@ class SettingsTab(QWidget):
         )
         nav_v.addWidget(hdr)
 
-        self._nav_items: dict[str, "_SubNavItem"] = {}
+        self._nav_items: dict[str, _SubNavItem] = {}
         for label in _SUB_NAVS:
             item = _SubNavItem(label)
             item.clicked.connect(self._on_nav_clicked)
@@ -108,7 +92,6 @@ class SettingsTab(QWidget):
         nav_v.addStretch()
         root.addWidget(nav_panel)
 
-        # Right content — stacked panels
         from PyQt5.QtWidgets import QStackedWidget
         self._stack = QStackedWidget()
         self._stack.setStyleSheet(f"background: {T.BG_BASE};")
@@ -119,6 +102,7 @@ class SettingsTab(QWidget):
         self._panel_models.settings_changed.connect(self.settings_changed)
         self._panel_features = _FeaturesPanel()
         self._panel_appear   = _AppearancePanel()
+        self._panel_appear.settings_changed.connect(self.settings_changed)
         self._panel_data     = _DataPanel(self._ai_core)
         self._panel_data.conversations_cleared.connect(self.conversations_cleared)
         self._panel_about    = _AboutPanel()
@@ -129,7 +113,6 @@ class SettingsTab(QWidget):
 
         root.addWidget(self._stack, 1)
 
-        # Activate first
         self._current = SETTINGS_API_KEYS
         self._nav_items[SETTINGS_API_KEYS].set_active(True)
 
@@ -205,7 +188,6 @@ class _SubNavItem(QWidget):
 # ── Panels ────────────────────────────────────────────────────────────────────
 
 def _scroll_panel() -> tuple:
-    """Return (outer QWidget, content QVBoxLayout)."""
     outer = QScrollArea()
     outer.setWidgetResizable(True)
     outer.setStyleSheet(f"QScrollArea {{ border: none; background: {T.BG_BASE}; }}")
@@ -281,7 +263,6 @@ class _ApiKeysPanel(QWidget):
 
         _section(v, SETTINGS_API_KEYS)
 
-        # Anthropic
         v.addWidget(_field_label("Anthropic API Key"))
         ant_row = QHBoxLayout()
         self._ant_input = QLineEdit()
@@ -311,7 +292,6 @@ class _ApiKeysPanel(QWidget):
         save_ant.clicked.connect(self._save_ant)
         v.addWidget(save_ant)
 
-        # OpenAI
         v.addWidget(_field_label("OpenAI API Key"))
         oai_row = QHBoxLayout()
         self._oai_input = QLineEdit()
@@ -438,16 +418,19 @@ class _ModelsPanel(QWidget):
         v.addStretch()
 
     def _save(self):
+        existing = load_user_settings()
         settings = {
-            "max_tokens":     self._tok_slider.value(),
-            "temperature":    self._temp_slider.value() / 100.0,
-            "default_model":  self._model_combo.currentData(),
-            "system_prompt":  self._sys_prompt.toPlainText().strip(),
-            "display_name":   self._settings.get("display_name", "Mohammed"),
+            "max_tokens":    self._tok_slider.value(),
+            "temperature":   self._temp_slider.value() / 100.0,
+            "default_model": self._model_combo.currentData(),
+            "system_prompt": self._sys_prompt.toPlainText().strip(),
+            "display_name":  existing.get("display_name", ""),
+            "features":      existing.get("features", {}),
         }
         save_user_settings(settings)
         self._settings = settings
         self.settings_changed.emit(settings)
+        show_toast("Settings saved", "success", self)
 
     def reset(self):
         pass
@@ -471,6 +454,12 @@ class _FeaturesPanel(QWidget):
             ("Audit Log",             "Append-only log of all AI interactions."),
             ("Local Models",          "Enable locally-hosted model support."),
         ]
+
+        self._feature_checkboxes: dict[str, QCheckBox] = {}
+        settings = load_user_settings()
+        feature_state = settings.get("features", {})
+        _defaults_on = {"Conversation Memory", "Analytics", "Audit Log"}
+
         for name, desc in features:
             row = QHBoxLayout()
             col = QVBoxLayout()
@@ -486,7 +475,8 @@ class _FeaturesPanel(QWidget):
             row.addLayout(col)
             row.addStretch()
             cb = QCheckBox()
-            cb.setChecked(name in ("Conversation Memory", "Analytics", "Audit Log"))
+            cb.setChecked(feature_state.get(name, name in _defaults_on))
+            self._feature_checkboxes[name] = cb
             row.addWidget(cb)
             v.addLayout(row)
             sep = QFrame()
@@ -495,13 +485,28 @@ class _FeaturesPanel(QWidget):
             sep.setFixedHeight(1)
             v.addWidget(sep)
 
+        save_btn = _primary_btn("Save Features", 140)
+        save_btn.clicked.connect(self._save_features)
+        v.addWidget(save_btn)
+
         v.addStretch()
+
+    def _save_features(self):
+        existing = load_user_settings()
+        existing["features"] = {
+            name: cb.isChecked()
+            for name, cb in self._feature_checkboxes.items()
+        }
+        save_user_settings(existing)
+        show_toast("Features saved", "success", self)
 
     def reset(self):
         pass
 
 
 class _AppearancePanel(QWidget):
+    settings_changed = pyqtSignal(dict)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         outer, v = _scroll_panel()
@@ -530,7 +535,25 @@ class _AppearancePanel(QWidget):
         density.setFixedHeight(36)
         v.addWidget(density)
 
+        v.addWidget(_field_label("Display Name"))
+        self._name_input = QLineEdit()
+        self._name_input.setPlaceholderText("Your name (shown in greetings)")
+        settings = load_user_settings()
+        self._name_input.setText(settings.get("display_name", ""))
+        v.addWidget(self._name_input)
+
+        save_btn = _primary_btn("Save Appearance", 160)
+        save_btn.clicked.connect(self._save)
+        v.addWidget(save_btn)
+
         v.addStretch()
+
+    def _save(self):
+        existing = load_user_settings()
+        existing["display_name"] = self._name_input.text().strip()
+        save_user_settings(existing)
+        self.settings_changed.emit(existing)
+        show_toast("Appearance saved", "success", self)
 
     def reset(self):
         pass
@@ -583,17 +606,39 @@ class _DataPanel(QWidget):
 
     def _export(self, fmt: str):
         path, _ = QFileDialog.getSaveFileName(
-            self, f"Export Conversations",  "",
+            self, "Export Conversations", "",
             "JSON Files (*.json)" if fmt == "json" else "CSV Files (*.csv)"
         )
-        if path:
+        if not path or not self._conv_store:
+            return
+        convs = self._conv_store.list_recent(limit=10000)
+        if not convs:
+            show_toast("Nothing to export", "info", self)
+            return
+        try:
+            if fmt == "json":
+                Path(path).write_text(
+                    json.dumps(convs, indent=2, ensure_ascii=False), encoding="utf-8"
+                )
+            else:
+                with open(path, "w", newline="", encoding="utf-8") as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["conversation_id", "title", "role", "content", "timestamp"])
+                    for conv in convs:
+                        for msg in conv.get("messages", []):
+                            writer.writerow([
+                                conv["id"], conv["title"],
+                                msg["role"], msg["content"], msg.get("timestamp", "")
+                            ])
             show_toast(f"Saved to {path}", "success", self)
+        except Exception as e:
+            show_toast(f"Export failed: {e}", "error", self)
 
     def _export_audit(self):
         path, _ = QFileDialog.getSaveFileName(self, "Export Audit Log", "", "JSON Files (*.json)")
         if path:
-            self._ai_core.compliance.export(path)
-            show_toast(f"Audit log saved to {path}", "success", self)
+            actual_path = self._ai_core.compliance.export(path)
+            show_toast(f"Audit log saved to {actual_path}", "success", self)
 
     def _clear_all(self):
         reply = QMessageBox.question(
@@ -622,11 +667,14 @@ class _AboutPanel(QWidget):
 
         _section(v, SETTINGS_ABOUT)
 
+        import PyQt5.QtCore as _qtc
+        pyqt_version = _qtc.PYQT_VERSION_STR
+
         for row_text, val in (
             ("Version",  APP_VERSION),
             ("Python",   sys.version.split()[0]),
             ("Platform", f"{platform.system()} {platform.release()}"),
-            ("PyQt5",    "5.x"),
+            ("PyQt5",    pyqt_version),
         ):
             row = QHBoxLayout()
             k = QLabel(row_text)

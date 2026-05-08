@@ -64,6 +64,24 @@ A modular AI chat desktop application built with PyQt5, supporting Claude (Anthr
 | Conversation encryption | `pip install cryptography` |
 | NVIDIA GPU monitoring | `pip install pynvml` |
 
+## Architecture Overview
+
+```
+main.py
+├── AICore (core/ai_core.py)
+│   ├── AnthropicClient (clients/anthropic_client.py)
+│   ├── OpenAIClient (clients/openai_client.py)
+│   ├── MetricsWorker (core/metrics_worker.py)
+│   ├── ComplianceManager (services/compliance.py)
+│   ├── BillingManager (services/billing.py)
+│   └── PluginManager (services/plugin_manager.py)
+└── MainWindow (ui/main_window.py)
+    ├── ChatTab → ConversationStore (core/conversation_store.py)
+    ├── AnalyticsTab
+    ├── SettingsTab → user_settings (core/user_settings.py)
+    └── PluginsTab
+```
+
 ## Project Structure
 
 ```
@@ -92,6 +110,22 @@ CortexAI/
 | `Shift+Enter` | New line |
 | `Escape` | Stop generation |
 
+## Supported Models
+
+| Provider  | Model              | Use case              |
+|-----------|--------------------|-----------------------|
+| Anthropic | claude-opus-4      | Complex reasoning     |
+| Anthropic | claude-sonnet-4    | Everyday use          |
+| Anthropic | claude-haiku-4     | Fast, simple tasks    |
+| OpenAI    | gpt-4o             | Alternative provider  |
+| OpenAI    | gpt-4o-mini        | Fast OpenAI option    |
+| Auto      | Smart Routing      | Best model per task   |
+
+## Adding a custom display name
+
+Open Settings → Appearance → Display Name and enter your name. This
+personalises the greeting on the chat empty state.
+
 ## REST API
 
 When FastAPI + uvicorn are installed (`pip install fastapi uvicorn[standard]`), CortexAI starts a local REST server on port 8000:
@@ -116,10 +150,10 @@ pyinstaller CortexAI.spec
 ## Tests
 
 ```bash
-pip install pytest
+pip install pytest pytest-qt pytest-mock
 pytest
 ```
 
 ## Logs
 
-Runtime logs are written to `cortexai.log` in the project root.
+Runtime logs are written to `logs/cortexai.log`.

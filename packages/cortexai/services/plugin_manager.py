@@ -1,11 +1,20 @@
 import importlib.util
 import logging
+import sys
 from pathlib import Path
 from typing import Any, List
 
 log = logging.getLogger("CortexAI")
 
-_PLUGINS_DIR = Path(__file__).parent.parent / "plugins"
+
+def _resolve_plugins_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        # Running as a PyInstaller bundle
+        return Path(sys.executable).parent / "plugins"
+    return Path(__file__).parent.parent / "plugins"
+
+
+_PLUGINS_DIR = _resolve_plugins_dir()
 
 
 class PluginManager:
