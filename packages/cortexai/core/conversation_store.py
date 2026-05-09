@@ -93,11 +93,13 @@ class ConversationStore:
         conv["title"] = title[:80]
         conv["updated_at"] = _now()
         self._dirty.add(cid)
+        self._ensure_timer()
 
     def delete(self, cid: str) -> None:
         if cid not in self._cache:
             return
         del self._cache[cid]
+        self._dirty.discard(cid)
         path = _CONV_DIR / f"{cid}.json"
         if path.exists():
             path.unlink()

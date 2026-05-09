@@ -282,10 +282,17 @@ class _ApiKeysPanel(QWidget):
         ant_row.addWidget(test_ant)
         v.addLayout(ant_row)
 
-        self._ant_status = QLabel("● Key loaded" if env_key else "○ No key set")
+        self._ant_status = QLabel()
         self._ant_status.setFont(QFont(T.FONT_FAMILY, T.FONT_SIZES["sm"]))
-        color = T.SUCCESS if env_key else T.TEXT_TERTIARY
-        self._ant_status.setStyleSheet(f"color: {color}; background: transparent;")
+        # Reflect actual client state (env var may have been popped after _build_client)
+        is_ready = self._ai_core.anthropic_client.ready
+        if not env_key and is_ready:
+            saved_ant = load_user_settings().get("anthropic_api_key", "")
+            if saved_ant:
+                self._ant_input.setText(saved_ant)
+        self._ant_status.setText("● Connected" if is_ready else "○ No key set")
+        ant_color = T.SUCCESS if is_ready else T.TEXT_TERTIARY
+        self._ant_status.setStyleSheet(f"color: {ant_color}; background: transparent;")
         v.addWidget(self._ant_status)
 
         save_ant = _primary_btn(SETTINGS_SAVE, 120)
@@ -310,6 +317,12 @@ class _ApiKeysPanel(QWidget):
         self._oai_status.setFont(QFont(T.FONT_FAMILY, T.FONT_SIZES["sm"]))
         oai_color = T.SUCCESS if env_oai else T.TEXT_TERTIARY
         self._oai_status.setStyleSheet(f"color: {oai_color}; background: transparent;")
+        if not env_oai:
+            saved_oai = load_user_settings().get("openai_api_key", "")
+            if saved_oai:
+                self._oai_input.setText(saved_oai)
+                self._oai_status.setText("● Key loaded from settings")
+                self._oai_status.setStyleSheet(f"color: {T.SUCCESS}; background: transparent;")
         v.addWidget(self._oai_status)
 
         save_oai = _primary_btn(SETTINGS_SAVE, 120)

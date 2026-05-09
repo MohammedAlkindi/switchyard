@@ -240,6 +240,7 @@ class MainWindow(QMainWindow):
     def _on_conv_updated(self, conv: dict):
         self._sidebar.add_or_update_conversation(conv)
         self._sidebar.set_active_conversation(conv["id"])
+        self._analytics_tab.invalidate_usage_cache()
 
     def _on_conversations_cleared(self):
         self._chat_tab.new_conversation()
@@ -309,6 +310,9 @@ class MainWindow(QMainWindow):
     # ── Shutdown ──────────────────────────────────────────────────────────────
 
     def closeEvent(self, event):
+        if hasattr(self._chat_tab, "_worker") and self._chat_tab._worker is not None:
+            self._chat_tab._worker.cancel()
+            self._chat_tab._worker.wait(3000)
         if hasattr(self._ai_core, "_metrics_worker"):
             self._ai_core._metrics_worker.requestInterruption()
             self._ai_core._metrics_worker.wait(2000)

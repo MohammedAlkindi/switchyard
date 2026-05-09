@@ -244,6 +244,10 @@ class AnalyticsTab(QWidget):
                 self._cpu_series.append(i, c)
                 self._mem_series.append(i, m)
 
+    def invalidate_usage_cache(self):
+        """Force the next metrics update to recompute usage stats."""
+        self._usage_cache_time = 0.0
+
     def _manual_refresh(self):
         self._ai_core.collect_metrics()
 

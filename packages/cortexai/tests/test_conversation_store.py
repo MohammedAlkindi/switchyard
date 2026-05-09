@@ -69,3 +69,26 @@ def test_rename():
         store._flush_dirty()
         updated = store.get(conv["id"])
         assert updated["title"] == "My renamed title"
+
+
+def test_rename_ensures_timer_started():
+    with tempfile.TemporaryDirectory() as tmp:
+        store = _make_store(tmp)
+        conv = store.create()
+        store._flush_dirty()
+        store.rename(conv["id"], "Renamed Title")
+        assert conv["id"] in store._dirty
+        store._flush_dirty()
+        loaded = store.get(conv["id"])
+        assert loaded["title"] == "Renamed Title"
+
+
+def test_delete_removes_from_dirty():
+    with tempfile.TemporaryDirectory() as tmp:
+        store = _make_store(tmp)
+        conv = store.create()
+        cid = conv["id"]
+        store.add_message(cid, "user", "hello")
+        assert cid in store._dirty
+        store.delete(cid)
+        assert cid not in store._dirty

@@ -9,8 +9,8 @@ PyYAML>=6.0
 # fastapi>=0.100.0
 # uvicorn[standard]>=0.20.0
 
-# ── Second AI provider (optional) ─────────────────────────────────────────────
-# openai>=1.0.0
+# ── Second AI provider (required for gpt-4o and gpt-4o-mini support) ─────────
+openai>=1.0.0
 
 # ── Language detection (optional) ─────────────────────────────────────────────
 # langdetect>=1.0.9

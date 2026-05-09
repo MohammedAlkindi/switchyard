@@ -37,3 +37,16 @@ def test_set_api_key_marks_ready():
         client = mod.AnthropicClient()
         client.set_api_key("sk-ant-fake-key")
         assert client.ready
+
+
+def test_reads_key_from_user_settings():
+    mock_ant = MagicMock()
+    mock_ant.Anthropic.return_value = MagicMock()
+    with patch.dict("sys.modules", {"anthropic": mock_ant}):
+        with patch("core.user_settings.load_user_settings",
+                   return_value={"anthropic_api_key": "sk-ant-test"}):
+            mod = _reload_client()
+            mod.HAS_ANTHROPIC = True
+            mod.anthropic = mock_ant
+            client = mod.AnthropicClient()
+            assert client.ready

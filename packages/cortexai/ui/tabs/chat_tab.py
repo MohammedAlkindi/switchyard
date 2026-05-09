@@ -173,7 +173,8 @@ class ChatTab(QWidget):
         bubble = UserBubble(text, ts)
         self._insert_message_widget(bubble)
 
-        self._store.add_message(self._conv_id, "user", text)
+        user_token_est = max(1, int(len(text.split()) * 1.3))
+        self._store.add_message(self._conv_id, "user", text, tokens=user_token_est)
         self._messages.append({"role": "user", "content": text})
 
         conv = self._store.get(self._conv_id)
@@ -277,6 +278,7 @@ class ChatTab(QWidget):
         if self._messages and self._messages[-1]["role"] == "assistant":
             self._messages.pop()
         if self._messages and self._messages[-1]["role"] == "user":
+            self._stream_start = datetime.now()
             self._start_worker(list(self._messages))
             self._input_bar.set_streaming(True)
             self._error_banner.hide()
@@ -296,6 +298,7 @@ class ChatTab(QWidget):
         self._insert_message_widget(self._last_assistant_bubble)
         self._last_assistant_bubble.start_stream()
         self._input_bar.set_streaming(True)
+        self._stream_start = datetime.now()
         self._start_worker(list(self._messages))
 
     def _on_copy(self, text: str):

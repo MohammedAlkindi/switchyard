@@ -235,6 +235,7 @@ class AssistantBubble(QWidget):
         self._streaming = False
         self._pending_tokens = []
         self._render_timer.stop()
+        self._hide_timer.stop()
         self._body.clear()
         self._action_bar.hide()
 

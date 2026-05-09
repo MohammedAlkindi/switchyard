@@ -124,11 +124,13 @@ by all provider workers.
 ## App shutdown sequence
 
 `MainWindow.closeEvent`:
-1. `MetricsWorker.requestInterruption()` + `wait(2000)`
-2. `ConversationStore._flush_dirty()` — write any pending conversations
-3. `ComplianceManager.close()` — flush audit file handle
-4. `BillingManager.close()` — flush billing file handle
-5. `event.accept()`
+1. Cancel active `ChatTab._worker` (if streaming) — `worker.cancel()` + `wait(3000)`
+2. `MetricsWorker.requestInterruption()` + `wait(2000)`
+3. `ConversationStore._flush_timer.stop()`
+4. `ConversationStore._flush_dirty()` — write any pending conversations
+5. `ComplianceManager.close()` — flush audit file handle
+6. `BillingManager.close()` — flush billing file handle
+7. `event.accept()`
 
 ## Display name caching
 
@@ -197,6 +199,27 @@ The analytics tab reads `latency_ms` from stored messages to compute average res
 `AICore.collect_metrics()` (formerly `_collect_metrics`) is a public method that emits
 a one-shot metrics reading on the `performance_metrics` signal. Called by `AnalyticsTab`
 when the user clicks Refresh.
+
+## Latency tracking
+
+`_stream_start` must be set in all three places that initiate a stream:
+- `_on_send` — initial user message
+- `_on_regenerate` — regenerate response
+- `_retry_last` — retry after error
+
+## Analytics cache invalidation
+
+`AnalyticsTab.invalidate_usage_cache()` sets `_usage_cache_time = 0.0`.
+Call this from `MainWindow._on_conv_updated` so the analytics tab reflects
+the latest message immediately on next metrics update rather than waiting
+up to 30 seconds.
+
+## ConversationStore.rename and delete behaviour
+
+`rename()` marks the conversation dirty and calls `_ensure_timer()` to guarantee
+the change is flushed to disk even if no messages have been sent (which would
+normally start the timer). `delete()` also removes the conversation ID from
+`_dirty` to prevent phantom flush attempts.
 
 ## What not to do
 

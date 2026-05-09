@@ -26,9 +26,10 @@ def test_no_key_returns_message():
 def test_ready_false_without_key():
     mock_openai = MagicMock()
     with patch.dict("sys.modules", {"openai": mock_openai}):
-        mod = _reload_client()
-        client = mod.OpenAIClient(api_key="")
-        assert not client.ready
+        with patch("core.user_settings.load_user_settings", return_value={}):
+            mod = _reload_client()
+            client = mod.OpenAIClient(api_key="")
+            assert not client.ready
 
 
 def test_set_api_key_marks_ready():

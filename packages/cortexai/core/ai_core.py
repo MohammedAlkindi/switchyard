@@ -1,7 +1,6 @@
 import hashlib
 import logging
 import os
-import pathlib
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -22,7 +21,7 @@ from services.rate_limiter import RateLimiter
 
 log = logging.getLogger("CortexAI")
 
-_DISK_PATH = str(pathlib.Path.home().anchor)
+_DISK_PATH = str(Path.home().anchor)
 _CONFIGS_DIR = Path(__file__).parent.parent / "configs"
 
 try:
