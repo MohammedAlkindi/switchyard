@@ -25,6 +25,12 @@ class OpenAIClient:
         self._build_client()
 
     def _build_client(self):
+        if not self._api_key:
+            try:
+                from core.user_settings import load_user_settings
+                self._api_key = load_user_settings().get("openai_api_key", "")
+            except Exception:
+                pass
         if not HAS_OPENAI or not self._api_key:
             self._client = None
             return

@@ -170,6 +170,34 @@ It is NOT persisted to `user_settings.json` (only the Anthropic key is persisted
 Add OpenAI key persistence to `_ApiKeysPanel._save_oai` following the same pattern
 as `_save_ant`.
 
+## OpenAI key persistence
+
+OpenAI API key entered in Settings → API Keys is stored in `configs/user_settings.json`
+under `"openai_api_key"`. The `OpenAIClient` build order:
+1. Explicit `api_key` argument
+2. `OPENAI_API_KEY` environment variable
+3. `configs/user_settings.json` → `openai_api_key`
+
+## Message widget tracking
+
+`ChatTab._message_widgets` is a parallel list to `ChatTab._messages`.
+It maps message index → QWidget (UserBubble or AssistantBubble).
+Both lists must be kept in sync. Reset both in `new_conversation()` and `_clear_messages()`.
+Append to both in `_insert_message_widget()`. Update `_message_widgets` in `_on_regenerate()`.
+Used by `_scroll_to_message_index()` for search result navigation.
+
+## Latency tracking
+
+`ChatTab._stream_start` records `datetime.now()` when a worker is started.
+`_on_stream_done` computes `latency_ms` and passes it to `ConversationStore.add_message`.
+The analytics tab reads `latency_ms` from stored messages to compute average response time.
+
+## AICore.collect_metrics (public)
+
+`AICore.collect_metrics()` (formerly `_collect_metrics`) is a public method that emits
+a one-shot metrics reading on the `performance_metrics` signal. Called by `AnalyticsTab`
+when the user clicks Refresh.
+
 ## What not to do
 
 - Do not edit files in `configs/` — they are auto-generated at runtime

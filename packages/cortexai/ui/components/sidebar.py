@@ -39,10 +39,6 @@ class Sidebar(QWidget):
     conversation_deleted   = pyqtSignal(str)
     conversation_renamed   = pyqtSignal(str, str)
 
-    # Keep compat signals so existing main_window.py wiring still compiles
-    model_changed    = pyqtSignal(str)
-    api_key_changed  = pyqtSignal(str)
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedWidth(WIDTH)

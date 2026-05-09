@@ -245,7 +245,7 @@ class AnalyticsTab(QWidget):
                 self._mem_series.append(i, m)
 
     def _manual_refresh(self):
-        self._ai_core._collect_metrics()
+        self._ai_core.collect_metrics()
 
     def _export_csv(self):
         path, _ = QFileDialog.getSaveFileName(self, "Export Metrics", "", "CSV Files (*.csv)")

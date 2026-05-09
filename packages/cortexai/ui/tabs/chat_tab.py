@@ -81,6 +81,9 @@ class ChatTab(QWidget):
         self._search_cursor: int = -1
         self._search_query: str = ""
 
+        self._message_widgets: list = []
+        self._stream_start: Optional[datetime] = None
+
         self._model_switcher = ModelSwitcher(self)
         self._model_switcher.model_selected.connect(self._on_model_selected)
 
@@ -186,6 +189,7 @@ class ChatTab(QWidget):
         self._input_bar.set_streaming(True)
         self._error_banner.hide()
 
+        self._stream_start = datetime.now()
         self._start_worker(list(self._messages))
         self._scroll_to_bottom()
 
@@ -226,12 +230,18 @@ class ChatTab(QWidget):
         self._scroll_to_bottom()
 
     def _on_stream_done(self):
+        latency_ms = 0
+        if self._stream_start:
+            latency_ms = int((datetime.now() - self._stream_start).total_seconds() * 1000)
+            self._stream_start = None
         if self._last_assistant_bubble:
             self._last_assistant_bubble.finish_stream()
             text = self._last_assistant_bubble.get_text()
             self._messages.append({"role": "assistant", "content": text})
             if self._conv_id:
-                self._store.add_message(self._conv_id, "assistant", text)
+                token_est = max(1, int(len(text.split()) * 1.3))
+                self._store.add_message(self._conv_id, "assistant", text,
+                                        tokens=token_est, latency_ms=latency_ms)
                 conv = self._store.get(self._conv_id)
                 if conv:
                     self.conversation_updated.emit(conv)
@@ -274,9 +284,12 @@ class ChatTab(QWidget):
     def _on_regenerate(self):
         if self._messages and self._messages[-1]["role"] == "assistant":
             self._messages.pop()
-        if self._last_assistant_bubble:
-            self._msg_v.removeWidget(self._last_assistant_bubble)
-            self._last_assistant_bubble.deleteLater()
+        old_bubble = self._last_assistant_bubble
+        if old_bubble:
+            if old_bubble in self._message_widgets:
+                self._message_widgets.remove(old_bubble)
+            self._msg_v.removeWidget(old_bubble)
+            old_bubble.deleteLater()
         self._last_assistant_bubble = AssistantBubble(self._model_label)
         self._last_assistant_bubble.regen_requested.connect(self._on_regenerate)
         self._last_assistant_bubble.copy_requested.connect(self._on_copy)
@@ -297,6 +310,7 @@ class ChatTab(QWidget):
         self._search_results = []
         self._search_cursor = -1
         self._search_query = ""
+        self._message_widgets = []
         self._conv_id = None
         self._last_assistant_bubble = None
         self._show_empty_state()
@@ -373,9 +387,8 @@ class ChatTab(QWidget):
         self._scroll_to_message_index(self._search_results[self._search_cursor])
 
     def _scroll_to_message_index(self, msg_idx: int):
-        item = self._msg_v.itemAt(msg_idx)
-        if item and item.widget():
-            self._scroll.ensureWidgetVisible(item.widget())
+        if 0 <= msg_idx < len(self._message_widgets):
+            self._scroll.ensureWidgetVisible(self._message_widgets[msg_idx])
 
     def clear_chat(self):
         self.new_conversation()
@@ -420,8 +433,10 @@ class ChatTab(QWidget):
     def _insert_message_widget(self, w: QWidget):
         idx = self._msg_v.count() - 1
         self._msg_v.insertWidget(idx, w)
+        self._message_widgets.append(w)
 
     def _clear_messages(self):
+        self._message_widgets.clear()
         while self._msg_v.count() > 1:
             item = self._msg_v.takeAt(0)
             if item.widget():

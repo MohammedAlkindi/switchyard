@@ -128,7 +128,6 @@ class MainWindow(QMainWindow):
         self._sidebar.conversation_selected.connect(self._on_conv_selected)
         self._sidebar.conversation_deleted.connect(self._on_conv_deleted)
         self._sidebar.conversation_renamed.connect(self._on_conv_renamed)
-        self._sidebar.api_key_changed.connect(self._on_api_key_change)
         body_h.addWidget(self._sidebar)
 
         v_sep = QWidget()
@@ -313,8 +312,11 @@ class MainWindow(QMainWindow):
         if hasattr(self._ai_core, "_metrics_worker"):
             self._ai_core._metrics_worker.requestInterruption()
             self._ai_core._metrics_worker.wait(2000)
-        if hasattr(self._chat_tab, "_store"):
-            self._chat_tab._store._flush_dirty()
+        store = getattr(self._chat_tab, "_store", None)
+        if store:
+            if getattr(store, "_flush_timer", None):
+                store._flush_timer.stop()
+            store._flush_dirty()
         self._ai_core.compliance.close()
         self._ai_core.billing.close()
         event.accept()

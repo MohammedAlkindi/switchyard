@@ -306,6 +306,16 @@ class _ApiKeysPanel(QWidget):
         oai_row.addWidget(show_oai)
         v.addLayout(oai_row)
 
+        self._oai_status = QLabel("● Key loaded" if env_oai else "○ No key set")
+        self._oai_status.setFont(QFont(T.FONT_FAMILY, T.FONT_SIZES["sm"]))
+        oai_color = T.SUCCESS if env_oai else T.TEXT_TERTIARY
+        self._oai_status.setStyleSheet(f"color: {oai_color}; background: transparent;")
+        v.addWidget(self._oai_status)
+
+        save_oai = _primary_btn(SETTINGS_SAVE, 120)
+        save_oai.clicked.connect(self._save_oai)
+        v.addWidget(save_oai)
+
         v.addStretch()
 
     def _toggle_echo(self, field: QLineEdit):
@@ -336,6 +346,17 @@ class _ApiKeysPanel(QWidget):
         color = T.SUCCESS if ok else T.ERROR
         self._ant_status.setText(msg)
         self._ant_status.setStyleSheet(f"color: {color}; background: transparent;")
+
+    def _save_oai(self):
+        key = self._oai_input.text().strip()
+        existing = load_user_settings()
+        existing["openai_api_key"] = key
+        save_user_settings(existing)
+        color = T.SUCCESS if key else T.TEXT_TERTIARY
+        self._oai_status.setText("● Key saved" if key else "○ Key cleared")
+        self._oai_status.setStyleSheet(f"color: {color}; background: transparent;")
+        show_toast("OpenAI key saved" if key else "OpenAI key cleared",
+                   "success" if key else "info", self)
 
     def reset(self):
         pass
@@ -423,17 +444,13 @@ class _ModelsPanel(QWidget):
 
     def _save(self):
         existing = load_user_settings()
-        settings = {
-            "max_tokens":    self._tok_slider.value(),
-            "temperature":   self._temp_slider.value() / 100.0,
-            "default_model": self._model_combo.currentData(),
-            "system_prompt": self._sys_prompt.toPlainText().strip(),
-            "display_name":  existing.get("display_name", ""),
-            "features":      existing.get("features", {}),
-        }
-        save_user_settings(settings)
-        self._settings = settings
-        self.settings_changed.emit(settings)
+        existing["max_tokens"]    = self._tok_slider.value()
+        existing["temperature"]   = self._temp_slider.value() / 100.0
+        existing["default_model"] = self._model_combo.currentData()
+        existing["system_prompt"] = self._sys_prompt.toPlainText().strip()
+        save_user_settings(existing)
+        self._settings = existing
+        self.settings_changed.emit(existing)
         show_toast("Settings saved", "success", self)
 
     def reset(self):
@@ -698,8 +715,16 @@ class _AboutPanel(QWidget):
             row.addWidget(val_lbl)
             v.addLayout(row)
 
+        from PyQt5.QtCore import QUrl
+        from PyQt5.QtGui import QDesktopServices
+
         v.addSpacing(T.SPACING["xl"])
         check = _primary_btn("Check for Updates", 180)
+        check.clicked.connect(
+            lambda: QDesktopServices.openUrl(
+                QUrl("https://github.com/MohammedAlkindi/CortexAI/releases")
+            )
+        )
         v.addWidget(check)
         v.addStretch()
 

@@ -59,3 +59,13 @@ def test_list_recent_sorted():
         c2 = store.create()
         recent = store.list_recent()
         assert recent[0]["id"] == c2["id"]
+
+
+def test_rename():
+    with tempfile.TemporaryDirectory() as tmp:
+        store = _make_store(tmp)
+        conv = store.create()
+        store.rename(conv["id"], "My renamed title")
+        store._flush_dirty()
+        updated = store.get(conv["id"])
+        assert updated["title"] == "My renamed title"

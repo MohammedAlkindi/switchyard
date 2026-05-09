@@ -162,6 +162,8 @@ class AssistantBubble(QWidget):
         self._body.setHtml(f'<span style="color:{T.TEXT_TERTIARY};">|</span>')
 
     def append_token(self, token: str):
+        if not self._streaming:
+            return
         self._raw_text += token
         self._pending_tokens.append(token)
         if not self._render_timer.isActive():

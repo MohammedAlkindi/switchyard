@@ -52,3 +52,15 @@ def test_close_is_idempotent():
         mgr = _make_manager(tmp)
         mgr.close()
         mgr.close()  # should not raise
+
+
+def test_export_creates_json():
+    with tempfile.TemporaryDirectory() as tmp:
+        mgr = _make_manager(tmp)
+        mgr.log_usage("alice", "model-a", 100, 0.01)
+        out = str(Path(tmp) / "billing_export.json")
+        mgr.export(out)
+        mgr.close()
+        data = json.loads(Path(out).read_text(encoding="utf-8"))
+        assert len(data) == 1
+        assert data[0]["user"] == "alice"

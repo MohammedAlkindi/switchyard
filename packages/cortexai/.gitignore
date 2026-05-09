@@ -164,6 +164,7 @@ configs/*.jsonl
 
 # PyInstaller
 *.spec
+!CortexAI.spec
 *.manifest
 dist/
 build/

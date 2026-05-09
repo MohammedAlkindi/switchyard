@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import os
+import pathlib
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -21,7 +22,7 @@ from services.rate_limiter import RateLimiter
 
 log = logging.getLogger("CortexAI")
 
-_DISK_PATH = "C:\\" if os.name == "nt" else "/"
+_DISK_PATH = str(pathlib.Path.home().anchor)
 _CONFIGS_DIR = Path(__file__).parent.parent / "configs"
 
 try:
@@ -107,7 +108,7 @@ class AICore(QObject):
         self._metrics_worker.metrics_ready.connect(self.performance_metrics)
         self._metrics_worker.start()
 
-    def _collect_metrics(self):
+    def collect_metrics(self):
         """Called manually (e.g. from analytics Refresh button) — emit a one-shot reading."""
         metrics = {
             "timestamp": datetime.now().isoformat(),
