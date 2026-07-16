@@ -36,13 +36,36 @@ export interface SpawnResult {
 // ref-safe: no slashes, no leading dots, no whitespace.
 const AGENT_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/;
 
-export async function spawn(name: string, options: SpawnOptions = {}): Promise<SpawnResult> {
+// Windows refuses these as file names (even with an extension), which would
+// break the worktree directory. Rejected on every platform so a fleet set up
+// on macOS/Linux stays usable from Windows checkouts of the same repo.
+const WINDOWS_RESERVED_RE = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
+
+function validateAgentName(name: string): void {
   if (!AGENT_NAME_RE.test(name)) {
     throw new FleetError(
       `Invalid agent name "${name}". Use letters, digits, ".", "_" or "-" ` +
         '(max 64 chars, starting with a letter or digit).',
     );
   }
+  // git check-ref-format rules the character set alone doesn't catch: catching
+  // them here gives a clean error instead of a raw `git worktree add` failure.
+  if (name.includes('..') || name.endsWith('.') || name.endsWith('.lock')) {
+    throw new FleetError(
+      `Invalid agent name "${name}". It must form a valid branch name: ` +
+        'no "..", and no trailing "." or ".lock".',
+    );
+  }
+  if (WINDOWS_RESERVED_RE.test(name)) {
+    throw new FleetError(
+      `Invalid agent name "${name}". It is a reserved device name on Windows ` +
+        '(CON, PRN, AUX, NUL, COM1-9, LPT1-9) and cannot be a worktree directory.',
+    );
+  }
+}
+
+export async function spawn(name: string, options: SpawnOptions = {}): Promise<SpawnResult> {
+  validateAgentName(name);
 
   const repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());
   const git = gitAt(repoRoot);

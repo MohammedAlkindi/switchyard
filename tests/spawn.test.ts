@@ -65,6 +65,20 @@ describe('fleet spawn', () => {
     await expect(spawn('has space', { cwd: repo.root })).rejects.toThrow(/Invalid agent name/);
   });
 
+  it('rejects names git refuses as branch names', async () => {
+    await expect(spawn('a..b', { cwd: repo.root })).rejects.toThrow(/valid branch name/);
+    await expect(spawn('trailing.', { cwd: repo.root })).rejects.toThrow(/valid branch name/);
+    await expect(spawn('agent.lock', { cwd: repo.root })).rejects.toThrow(/valid branch name/);
+  });
+
+  it('rejects Windows-reserved device names on every platform', async () => {
+    await expect(spawn('con', { cwd: repo.root })).rejects.toThrow(/reserved device name/);
+    await expect(spawn('NUL', { cwd: repo.root })).rejects.toThrow(/reserved device name/);
+    await expect(spawn('com1.agent', { cwd: repo.root })).rejects.toThrow(/reserved device name/);
+    // Names that merely start with a reserved word are fine.
+    await expect(spawn('console', { cwd: repo.root })).resolves.toBeDefined();
+  });
+
   it('rejects a missing --from branch', async () => {
     await expect(spawn('alice', { from: 'no-such-branch', cwd: repo.root })).rejects.toThrow(
       /does not exist/,
