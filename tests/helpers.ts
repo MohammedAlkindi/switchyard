@@ -19,8 +19,10 @@ export interface TempRepo {
  */
 export async function makeTempRepo(): Promise<TempRepo> {
   const dir = tmp.dirSync({ unsafeCleanup: true, prefix: 'fleet-test-' });
-  // Realpath up front so paths derived from git output compare cleanly.
-  const root = realpathSync(dir.name);
+  // Native realpath up front so paths derived from git output compare cleanly.
+  // Unlike the JS implementation, it also expands Windows 8.3 short names
+  // (C:\Users\RUNNER~1\...), which is how CI runners spell %TEMP%.
+  const root = realpathSync.native(dir.name);
   const git = simpleGit({ baseDir: root });
   await git.raw(['init', '-b', 'main']);
   await git.addConfig('user.name', 'Fleet Test');
