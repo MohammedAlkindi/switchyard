@@ -38,11 +38,10 @@ export async function collectListings(options: ListOptions = {}): Promise<AgentL
   const state = readState(repoRoot);
   const agents = Object.values(state.agents).sort((a, b) => a.name.localeCompare(b.name));
 
-  const listings: AgentListing[] = [];
-  for (const record of agents) {
-    listings.push(await describeAgent(repoRoot, record));
-  }
-  return listings;
+  // Each agent needs several independent, read-only git calls; running the
+  // agents concurrently keeps `fleet list` (and every `fleet watch` frame)
+  // fast as the fleet grows. Output order mirrors the sorted agents.
+  return Promise.all(agents.map((record) => describeAgent(repoRoot, record)));
 }
 
 /** Render listings as the `fleet list` table. Shared with `fleet watch`. */
