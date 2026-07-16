@@ -8,8 +8,8 @@ rules you do), and the design rationale lives in
 ## Setup
 
 ```sh
-git clone https://github.com/MohammedAlkindi/Switchyard-.git
-cd Switchyard-
+git clone https://github.com/MohammedAlkindi/Switchyard.git
+cd Switchyard
 npm install     # also builds dist/ via the prepare hook
 npm test
 ```

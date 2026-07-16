@@ -10,7 +10,7 @@ Switchyard is pre-1.0. Only the latest published version of
 Please do not open a public issue for security problems. Instead, either:
 
 - use GitHub's private vulnerability reporting on this repository
-  ([Security → Report a vulnerability](https://github.com/MohammedAlkindi/Switchyard-/security/advisories/new)), or
+  ([Security → Report a vulnerability](https://github.com/MohammedAlkindi/Switchyard/security/advisories/new)), or
 - email alkndymhmd692@gmail.com with `git-fleet security` in the subject.
 
 Include the `git-fleet` version, your OS, a reproduction, and the impact as you

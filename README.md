@@ -9,11 +9,11 @@
 
 > One repo, many AI coding agents, zero collisions — Switchyard's `fleet` CLI gives every agent an isolated git worktree, with collision detection before you merge.
 
-[![license](https://img.shields.io/github/license/MohammedAlkindi/Switchyard-)](LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/MohammedAlkindi/Switchyard-/ci.yml?branch=main&label=CI)](https://github.com/MohammedAlkindi/Switchyard-/actions/workflows/ci.yml)
+[![license](https://img.shields.io/github/license/MohammedAlkindi/Switchyard)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/MohammedAlkindi/Switchyard/ci.yml?branch=main&label=CI)](https://github.com/MohammedAlkindi/Switchyard/actions/workflows/ci.yml)
 ![coverage](https://img.shields.io/badge/coverage-80%25-green)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/MohammedAlkindi/Switchyard-/pulls)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/MohammedAlkindi/Switchyard/pulls)
 
 <!-- Restore once the package is published to npm (they render "package not found" until then):
 [![npm version](https://img.shields.io/npm/v/git-fleet)](https://www.npmjs.com/package/git-fleet)

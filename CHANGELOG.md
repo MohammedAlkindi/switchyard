@@ -49,5 +49,5 @@ this package.
 - Project name is **Switchyard**; the npm package (`git-fleet`) and installed
   binary (`fleet`) are unchanged.
 
-[Unreleased]: https://github.com/MohammedAlkindi/Switchyard-/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/MohammedAlkindi/Switchyard-/releases/tag/v0.1.0
+[Unreleased]: https://github.com/MohammedAlkindi/Switchyard/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/MohammedAlkindi/Switchyard/releases/tag/v0.1.0
