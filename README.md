@@ -152,6 +152,9 @@ An optional `.fleetrc.json` at the repo root sets per-repo defaults. Precedence 
 
 A malformed config file is a hard error with the offending key named; a missing one is fine.
 
+> [!NOTE]
+> `postSpawn` and `preMerge` run shell commands straight from the repo's `.fleetrc.json` — the same trust you already extend to a repo's npm scripts or git hooks. Review that file before running `fleet spawn` or `fleet merge` in a repository you didn't author (details in [SECURITY.md](SECURITY.md)).
+
 ## How it works
 
 `fleet spawn` runs `git worktree add` under the hood: each agent gets a real, separate directory with its own checkout of a dedicated `fleet/<agent>` branch, so one agent's `git reset` physically cannot touch another agent's files. A single gitignored `.fleet/state.json` in the main repo maps each agent to its branch, base, and worktree, and `fleet check` uses it to diff every agent branch against its base (`git diff base...branch`, plus uncommitted edits) and cross-reference the changed files. Switchyard also adds `.fleet/` to `.git/info/exclude` automatically, so it never dirties the repos it manages. Design rationale and limitations live in [docs/architecture.md](docs/architecture.md).
