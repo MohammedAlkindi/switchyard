@@ -20,22 +20,24 @@
 -->
 
 <p align="center">
-  <a href="demo.mp4"><strong>▶️ Watch the 30-second demo</strong></a><br>
-  <sub><code>fleet spawn</code> two agents · <code>fleet list</code> the whole fleet · <code>fleet check</code> catches the collision before anyone merges</sub>
+  <img src="assets/demo.gif" alt="30-second demo: fleet spawn isolates two agents, fleet list shows the whole fleet, fleet check catches the collision before anyone merges" width="830">
 </p>
 
-<!-- GitHub only embeds an inline video player for videos uploaded through its web UI,
-     not for files committed to the repo. To get the inline player: after pushing,
-     edit this README on github.com, drag demo.mp4 into the editor, and replace the
-     <p> block above with the generated https://github.com/user-attachments/assets/…
-     URL on its own line. The video is rendered from demo.tape with vhs
-     (see the comments at the top of that file). -->
+<p align="center">
+  <sub><code>fleet spawn</code> two agents · <code>fleet list</code> the whole fleet · <code>fleet check</code> catches the collision before anyone merges · <a href="assets/demo.mp4">full-quality mp4</a></sub>
+</p>
+
+<!-- The demo is rendered from demo.tape with vhs (see the comments at the top of that
+     file), producing assets/demo.mp4. The inline GIF is converted from it with:
+       ffmpeg -i assets/demo.mp4 -vf "fps=10,scale=960:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5" -loop 0 assets/demo.gif
+     (GitHub only inline-plays mp4s uploaded via its web editor, not committed files —
+     a committed GIF is the reliable way to get a moving demo on the README.) -->
 
 Two AI coding agents on one checkout ends badly. This project exists because Codex silently ran a `git reset` on `main` mid-merge while Claude Code was mid-task on the same files — the merge state vanished and neither agent noticed. The failure mode isn't exotic: two agents, one working tree, no isolation. Switchyard (published as `git-fleet`; the installed command is `fleet`) gives each agent its own git worktree and branch, tracks them centrally, and flags collisions between agents before anyone merges.
 
 ## What it looks like
 
-*(The same flow as the [demo video](demo.mp4), in skimmable, copy-pasteable form.)*
+*(The same flow as the [demo video](assets/demo.mp4), in skimmable, copy-pasteable form.)*
 
 ```console
 $ fleet spawn claude
