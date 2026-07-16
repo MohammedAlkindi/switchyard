@@ -16,8 +16,10 @@
   "author": "Mohammed Alkindi <alkndymhmd692@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MohammedAlkindi/Switchyard-.git"
+    "url": "git+https://github.com/MohammedAlkindi/Switchyard.git"
   },
+  "bugs": "https://github.com/MohammedAlkindi/Switchyard/issues",
+  "homepage": "https://github.com/MohammedAlkindi/Switchyard#readme",
   "type": "module",
   "bin": {
     "fleet": "dist/cli.js"
