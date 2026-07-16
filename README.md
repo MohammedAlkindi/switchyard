@@ -11,6 +11,7 @@
 
 [![license](https://img.shields.io/github/license/MohammedAlkindi/Switchyard-)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/MohammedAlkindi/Switchyard-/ci.yml?branch=main&label=CI)](https://github.com/MohammedAlkindi/Switchyard-/actions/workflows/ci.yml)
+![coverage](https://img.shields.io/badge/coverage-80%25-green)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/MohammedAlkindi/Switchyard-/pulls)
 
@@ -18,6 +19,11 @@
 [![npm version](https://img.shields.io/npm/v/git-fleet)](https://www.npmjs.com/package/git-fleet)
 [![npm downloads](https://img.shields.io/npm/dm/git-fleet)](https://www.npmjs.com/package/git-fleet)
 -->
+
+<!-- The coverage badge is a static number: re-run `npm run test:coverage` and update it
+     when it drifts. Replace with a Codecov (or similar) badge once coverage upload is
+     wired into CI. -->
+
 
 <p align="center">
   <img src="assets/demo.gif" alt="30-second demo: fleet spawn isolates two agents, fleet list shows the whole fleet, fleet check catches the collision before anyone merges" width="830">
