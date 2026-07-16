@@ -38,10 +38,11 @@ commit that — the tag `npm version` creates should include the changelog.
 ```sh
 npm version patch        # or: minor | major
 git push origin main --follow-tags
-npm publish
 ```
 
 `npm version` bumps `package.json`, commits, and tags in one step — don't edit the version by hand.
+
+Pushing the `v*` tag triggers the release workflow (`.github/workflows/release.yml`): it re-runs lint, typecheck, and the test suite, verifies the tag matches `package.json`, and publishes to npm with [provenance](https://docs.npmjs.com/generating-provenance-statements). It authenticates with the `NPM_TOKEN` repository secret — a granular npm automation token with publish rights on `git-fleet`; rotate it from npmjs.com → Access Tokens if it leaks or expires. A manual `npm publish` from a clean checkout still works as a fallback (`prepublishOnly` runs the same checks), but the workflow is the normal path — it can't publish uncommitted work.
 
 Semver conventions for this package:
 
