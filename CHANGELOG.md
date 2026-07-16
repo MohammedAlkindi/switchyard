@@ -43,6 +43,10 @@ this package.
 - Worktree provisioning in `.fleetrc.json`: `copyOnSpawn` (files copied into
   every new worktree), `postSpawn` (setup command, e.g. `npm ci`), and
   `preMerge` (gate command, e.g. `npm test` — non-zero aborts `fleet merge`).
+- `.fleetrc.json` accepts an editor `$schema` key, and the package ships
+  `schema/fleetrc.schema.json` for it (autocomplete and validation).
+- `fleet spawn` validates agent names up front: names that are invalid as git
+  refs or reserved on Windows are rejected with a clear error.
 
 ### Changed
 
