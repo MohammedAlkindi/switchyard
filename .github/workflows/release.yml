@@ -41,7 +41,22 @@ jobs:
       - name: Test
         run: npm test
 
+      # A version can reach the registry before its tag does (e.g. a manual
+      # first publish). Skip publishing instead of failing the whole run.
+      - name: Check whether this version is already on the registry
+        id: registry
+        run: |
+          PKG="$(node -p "require('./package.json').name")"
+          VER="$(node -p "require('./package.json').version")"
+          if npm view "$PKG@$VER" version >/dev/null 2>&1; then
+            echo "$PKG@$VER is already published; skipping publish."
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to npm
+        if: steps.registry.outputs.published == 'false'
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
