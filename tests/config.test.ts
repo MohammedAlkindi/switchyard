@@ -53,6 +53,18 @@ describe('.fleetrc.json', () => {
     expect(() => readConfig(repo.root)).toThrow(/Unknown key "watchInterva"/);
   });
 
+  it('accepts a $schema key without treating it as config', () => {
+    writeConfig(
+      '{ "$schema": "https://unpkg.com/git-fleet/schema/fleetrc.schema.json", "watchInterval": 5 }',
+    );
+    expect(readConfig(repo.root)).toEqual({ watchInterval: 5 });
+  });
+
+  it('rejects a non-string $schema', () => {
+    writeConfig('{ "$schema": 42 }');
+    expect(() => readConfig(repo.root)).toThrow(/"\$schema".*must be a string/);
+  });
+
   it('reads the provisioning and hook keys', () => {
     writeConfig('{ "copyOnSpawn": [".env"], "postSpawn": "npm ci", "preMerge": "npm test" }');
     expect(readConfig(repo.root)).toEqual({

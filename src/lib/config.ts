@@ -60,6 +60,12 @@ export function readConfig(repoRoot: string): FleetConfig {
   const config: FleetConfig = {};
   for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
     switch (key) {
+      case '$schema':
+        // Editor-only pointer to a JSON schema (shipped as schema/fleetrc.schema.json).
+        if (typeof value !== 'string') {
+          throw new FleetError(`"$schema" in ${CONFIG_FILE} must be a string (schema URL).`);
+        }
+        break;
       case 'defaultBase':
         if (typeof value !== 'string' || value.trim() === '') {
           throw new FleetError(`"defaultBase" in ${CONFIG_FILE} must be a non-empty string (branch name).`);

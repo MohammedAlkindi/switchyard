@@ -132,6 +132,7 @@ An optional `.fleetrc.json` at the repo root sets per-repo defaults. Precedence 
 
 ```json
 {
+  "$schema": "https://unpkg.com/git-fleet/schema/fleetrc.schema.json",
   "defaultBase": "main",
   "watchInterval": 3,
   "autoClean": false,
@@ -141,6 +142,7 @@ An optional `.fleetrc.json` at the repo root sets per-repo defaults. Precedence 
 }
 ```
 
+- `$schema` — optional; points editors at the config's JSON schema for autocomplete and validation. The schema ships with the package (`node_modules/git-fleet/schema/fleetrc.schema.json`).
 - `defaultBase` — base branch for `fleet spawn` when `--from` is not passed (built-in default: the current branch).
 - `watchInterval` — refresh interval for `fleet watch`, in seconds (built-in default: 3).
 - `autoClean` — when `true`, every successful `fleet merge` also runs a `fleet clean` sweep for other fully merged agents (built-in default: `false`).

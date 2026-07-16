@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://unpkg.com/git-fleet/schema/fleetrc.schema.json",
+  "title": ".fleetrc.json",
+  "description": "Per-repo defaults for Switchyard (git-fleet). Precedence everywhere: CLI flag > .fleetrc.json > built-in default.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Pointer to this schema, for editor autocomplete and validation."
+    },
+    "defaultBase": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Default base branch for `fleet spawn` when --from is not passed (built-in default: the current branch)."
+    },
+    "watchInterval": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Default refresh interval for `fleet watch`, in seconds (built-in default: 3)."
+    },
+    "autoClean": {
+      "type": "boolean",
+      "description": "Run a `fleet clean` sweep after every successful `fleet merge` (built-in default: false)."
+    },
+    "copyOnSpawn": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Repo-root-relative files/directories copied into every new worktree by `fleet spawn` — the gitignored essentials a fresh worktree lacks (.env, …). Entries must stay inside the repository."
+    },
+    "postSpawn": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Shell command run inside a new worktree after `fleet spawn` (e.g. \"npm ci\"). A failing hook is reported but the worktree is kept."
+    },
+    "preMerge": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Shell command run inside the agent's worktree before `fleet merge` starts (e.g. \"npm test\"). A non-zero exit aborts the merge."
+    }
+  }
+}
