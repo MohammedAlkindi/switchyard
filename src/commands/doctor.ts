@@ -13,7 +13,7 @@ import {
 import { readState, worktreeAbsPath, worktreesDir, writeState } from '../lib/state.js';
 import type { AgentRecord, FleetState } from '../lib/state.js';
 
-/** Minimum git version Fleet needs (`--path-format=absolute` support). */
+/** Minimum git version Switchyard needs (`--path-format=absolute` support). */
 export const MIN_GIT = { major: 2, minor: 31 };
 
 export interface DoctorOptions {
@@ -147,7 +147,7 @@ export async function doctor(options: DoctorOptions = {}): Promise<DoctorResult>
         orphanDetails.push(`${entry.name}: valid fleet worktree not in state — --fix will adopt it`);
       }
     } else if (registered) {
-      // A real worktree, but not on a fleet/* branch — not Fleet's to manage.
+      // A real worktree, but not on a fleet/* branch — not Switchyard's to manage.
       orphanDetails.push(
         `${entry.name}: worktree on branch ${registered.branch ?? '(detached)'} — not a fleet/* branch; remove it yourself with \`git worktree remove\``,
       );

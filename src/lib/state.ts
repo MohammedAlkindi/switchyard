@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import path from 'node:path';
 import { FleetError } from './errors.js';
 
-/** One Fleet-managed agent: a branch plus the worktree it is checked out in. */
+/** One Switchyard-managed agent: a branch plus the worktree it is checked out in. */
 export interface AgentRecord {
   name: string;
   /** Branch the agent works on, always `fleet/<name>`. */
@@ -15,7 +15,7 @@ export interface AgentRecord {
   createdAt: string;
 }
 
-/** Shape of `.fleet/state.json` — the source of truth for all Fleet commands. */
+/** Shape of `.fleet/state.json` — the source of truth for all Switchyard commands. */
 export interface FleetState {
   version: 1;
   agents: Record<string, AgentRecord>;
@@ -53,7 +53,7 @@ export function readState(repoRoot: string): FleetState {
     (parsed as FleetState).agents === null
   ) {
     throw new FleetError(
-      `Fleet state file is corrupted: ${file}\n` +
+      `Switchyard state file is corrupted: ${file}\n` +
         'Fix or delete it, then re-run. Your worktrees and branches are not affected; ' +
         'you may need to `fleet spawn` agents again to re-register them.',
     );

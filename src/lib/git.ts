@@ -25,7 +25,7 @@ export async function getMainRepoRoot(cwd: string): Promise<string> {
   } catch {
     throw new FleetError(
       `Not inside a git repository: ${cwd}\n` +
-        'Fleet manages worktrees of an existing repository. ' +
+        'Switchyard manages worktrees of an existing repository. ' +
         '`cd` into one (or run `git init`) and try again.',
     );
   }
@@ -166,7 +166,7 @@ export async function isMergedInto(git: SimpleGit, branch: string, base: string)
 }
 
 /**
- * Ensure `.fleet/` is ignored via `.git/info/exclude` so Fleet never dirties
+ * Ensure `.fleet/` is ignored via `.git/info/exclude` so Switchyard never dirties
  * the repos it manages — even ones whose .gitignore doesn't mention it.
  */
 export async function ensureFleetExcluded(repoRoot: string): Promise<void> {

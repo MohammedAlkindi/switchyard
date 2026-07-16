@@ -58,7 +58,7 @@ export async function spawn(name: string, options: SpawnOptions = {}): Promise<S
   }
   if (await branchExists(git, branch)) {
     throw new FleetError(
-      `Branch "${branch}" already exists but is not tracked by Fleet.\n` +
+      `Branch "${branch}" already exists but is not tracked by Switchyard.\n` +
         `Delete it (\`git branch -d ${branch}\`) or pick a different agent name.`,
     );
   }

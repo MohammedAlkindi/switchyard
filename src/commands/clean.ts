@@ -66,7 +66,7 @@ export async function clean(options: CleanOptions = {}): Promise<CleanResult> {
     const abs = worktreeAbsPath(repoRoot, record);
 
     if (!(await branchExists(git, record.branch))) {
-      // Branch was deleted outside Fleet; only the stale state entry is left.
+      // Branch was deleted outside Switchyard; only the stale state entry is left.
       cleaned.push({
         name: record.name,
         branch: record.branch,

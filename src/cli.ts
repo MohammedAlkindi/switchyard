@@ -52,7 +52,7 @@ program
   .name('fleet')
   .description(
     'Manage multiple AI coding agents working on the same git repository.\n' +
-      'Each agent gets an isolated worktree + branch; Fleet tracks them and\n' +
+      'Each agent gets an isolated worktree + branch; Switchyard tracks them and\n' +
       'flags file-level collisions before you merge.',
   )
   .version(pkg.version)

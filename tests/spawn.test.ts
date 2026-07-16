@@ -57,7 +57,7 @@ describe('fleet spawn', () => {
 
   it('rejects an untracked pre-existing fleet/<name> branch', async () => {
     await repo.git.raw(['branch', 'fleet/rogue']);
-    await expect(spawn('rogue', { cwd: repo.root })).rejects.toThrow(/not tracked by Fleet/);
+    await expect(spawn('rogue', { cwd: repo.root })).rejects.toThrow(/not tracked by Switchyard/);
   });
 
   it('rejects invalid agent names', async () => {
