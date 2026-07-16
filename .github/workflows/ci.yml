@@ -36,5 +36,13 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Catches packaging breakage the unit tests can't see: a bad shebang,
+      # an unresolvable import in the compiled output, or a files-array typo.
+      - name: Smoke-test the built CLI
+        run: node dist/cli.js --version
+
+      - name: Preview npm pack contents
+        run: npm pack --dry-run
+
       - name: Test
         run: npm test
