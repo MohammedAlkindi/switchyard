@@ -54,4 +54,4 @@ Only the `dist/` output ships to npm (`files` in `package.json`); `prepare` rebu
 
 ## After the first publish
 
-The README's npm version/downloads badges are parked in an HTML comment near the top — shields.io renders "package not found" for unpublished packages. Uncomment them once `@switchyardhq/git-fleet` is live on npm.
+The README's npm version/downloads badges are live and point at `@switchyardhq/git-fleet`. shields.io renders "package not found" for them until the package's first publish — expected before the release, a problem after it. Once the publish lands, reload the README and confirm both badges resolve.
