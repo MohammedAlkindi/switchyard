@@ -3,7 +3,7 @@
 ## Supported versions
 
 Switchyard is pre-1.0. Only the latest published version of
-[`@switchyardhq/git-fleet`](https://www.npmjs.com/package/@switchyardhq/git-fleet) receives security fixes.
+[`@switchyardhq/switchyard`](https://www.npmjs.com/package/@switchyardhq/switchyard) receives security fixes.
 
 ## Reporting a vulnerability
 
@@ -11,9 +11,9 @@ Please do not open a public issue for security problems. Instead, either:
 
 - use GitHub's private vulnerability reporting on this repository
   ([Security → Report a vulnerability](https://github.com/MohammedAlkindi/Switchyard/security/advisories/new)), or
-- email alkndymhmd692@gmail.com with `@switchyardhq/git-fleet security` in the subject.
+- email alkndymhmd692@gmail.com with `@switchyardhq/switchyard security` in the subject.
 
-Include the `@switchyardhq/git-fleet` version, your OS, a reproduction, and the impact as you
+Include the `@switchyardhq/switchyard` version, your OS, a reproduction, and the impact as you
 understand it. This is a solo-maintained project: you'll get an acknowledgment
 within a few days, and confirmed issues ship as a patch release. You'll be
 credited in the release notes unless you ask not to be.

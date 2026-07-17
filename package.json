@@ -1,5 +1,5 @@
 {
-  "name": "@switchyardhq/git-fleet",
+  "name": "@switchyardhq/switchyard",
   "version": "0.1.0",
   "description": "Manage multiple AI coding agents working on the same git repository: isolated worktrees per agent, collision detection before merge, safe cleanup.",
   "keywords": [

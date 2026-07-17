@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Instructions for any AI coding agent working on this repository (Switchyard — npm `@switchyardhq/git-fleet`, bin `fleet`).
+Instructions for any AI coding agent working on this repository (Switchyard — npm `@switchyardhq/switchyard`, bin `fleet`).
 
 ## Commands
 
