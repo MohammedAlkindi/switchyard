@@ -9,8 +9,8 @@
 
 > One repo, many AI coding agents, zero collisions — Switchyard's `fleet` CLI gives every agent an isolated git worktree, with collision detection before you merge.
 
-[![npm version](https://img.shields.io/npm/v/git-fleet)](https://www.npmjs.com/package/git-fleet)
-[![npm downloads](https://img.shields.io/npm/dm/git-fleet)](https://www.npmjs.com/package/git-fleet)
+[![npm version](https://img.shields.io/npm/v/@switchyardhq/git-fleet)](https://www.npmjs.com/package/@switchyardhq/git-fleet)
+[![npm downloads](https://img.shields.io/npm/dm/@switchyardhq/git-fleet)](https://www.npmjs.com/package/@switchyardhq/git-fleet)
 [![license](https://img.shields.io/github/license/MohammedAlkindi/Switchyard)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/MohammedAlkindi/Switchyard/ci.yml?branch=main&label=CI)](https://github.com/MohammedAlkindi/Switchyard/actions/workflows/ci.yml)
 ![coverage](https://img.shields.io/badge/coverage-80%25-green)
@@ -36,7 +36,7 @@
      (GitHub only inline-plays mp4s uploaded via its web editor, not committed files —
      a committed GIF is the reliable way to get a moving demo on the README.) -->
 
-Two AI coding agents on one checkout ends badly. This project exists because Codex silently ran a `git reset` on `main` mid-merge while Claude Code was mid-task on the same files — the merge state vanished and neither agent noticed. The failure mode isn't exotic: two agents, one working tree, no isolation. Switchyard (published as `git-fleet`; the installed command is `fleet`) gives each agent its own git worktree and branch, tracks them centrally, and flags collisions between agents before anyone merges.
+Two AI coding agents on one checkout ends badly. This project exists because Codex silently ran a `git reset` on `main` mid-merge while Claude Code was mid-task on the same files — the merge state vanished and neither agent noticed. The failure mode isn't exotic: two agents, one working tree, no isolation. Switchyard (published as `@switchyardhq/git-fleet`; the installed command is `fleet`) gives each agent its own git worktree and branch, tracks them centrally, and flags collisions between agents before anyone merges.
 
 ## What it looks like
 
@@ -72,7 +72,7 @@ These files are touched by more than one agent (committed or uncommitted). Coord
 ## Installation
 
 ```sh
-npm install -g git-fleet
+npm install -g @switchyardhq/git-fleet
 ```
 
 Requires Node.js >= 18.17 and git >= 2.31. The installed command is `fleet`.
@@ -129,7 +129,7 @@ An optional `.fleetrc.json` at the repo root sets per-repo defaults. Precedence 
 
 ```json
 {
-  "$schema": "https://unpkg.com/git-fleet/schema/fleetrc.schema.json",
+  "$schema": "https://unpkg.com/@switchyardhq/git-fleet/schema/fleetrc.schema.json",
   "defaultBase": "main",
   "watchInterval": 3,
   "autoClean": false,
@@ -139,7 +139,7 @@ An optional `.fleetrc.json` at the repo root sets per-repo defaults. Precedence 
 }
 ```
 
-- `$schema` — optional; points editors at the config's JSON schema for autocomplete and validation. The schema ships with the package (`node_modules/git-fleet/schema/fleetrc.schema.json`).
+- `$schema` — optional; points editors at the config's JSON schema for autocomplete and validation. The schema ships with the package (`node_modules/@switchyardhq/git-fleet/schema/fleetrc.schema.json`).
 - `defaultBase` — base branch for `fleet spawn` when `--from` is not passed (built-in default: the current branch).
 - `watchInterval` — refresh interval for `fleet watch`, in seconds (built-in default: 3).
 - `autoClean` — when `true`, every successful `fleet merge` also runs a `fleet clean` sweep for other fully merged agents (built-in default: `false`).

@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://unpkg.com/git-fleet/schema/fleetrc.schema.json",
+  "$id": "https://unpkg.com/@switchyardhq/git-fleet/schema/fleetrc.schema.json",
   "title": ".fleetrc.json",
-  "description": "Per-repo defaults for Switchyard (git-fleet). Precedence everywhere: CLI flag > .fleetrc.json > built-in default.",
+  "description": "Per-repo defaults for Switchyard (@switchyardhq/git-fleet). Precedence everywhere: CLI flag > .fleetrc.json > built-in default.",
   "type": "object",
   "additionalProperties": false,
   "properties": {

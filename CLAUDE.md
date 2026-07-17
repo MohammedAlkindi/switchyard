@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Switchyard (npm: `git-fleet`, bin: `fleet`) is a TypeScript CLI that lets multiple AI coding agents work on one git repository without colliding: each agent gets its own worktree in `.fleet/worktrees/<agent>/` on a branch `fleet/<agent>`, tracked in a gitignored `.fleet/state.json`, with `fleet check` flagging files touched by more than one agent before anyone merges. Commands live in `src/commands/` (one file per command), shared git/state/process/formatting logic in `src/lib/`, and the commander wiring in `src/cli.ts`.
+Switchyard (npm: `@switchyardhq/git-fleet`, bin: `fleet`) is a TypeScript CLI that lets multiple AI coding agents work on one git repository without colliding: each agent gets its own worktree in `.fleet/worktrees/<agent>/` on a branch `fleet/<agent>`, tracked in a gitignored `.fleet/state.json`, with `fleet check` flagging files touched by more than one agent before anyone merges. Commands live in `src/commands/` (one file per command), shared git/state/process/formatting logic in `src/lib/`, and the commander wiring in `src/cli.ts`.
 
 ## COMMIT POLICY — READ BEFORE ANY GIT OPERATION
 

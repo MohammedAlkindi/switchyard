@@ -1,5 +1,5 @@
 {
-  "name": "git-fleet",
+  "name": "@switchyardhq/git-fleet",
   "version": "0.1.0",
   "description": "Manage multiple AI coding agents working on the same git repository: isolated worktrees per agent, collision detection before merge, safe cleanup.",
   "keywords": [
@@ -31,6 +31,9 @@
   ],
   "engines": {
     "node": ">=18.17"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

@@ -1,6 +1,6 @@
 # Deployment
 
-Switchyard publishes to npm as [`git-fleet`](https://www.npmjs.com/package/git-fleet) (`switchyard` and `fleet-cli` were taken). The installed binary is `fleet`.
+Switchyard publishes to npm as [`@switchyardhq/git-fleet`](https://www.npmjs.com/package/@switchyardhq/git-fleet) — unscoped names were a dead end: `switchyard` and `fleet-cli` are taken, and `git-fleet` is blocked by npm's punctuation-similarity rule because `gitfleet` exists. The installed binary is `fleet`.
 
 ## Before any release
 
@@ -24,7 +24,7 @@ npm link                 # installs the local build globally as `fleet`
 mkdir /tmp/fleet-scratch && cd /tmp/fleet-scratch
 git init -b main && git commit --allow-empty -m "init"
 fleet spawn test-agent   # run through spawn → list → check → remove → clean
-cd - && npm unlink -g git-fleet
+cd - && npm unlink -g @switchyardhq/git-fleet
 ```
 
 Walk the full command loop in the scratch repo, not just `--help` — the failure modes worth catching are git-behavior ones.
@@ -42,7 +42,7 @@ git push origin main --follow-tags
 
 `npm version` bumps `package.json`, commits, and tags in one step — don't edit the version by hand.
 
-Pushing the `v*` tag triggers the release workflow (`.github/workflows/release.yml`): it re-runs lint, typecheck, and the test suite, verifies the tag matches `package.json`, and publishes to npm with [provenance](https://docs.npmjs.com/generating-provenance-statements). It authenticates with the `NPM_TOKEN` repository secret — a granular npm automation token with publish rights on `git-fleet`; rotate it from npmjs.com → Access Tokens if it leaks or expires. A manual `npm publish` from a clean checkout still works as a fallback (`prepublishOnly` runs the same checks), but the workflow is the normal path — it can't publish uncommitted work.
+Pushing the `v*` tag triggers the release workflow (`.github/workflows/release.yml`): it re-runs lint, typecheck, and the test suite, verifies the tag matches `package.json`, and publishes to npm with [provenance](https://docs.npmjs.com/generating-provenance-statements). It authenticates with the `NPM_TOKEN` repository secret — a granular npm automation token with publish rights on `@switchyardhq/git-fleet`; rotate it from npmjs.com → Access Tokens if it leaks or expires. A manual `npm publish` from a clean checkout still works as a fallback (`prepublishOnly` runs the same checks), but the workflow is the normal path — it can't publish uncommitted work.
 
 Semver conventions for this package:
 
@@ -54,4 +54,4 @@ Only the `dist/` output ships to npm (`files` in `package.json`); `prepare` rebu
 
 ## After the first publish
 
-The README's npm version/downloads badges are parked in an HTML comment near the top — shields.io renders "package not found" for unpublished packages. Uncomment them once `git-fleet` is live on npm.
+The README's npm version/downloads badges are parked in an HTML comment near the top — shields.io renders "package not found" for unpublished packages. Uncomment them once `@switchyardhq/git-fleet` is live on npm.

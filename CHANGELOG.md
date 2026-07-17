@@ -50,8 +50,10 @@ this package.
 
 ### Changed
 
-- Project name is **Switchyard**; the npm package (`git-fleet`) and installed
-  binary (`fleet`) are unchanged.
+- Project name is **Switchyard**; it publishes to npm as
+  `@switchyardhq/git-fleet` (unscoped `git-fleet` is blocked by npm's
+  punctuation-similarity rule — `gitfleet` already exists). The installed
+  binary is `fleet`.
 
 [Unreleased]: https://github.com/MohammedAlkindi/Switchyard/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/MohammedAlkindi/Switchyard/releases/tag/v0.1.0

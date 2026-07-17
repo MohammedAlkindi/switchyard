@@ -55,7 +55,7 @@ describe('.fleetrc.json', () => {
 
   it('accepts a $schema key without treating it as config', () => {
     writeConfig(
-      '{ "$schema": "https://unpkg.com/git-fleet/schema/fleetrc.schema.json", "watchInterval": 5 }',
+      '{ "$schema": "https://unpkg.com/@switchyardhq/git-fleet/schema/fleetrc.schema.json", "watchInterval": 5 }',
     );
     expect(readConfig(repo.root)).toEqual({ watchInterval: 5 });
   });
