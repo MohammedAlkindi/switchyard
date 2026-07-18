@@ -74,6 +74,39 @@ describe('fleet merge', () => {
     expect(readState(repo.root).agents['bob']).toBeDefined();
   });
 
+  it('merges when the shared file merges cleanly (verdict-based gate)', async () => {
+    const EIGHT_LINES = 'l1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\n';
+    await commitFile(repo.root, 'many.txt', EIGHT_LINES, 'chore: seed');
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+    await commitFile(
+      worktreePath(repo.root, 'alice'),
+      'many.txt',
+      EIGHT_LINES.replace('l1\n', 'l1 alice\n'),
+      'feat: top',
+    );
+    await commitFile(
+      worktreePath(repo.root, 'bob'),
+      'many.txt',
+      EIGHT_LINES.replace('l8\n', 'l8 bob\n'),
+      'feat: bottom',
+    );
+
+    // v0.1 refused this; with verdicts the committed sides provably auto-merge.
+    const result = await merge('alice', { cwd: repo.root });
+    expect(result.cleaned).toBe(true);
+    expect(readState(repo.root).agents['bob']).toBeDefined();
+  });
+
+  it('still refuses when the other agent has uncommitted edits to the shared file', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'src.txt', 'alice\n', 'feat: a');
+    writeFileSync(path.join(worktreePath(repo.root, 'bob'), 'src.txt'), 'bob uncommitted\n');
+
+    await expect(merge('alice', { cwd: repo.root })).rejects.toThrow(/Refusing to merge/);
+  });
+
   it('aborts a conflicting merge and leaves the repo unconflicted', async () => {
     await spawn('alice', { cwd: repo.root });
     // Both sides change the same line: guaranteed conflict, no collision

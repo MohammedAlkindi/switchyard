@@ -61,12 +61,12 @@ $ fleet list
 
 $ fleet check
 1 collision risk detected:
-┌───────────────────┬───────────────┐
-│ FILE              │ AGENTS        │
-├───────────────────┼───────────────┤
-│ src/api/routes.ts │ claude, codex │
-└───────────────────┴───────────────┘
-These files are touched by more than one agent (committed or uncommitted). Coordinate before merging.
+┌───────────────────┬───────────────┬───────────────┐
+│ FILE              │ AGENTS        │ VERDICT       │
+├───────────────────┼───────────────┼───────────────┤
+│ src/api/routes.ts │ claude, codex │ will conflict │
+└───────────────────┴───────────────┴───────────────┘
+Verdicts from git merge-tree simulation of each agent pair's committed work; uncommitted edits can't be simulated and stay blocking.
 ```
 
 ## Installation
@@ -98,11 +98,11 @@ fleet pr claude                 # …or push it and open a PR via gh instead
 | `fleet spawn <agent>` | Create a worktree in `.fleet/worktrees/<agent>/` on a new branch `fleet/<agent>`, then provision it (`copyOnSpawn` / `postSpawn` below) | `--from <branch>` base branch (default: current branch) |
 | `fleet list` | All active agents: branch, base, ahead/behind, uncommitted count, last activity | `--json` machine-readable output |
 | `fleet status <agent>` | One agent in detail: uncommitted files, diff stat vs base, ahead/behind | `--json` machine-readable output |
-| `fleet check` | Table of files touched by more than one agent — collision risks before merging. Exits 1 if any are found (CI-friendly) | `--lines` only count overlapping line ranges, `--json` machine-readable output |
+| `fleet check` | Table of files touched by more than one agent. On git ≥ 2.38 each shared file gets a merge-simulation verdict — files whose committed changes merge cleanly are reported but don't block or fail the check. Exits 1 on real collision risks (CI-friendly) | `--lines` only count overlapping line ranges, `--files-only` skip simulation; flag any shared file, `--json` machine-readable output |
 | `fleet diff <agent>` | Full diff of the agent's branch against its base | `--base <branch>` diff against a different branch |
 | `fleet sync <agent>` | Merge the agent's base branch into its branch, catching it up. A conflicting merge is aborted — never left half-done | — |
 | `fleet exec <agent> -- <cmd>` | Run a shell command inside the agent's worktree (e.g. `fleet exec claude -- npm test`) | `--all` run in every worktree sequentially; exits 1 if any run fails |
-| `fleet merge <agent>` | Check for collisions, run the `preMerge` hook, merge the agent's branch into the current branch, then remove the worktree and branch. A conflicting merge is aborted — never left half-done | `--no-clean` keep the worktree and branch, `--delete-branch` explicit form of the default cleanup |
+| `fleet merge <agent>` | Check for collisions, run the `preMerge` hook, merge the agent's branch into the current branch, then remove the worktree and branch. A conflicting merge is aborted — never left half-done. Overlaps that provably merge cleanly no longer block; predicted conflicts and uncommitted overlaps still do | `--no-clean` keep the worktree and branch, `--delete-branch` explicit form of the default cleanup |
 | `fleet pr <agent>` | Push the agent's branch to `origin` and open a pull request with the [GitHub CLI](https://cli.github.com) — the review-based alternative to a local merge | `--title <t>`, `--base <branch>`, `--draft` |
 | `fleet remove <agent>` | Remove the worktree; refuses if there are uncommitted changes | `--force` discard changes, `--delete-branch` also delete the branch |
 | `fleet clean` | Remove agents whose branches are fully merged into their base | `--dry-run` list only, `--stale <days>` also remove long-idle agents (clean worktrees only; their branches are kept) |
@@ -122,6 +122,13 @@ fleet list --json | jq -r '.[].name'          # enumerate active agents
 ```
 
 `fleet check --lines` refines collision detection from files to line ranges: two agents editing disjoint parts of one file are reported separately instead of blocking. Ranges are computed against each pair's merge base — exact when both agents share a base, a documented heuristic otherwise (see [docs/architecture.md](docs/architecture.md)).
+
+On git ≥ 2.38, `fleet check` upgrades from "same file" to "would actually
+conflict": each pair of overlapping agents is merged in memory with
+`git merge-tree`, and cleanly merging overlaps are demoted to an informational
+list (they no longer exit 1). `--files-only` restores plain file-level
+behavior; older git falls back to it automatically. JSON output carries
+`prediction: "merge-tree" | "files"` so scripts know which semantics ran.
 
 ## Configuration
 
