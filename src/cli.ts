@@ -82,8 +82,9 @@ program
   .command('check')
   .description('flag files touched by more than one agent (exits 1 if any are found)')
   .option('--lines', 'only count files whose edited line ranges actually overlap')
+  .option('--files-only', 'skip merge simulation; flag any shared file (v0.1 behavior)')
   .option('--json', 'print machine-readable JSON instead of a table')
-  .action((opts: { lines?: boolean; json?: boolean }) =>
+  .action((opts: { lines?: boolean; filesOnly?: boolean; json?: boolean }) =>
     run(async () => {
       const result = await check(opts);
       if (result.collisions.length > 0) process.exitCode = 1;
