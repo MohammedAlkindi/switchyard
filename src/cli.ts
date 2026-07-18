@@ -15,6 +15,7 @@ import { remove } from './commands/remove.js';
 import { spawn } from './commands/spawn.js';
 import { status } from './commands/status.js';
 import { sync } from './commands/sync.js';
+import { undo } from './commands/undo.js';
 import { watch } from './commands/watch.js';
 import { FleetError } from './lib/errors.js';
 
@@ -148,6 +149,11 @@ program
   .action((name: string, opts: { deleteBranch?: boolean; clean?: boolean }) =>
     run(() => merge(name, opts)),
   );
+
+program
+  .command('undo')
+  .description('roll back the last fleet merge: branch pointer, agent branch, worktree, state')
+  .action(() => run(() => undo()));
 
 program
   .command('doctor')
