@@ -3,8 +3,9 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { merge } from '../src/commands/merge.js';
 import { spawn } from '../src/commands/spawn.js';
-import { branchExists, gitAt } from '../src/lib/git.js';
+import { branchExists, gitAt, revParseOid } from '../src/lib/git.js';
 import { readState } from '../src/lib/state.js';
+import { readUndoRecord, UNDO_BRANCH_REF, UNDO_HEAD_REF } from '../src/lib/undo.js';
 import { commitFile, makeTempRepo, worktreePath } from './helpers.js';
 import type { TempRepo } from './helpers.js';
 
@@ -72,6 +73,39 @@ describe('fleet merge', () => {
     expect(await branchExists(gitAt(repo.root), 'fleet/alice')).toBe(true);
     expect(readState(repo.root).agents['alice']).toBeDefined();
     expect(readState(repo.root).agents['bob']).toBeDefined();
+  });
+
+  it('merges when the shared file merges cleanly (verdict-based gate)', async () => {
+    const EIGHT_LINES = 'l1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\n';
+    await commitFile(repo.root, 'many.txt', EIGHT_LINES, 'chore: seed');
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+    await commitFile(
+      worktreePath(repo.root, 'alice'),
+      'many.txt',
+      EIGHT_LINES.replace('l1\n', 'l1 alice\n'),
+      'feat: top',
+    );
+    await commitFile(
+      worktreePath(repo.root, 'bob'),
+      'many.txt',
+      EIGHT_LINES.replace('l8\n', 'l8 bob\n'),
+      'feat: bottom',
+    );
+
+    // v0.1 refused this; with verdicts the committed sides provably auto-merge.
+    const result = await merge('alice', { cwd: repo.root });
+    expect(result.cleaned).toBe(true);
+    expect(readState(repo.root).agents['bob']).toBeDefined();
+  });
+
+  it('still refuses when the other agent has uncommitted edits to the shared file', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'src.txt', 'alice\n', 'feat: a');
+    writeFileSync(path.join(worktreePath(repo.root, 'bob'), 'src.txt'), 'bob uncommitted\n');
+
+    await expect(merge('alice', { cwd: repo.root })).rejects.toThrow(/Refusing to merge/);
   });
 
   it('aborts a conflicting merge and leaves the repo unconflicted', async () => {
@@ -158,5 +192,54 @@ describe('fleet merge', () => {
     expect(existsSync(marker)).toBe(true);
     expect(result.cleaned).toBe(true);
     expect(existsSync(path.join(repo.root, 'feature.txt'))).toBe(true);
+  });
+});
+
+describe('undo recording', () => {
+  it('a successful merge records refs and an undo record', async () => {
+    await spawn('alice', { cwd: repo.root });
+    const headBefore = await revParseOid(gitAt(repo.root), 'HEAD');
+    await commitFile(worktreePath(repo.root, 'alice'), 'feature.txt', 'f\n', 'feat: feature');
+    const branchTip = await revParseOid(gitAt(repo.root), 'fleet/alice');
+
+    await merge('alice', { cwd: repo.root });
+
+    const record = readUndoRecord(repo.root);
+    expect(record).toMatchObject({
+      version: 1,
+      into: 'main',
+      headBefore,
+      branchTip,
+      cleaned: true,
+      branchDeleted: true,
+    });
+    expect(record?.agent.name).toBe('alice');
+    expect(await revParseOid(gitAt(repo.root), UNDO_HEAD_REF)).toBe(headBefore);
+    expect(await revParseOid(gitAt(repo.root), UNDO_BRANCH_REF)).toBe(branchTip);
+    expect(await revParseOid(gitAt(repo.root), 'HEAD')).toBe(record?.headAfter);
+  });
+
+  it('an aborted (conflicting) merge leaves no undo state', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'src.txt', 'agent version\n', 'feat: a');
+    await commitFile(repo.root, 'src.txt', 'main version\n', 'feat: main edit');
+
+    await expect(merge('alice', { cwd: repo.root })).rejects.toThrow(/conflicts in 1 file/);
+
+    expect(readUndoRecord(repo.root)).toBeNull();
+    expect(await revParseOid(gitAt(repo.root), UNDO_HEAD_REF)).toBeNull();
+    expect(await revParseOid(gitAt(repo.root), UNDO_BRANCH_REF)).toBeNull();
+  });
+
+  it('a gate refusal leaves no undo state', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'src.txt', 'alice\n', 'feat: a');
+    await commitFile(worktreePath(repo.root, 'bob'), 'src.txt', 'bob\n', 'feat: b');
+
+    await expect(merge('alice', { cwd: repo.root })).rejects.toThrow(/Refusing to merge/);
+
+    expect(readUndoRecord(repo.root)).toBeNull();
+    expect(await revParseOid(gitAt(repo.root), UNDO_HEAD_REF)).toBeNull();
   });
 });

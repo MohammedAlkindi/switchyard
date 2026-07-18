@@ -165,6 +165,80 @@ export async function isMergedInto(git: SimpleGit, branch: string, base: string)
   return Number(out.trim()) === 0;
 }
 
+/** OID of `ref`'s commit, or null when it doesn't resolve. */
+export async function revParseOid(git: SimpleGit, ref: string): Promise<string | null> {
+  try {
+    const out = await git.raw(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
+    return out.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateRef(git: SimpleGit, ref: string, oid: string): Promise<void> {
+  await git.raw(['update-ref', ref, oid]);
+}
+
+export async function deleteRef(git: SimpleGit, ref: string): Promise<void> {
+  await git.raw(['update-ref', '-d', ref]);
+}
+
+/** Create a branch at a commit without checking it out. */
+export async function createBranchAt(git: SimpleGit, branch: string, oid: string): Promise<void> {
+  await git.raw(['branch', branch, oid]);
+}
+
+/** Attach a worktree for an existing branch (addWorktree creates a new branch). */
+export async function addWorktreeForBranch(
+  git: SimpleGit,
+  worktreePath: string,
+  branch: string,
+): Promise<void> {
+  await git.raw(['worktree', 'add', worktreePath, branch]);
+}
+
+export async function resetHardTo(git: SimpleGit, oid: string): Promise<void> {
+  await git.raw(['reset', '--hard', oid]);
+}
+
+export interface GitVersion {
+  major: number;
+  minor: number;
+}
+
+/** Parse `git version` output ("git version 2.45.1.windows.1" → 2.45). */
+export function parseGitVersion(raw: string): GitVersion | null {
+  const m = /git version (\d+)\.(\d+)/.exec(raw);
+  return m ? { major: Number(m[1]), minor: Number(m[2]) } : null;
+}
+
+export function atLeast(v: GitVersion, min: GitVersion): boolean {
+  return v.major > min.major || (v.major === min.major && v.minor >= min.minor);
+}
+
+/** Minimum git for `merge-tree --write-tree` (real in-memory merges). */
+export const MERGE_TREE_MIN: GitVersion = { major: 2, minor: 38 };
+
+let cachedGitVersion: GitVersion | null | undefined;
+
+/** Installed git version, cached per process (one git binary per PATH). */
+export async function gitVersion(git: SimpleGit): Promise<GitVersion | null> {
+  if (cachedGitVersion === undefined) {
+    try {
+      cachedGitVersion = parseGitVersion(await git.raw(['version']));
+    } catch {
+      cachedGitVersion = null;
+    }
+  }
+  return cachedGitVersion;
+}
+
+/** Whether `fleet check` can use merge simulation on this machine. */
+export async function supportsMergeTree(git: SimpleGit): Promise<boolean> {
+  const v = await gitVersion(git);
+  return v !== null && atLeast(v, MERGE_TREE_MIN);
+}
+
 /**
  * Ensure `.fleet/` is ignored via `.git/info/exclude` so Switchyard never dirties
  * the repos it manages — even ones whose .gitignore doesn't mention it.

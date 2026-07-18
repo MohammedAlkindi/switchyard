@@ -9,6 +9,26 @@ this package.
 
 ## [Unreleased]
 
+### Added
+
+- Inter-process mutation lock (`.fleet/lock`): concurrent `fleet` commands
+  from multiple processes no longer race on `state.json` (lost-update bug).
+  `fleet doctor` reports the lock; `--fix` removes dead ones.
+- Merge-conflict prediction: on git >= 2.38, `fleet check` and the
+  `fleet merge` gate simulate each agent pair's merge with `git merge-tree`.
+  Shared files that provably merge cleanly are informational instead of
+  blocking. `--files-only` restores file-level behavior.
+- `fleet undo`: one-command rollback of the last `fleet merge` — resets the
+  target branch and restores the agent's branch, worktree, and state entry.
+  `fleet doctor` reports when an undo is available.
+
+### Changed
+
+- **`fleet check` semantics on git >= 2.38:** overlapping files whose
+  committed changes auto-merge no longer fail the check (exit 0) or block
+  `fleet merge`. On older git, v0.1 file-level behavior is unchanged. Use
+  `--files-only` to force the old semantics anywhere.
+
 ## [0.1.0] - 2026-07-17
 
 ### Added

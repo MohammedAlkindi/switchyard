@@ -29,9 +29,24 @@ graph TD
 
 `fleet exec <agent> -- <cmd>` re-joins the argv into one shell command (`src/lib/proc.ts` `shellJoin`, a pragmatic quoting heuristic for sh and cmd.exe) and runs it with the worktree as cwd; `--all` fans out sequentially so output never interleaves. `fleet pr` never bundles GitHub logic: it verifies the `gh` binary exists (before pushing anything), pushes the branch to `origin`, and shells out to `gh pr create`.
 
-### Line-level checking (`fleet check --lines`)
+### Refinements: line ranges and merge simulation
 
 File-level overlap stays the default signal, but `--lines` refines it: for each agent, one `git diff -U0 <merge-base>` inside the worktree yields the edited line ranges of committed *and* uncommitted work at once, in old-side (merge-base) coordinates — the only coordinate system two agents' diffs share. Ranges are intersected per file across agents; files whose edits are disjoint are reported informationally instead of counting as collisions (and don't affect the exit code). Untracked and binary files have no line info and stay whole-file collisions. Caveat: when two agents were spawned from different bases their merge bases differ, so cross-agent line numbers are a heuristic, not a guarantee — which is why `--lines` is opt-in.
+
+On git >= 2.38 `fleet check` adds a stronger layer by default: for every pair
+of agents sharing a file it runs `git merge-tree --write-tree` — a real
+in-memory three-way merge over the shared object database, touching no
+worktree or index. Shared files then carry a verdict: **will conflict**
+(simulation found conflict markers), **uncommitted edits** (a sharer has
+uncommitted changes there, or a branch is missing — simulation can't see
+those, so they fail closed), or clean (committed sides auto-merge; reported
+informationally, exit 0). `fleet merge`'s gate filters `check`'s collisions,
+so it inherits these semantics: provably clean overlaps stop blocking merges,
+while predicted conflicts and uncommitted overlaps still refuse. A wrong
+"clean" verdict is caught by the merge's own abort-on-conflict safety net —
+prediction sharpens the signal; the safety guarantee never rested on it.
+`--files-only` opts out; git < 2.38 falls back automatically (`fleet doctor`
+reports which mode you get).
 
 `list`, `status`, `check`, and `doctor` accept `--json` and print their result object verbatim — the same data the human output renders, for scripts, CI gates, and the agents themselves.
 
@@ -70,6 +85,34 @@ Switchyard also writes `.fleet/` into `.git/info/exclude` (not `.gitignore`) on 
 - `worktreePath` — relative to the repo root, forward slashes, so the state file survives the repo being moved or shared across OSes.
 
 Writes go through a write-then-rename (`state.json.tmp` → `state.json`) in `src/lib/state.ts`, so a crash mid-write can't corrupt the file. Commands tolerate drift between state and reality (a manually deleted worktree shows as `worktree missing` in `fleet list`; a manually deleted branch becomes a `fleet clean` candidate) rather than crashing — and `fleet doctor --fix` actively repairs drift: it rebuilds a corrupted `state.json` from real `git worktree list` output, adopts orphaned worktrees back into state, removes leftover non-worktree directories under `.fleet/worktrees/`, and prunes entries whose worktree is gone (branches are never deleted by doctor). Rebuilt entries carry re-derived `baseBranch`/`createdAt` values, not the originals.
+
+## Mutation lock
+
+Every mutating command (`spawn`, `merge`, `remove`, `clean`, `sync`,
+`doctor --fix`, `undo`) runs under `.fleet/lock` — an atomically created file
+holding the holder's PID, command, and start time (`src/lib/lock.ts`). This
+serializes read→modify→write cycles on `state.json` across processes, which
+matters because agents themselves run `fleet` commands concurrently. Waiters
+retry for up to 10 s, then fail naming the holder. A lock whose PID is dead is
+taken over automatically; `fleet doctor` reports lock state and `--fix`
+removes dead locks. Read-only commands and `fleet exec` never take the lock
+(exec runs long agent workloads). The lock is same-machine only — consistent
+with state being local by design — and reentrant within one process
+(merge → autoClean → clean). In-process parallel mutation remains unsupported.
+
+## Undo model
+
+`fleet merge` records its pre-merge world before touching anything: two refs —
+`refs/fleet/undo-head` (target branch HEAD) and `refs/fleet/undo-branch`
+(agent branch tip) — pin the commits against GC even after the branch is
+deleted, and after success `.fleet/undo.json` stores the agent record, target
+branch, and post-merge HEAD. A failed or aborted merge deletes the refs and
+writes no record, so `fleet undo` can never act on a failed merge. Undo
+refuses unless the current branch, HEAD, and refs all match the record and
+the main worktree has no tracked changes; then it hard-resets the target
+branch, recreates the branch/worktree that cleanup removed, restores the
+state entry, and clears the record. Single-level by design: any new merge
+overwrites the slot. `fleet doctor` reports a pending record.
 
 ## Config file
 

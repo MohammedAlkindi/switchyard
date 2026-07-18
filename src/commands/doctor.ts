@@ -2,17 +2,21 @@ import { existsSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { simpleGit } from 'simple-git';
 import type { SimpleGit } from 'simple-git';
-import { dim, fail, ok, warn } from '../lib/format.js';
+import { dim, fail, ok, relativeTime, warn } from '../lib/format.js';
 import {
+  atLeast,
   currentBranch,
   defaultBaseBranch,
   getMainRepoRoot,
   gitAt,
+  gitVersion,
+  MERGE_TREE_MIN,
   pruneWorktrees,
 } from '../lib/git.js';
-import { withLock } from '../lib/lock.js';
+import { holdingLock, lockPath, lockStatus, withLock } from '../lib/lock.js';
 import { readState, worktreeAbsPath, worktreesDir, writeState } from '../lib/state.js';
 import type { AgentRecord, FleetState } from '../lib/state.js';
+import { readUndoRecord } from '../lib/undo.js';
 
 /** Minimum git version Switchyard needs (`--path-format=absolute` support). */
 export const MIN_GIT = { major: 2, minor: 31 };
@@ -26,7 +30,15 @@ export interface DoctorOptions {
 }
 
 export interface DoctorCheck {
-  name: 'git-version' | 'repository' | 'state-file' | 'orphaned-worktrees' | 'stale-entries';
+  name:
+    | 'git-version'
+    | 'conflict-prediction'
+    | 'repository'
+    | 'lock'
+    | 'undo-record'
+    | 'state-file'
+    | 'orphaned-worktrees'
+    | 'stale-entries';
   /** Whether the check was healthy before any fixing. */
   ok: boolean;
   detail: string;
@@ -63,6 +75,19 @@ async function doctorRun(options: DoctorOptions = {}): Promise<DoctorResult> {
 
   checks.push(await checkGitVersion());
 
+  {
+    const v = await gitVersion(simpleGit());
+    const capable = v !== null && atLeast(v, MERGE_TREE_MIN);
+    checks.push({
+      name: 'conflict-prediction',
+      ok: true, // informational: old git is a capability note, not ill health
+      detail: capable
+        ? `available (git ${v.major}.${v.minor}; merge-tree needs ${MERGE_TREE_MIN.major}.${MERGE_TREE_MIN.minor}+)`
+        : `unavailable — file-level checks only (git ${v ? `${v.major}.${v.minor}` : 'unknown'} < ${MERGE_TREE_MIN.major}.${MERGE_TREE_MIN.minor})`,
+      fixed: false,
+    });
+  }
+
   let repoRoot: string;
   try {
     repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());
@@ -76,6 +101,46 @@ async function doctorRun(options: DoctorOptions = {}): Promise<DoctorResult> {
     });
     return finish(checks, options.json ?? false);
   }
+
+  // --- mutation lock ---------------------------------------------------------
+  const lock = lockStatus(repoRoot);
+  if (lock.state === 'none' || holdingLock()) {
+    // Our own lock (doctor --fix runs locked) is not a finding.
+    checks.push({ name: 'lock', ok: true, detail: 'no mutation lock held', fixed: false });
+  } else if (lock.state === 'live') {
+    checks.push({
+      name: 'lock',
+      ok: true,
+      detail: `held by live pid ${lock.info?.pid ?? '?'} (${lock.info?.command ?? 'unknown'}, ${Math.round(lock.ageMs / 1000)}s)`,
+      fixed: false,
+    });
+  } else if (fix) {
+    rmSync(lockPath(repoRoot), { force: true });
+    checks.push({
+      name: 'lock',
+      ok: false,
+      detail: `stale lock removed (pid ${lock.info?.pid ?? 'unknown'} is gone)`,
+      fixed: true,
+    });
+  } else {
+    checks.push({
+      name: 'lock',
+      ok: false,
+      detail: `stale lock: pid ${lock.info?.pid ?? 'unknown'} is gone — --fix will remove it`,
+      fixed: false,
+    });
+  }
+
+  // --- pending undo ----------------------------------------------------------
+  const undoRec = readUndoRecord(repoRoot);
+  checks.push({
+    name: 'undo-record',
+    ok: true, // informational
+    detail: undoRec
+      ? `fleet undo available: merge of ${undoRec.agent.branch} into ${undoRec.into} (${relativeTime(undoRec.mergedAt)})`
+      : 'no pending undo record',
+    fixed: false,
+  });
 
   const git = gitAt(repoRoot);
   const worktrees = await listGitWorktrees(git);

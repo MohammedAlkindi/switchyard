@@ -15,6 +15,7 @@ import { remove } from './commands/remove.js';
 import { spawn } from './commands/spawn.js';
 import { status } from './commands/status.js';
 import { sync } from './commands/sync.js';
+import { undo } from './commands/undo.js';
 import { watch } from './commands/watch.js';
 import { FleetError } from './lib/errors.js';
 
@@ -82,8 +83,9 @@ program
   .command('check')
   .description('flag files touched by more than one agent (exits 1 if any are found)')
   .option('--lines', 'only count files whose edited line ranges actually overlap')
+  .option('--files-only', 'skip merge simulation; flag any shared file (v0.1 behavior)')
   .option('--json', 'print machine-readable JSON instead of a table')
-  .action((opts: { lines?: boolean; json?: boolean }) =>
+  .action((opts: { lines?: boolean; filesOnly?: boolean; json?: boolean }) =>
     run(async () => {
       const result = await check(opts);
       if (result.collisions.length > 0) process.exitCode = 1;
@@ -147,6 +149,11 @@ program
   .action((name: string, opts: { deleteBranch?: boolean; clean?: boolean }) =>
     run(() => merge(name, opts)),
   );
+
+program
+  .command('undo')
+  .description('roll back the last fleet merge: branch pointer, agent branch, worktree, state')
+  .action(() => run(() => undo()));
 
 program
   .command('doctor')

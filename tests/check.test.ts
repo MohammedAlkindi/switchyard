@@ -28,7 +28,10 @@ describe('fleet check', () => {
     const result = await check({ cwd: repo.root });
 
     expect(result.agentsChecked).toBe(2);
-    expect(result.collisions).toEqual([{ file: 'src.txt', agents: ['alice', 'bob'] }]);
+    // Both agents rewrite the whole two-line fixture: a genuine predicted conflict.
+    expect(result.collisions).toEqual([
+      { file: 'src.txt', agents: ['alice', 'bob'], verdict: 'conflicts' },
+    ]);
   });
 
   it('counts uncommitted edits as collision risk', async () => {
@@ -39,7 +42,9 @@ describe('fleet check', () => {
     writeFileSync(path.join(worktreePath(repo.root, 'bob'), 'src.txt'), 'bob wip\n');
 
     const result = await check({ cwd: repo.root });
-    expect(result.collisions).toEqual([{ file: 'src.txt', agents: ['alice', 'bob'] }]);
+    expect(result.collisions).toEqual([
+      { file: 'src.txt', agents: ['alice', 'bob'], verdict: 'uncommitted' },
+    ]);
   });
 
   it('reports no collisions when agents touch disjoint files', async () => {
@@ -55,7 +60,7 @@ describe('fleet check', () => {
   it('skips the check when fewer than two agents exist', async () => {
     await spawn('alice', { cwd: repo.root });
     const result = await check({ cwd: repo.root });
-    expect(result).toEqual({ collisions: [], agentsChecked: 1 });
+    expect(result).toEqual({ collisions: [], prediction: 'merge-tree', agentsChecked: 1 });
   });
 
   it('--json prints the result as parseable JSON', async () => {
@@ -70,11 +75,112 @@ describe('fleet check', () => {
       vi.mocked(console.log).mock.calls.at(-1)?.[0] as string,
     ) as typeof result;
     expect(printed).toEqual(result);
-    expect(printed.collisions).toEqual([{ file: 'src.txt', agents: ['alice', 'bob'] }]);
+    expect(printed.collisions).toEqual([
+      { file: 'src.txt', agents: ['alice', 'bob'], verdict: 'conflicts' },
+    ]);
   });
 });
 
-describe('fleet check --lines', () => {
+describe('merge-tree verdicts', () => {
+  const EIGHT_LINES = 'l1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\n';
+
+  it('classifies a same-line overlap as a conflicts collision', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'src.txt', 'alice\n', 'feat: a');
+    await commitFile(worktreePath(repo.root, 'bob'), 'src.txt', 'bob\n', 'feat: b');
+
+    const result = await check({ cwd: repo.root });
+
+    expect(result.prediction).toBe('merge-tree');
+    expect(result.collisions).toEqual([
+      { file: 'src.txt', agents: ['alice', 'bob'], verdict: 'conflicts' },
+    ]);
+    expect(result.cleanMerges).toEqual([]);
+  });
+
+  it('demotes a cleanly merging overlap to cleanMerges (no collision)', async () => {
+    await commitFile(repo.root, 'many.txt', EIGHT_LINES, 'chore: seed');
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+    await commitFile(
+      worktreePath(repo.root, 'alice'),
+      'many.txt',
+      EIGHT_LINES.replace('l1\n', 'l1 alice\n'),
+      'feat: top',
+    );
+    await commitFile(
+      worktreePath(repo.root, 'bob'),
+      'many.txt',
+      EIGHT_LINES.replace('l8\n', 'l8 bob\n'),
+      'feat: bottom',
+    );
+
+    const result = await check({ cwd: repo.root });
+
+    expect(result.collisions).toEqual([]);
+    expect(result.cleanMerges).toEqual([{ file: 'many.txt', agents: ['alice', 'bob'] }]);
+  });
+
+  it('keeps overlaps with uncommitted edits blocking (fail closed)', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'src.txt', 'alice\n', 'feat: a');
+    writeFileSync(path.join(worktreePath(repo.root, 'bob'), 'src.txt'), 'bob uncommitted\n');
+
+    const result = await check({ cwd: repo.root });
+
+    expect(result.collisions).toEqual([
+      { file: 'src.txt', agents: ['alice', 'bob'], verdict: 'uncommitted' },
+    ]);
+  });
+
+  it('--files-only restores v0.1 semantics', async () => {
+    await commitFile(repo.root, 'many.txt', EIGHT_LINES, 'chore: seed');
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+    await commitFile(
+      worktreePath(repo.root, 'alice'),
+      'many.txt',
+      EIGHT_LINES.replace('l1\n', 'l1 alice\n'),
+      'feat: top',
+    );
+    await commitFile(
+      worktreePath(repo.root, 'bob'),
+      'many.txt',
+      EIGHT_LINES.replace('l8\n', 'l8 bob\n'),
+      'feat: bottom',
+    );
+
+    const result = await check({ filesOnly: true, cwd: repo.root });
+
+    expect(result.prediction).toBe('files');
+    expect(result.collisions).toEqual([{ file: 'many.txt', agents: ['alice', 'bob'] }]);
+    expect(result.cleanMerges).toBeUndefined();
+  });
+
+  it('--lines combines: verdict plus line overlap on the same collision', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'src.txt', 'alice\n', 'feat: a');
+    await commitFile(worktreePath(repo.root, 'bob'), 'src.txt', 'bob\n', 'feat: b');
+
+    const result = await check({ lines: true, cwd: repo.root });
+
+    expect(result.prediction).toBe('merge-tree');
+    expect(result.collisions).toHaveLength(1);
+    const [collision] = result.collisions;
+    expect(collision).toMatchObject({ file: 'src.txt', verdict: 'conflicts' });
+    expect(collision?.overlap).toBeDefined();
+  });
+});
+
+// The line-refinement layer owns the `disjoint` bucket, which only exists when
+// merge simulation is off — on capable git a cleanly-merging overlap is decided
+// by its verdict and lands in `cleanMerges` instead. These tests therefore pin
+// the files-only path explicitly; the combined path is covered by the
+// '--lines combines' case in 'merge-tree verdicts' above.
+describe('fleet check --lines (files-only mode)', () => {
   const numberedLines = (): string[] => Array.from({ length: 12 }, (_, i) => `line${i + 1}`);
 
   async function seedNumberedFile(): Promise<void> {
@@ -94,7 +200,7 @@ describe('fleet check --lines', () => {
     await commitFile(worktreePath(repo.root, 'alice'), 'big.txt', editLine('alice', 2), 'feat: alice edit');
     await commitFile(worktreePath(repo.root, 'bob'), 'big.txt', editLine('bob', 10), 'feat: bob edit');
 
-    const result = await check({ lines: true, cwd: repo.root });
+    const result = await check({ lines: true, filesOnly: true, cwd: repo.root });
 
     expect(result.collisions).toEqual([]);
     expect(result.disjoint).toEqual([{ file: 'big.txt', agents: ['alice', 'bob'] }]);
@@ -108,7 +214,7 @@ describe('fleet check --lines', () => {
     // bob's overlapping edit is uncommitted — still measured from the merge base.
     writeFileSync(path.join(worktreePath(repo.root, 'bob'), 'big.txt'), editLine('bob', 5));
 
-    const result = await check({ lines: true, cwd: repo.root });
+    const result = await check({ lines: true, filesOnly: true, cwd: repo.root });
 
     expect(result.collisions).toEqual([
       { file: 'big.txt', agents: ['alice', 'bob'], overlap: '5' },
@@ -122,7 +228,7 @@ describe('fleet check --lines', () => {
     writeFileSync(path.join(worktreePath(repo.root, 'alice'), 'new.txt'), 'a\n');
     writeFileSync(path.join(worktreePath(repo.root, 'bob'), 'new.txt'), 'b\n');
 
-    const result = await check({ lines: true, cwd: repo.root });
+    const result = await check({ lines: true, filesOnly: true, cwd: repo.root });
 
     expect(result.collisions).toEqual([
       { file: 'new.txt', agents: ['alice', 'bob'], overlap: 'whole-file' },

@@ -6,10 +6,12 @@ import {
   changedFilesVsBase,
   getMainRepoRoot,
   gitAt,
+  supportsMergeTree,
   uncommittedFiles,
 } from '../lib/git.js';
 import { formatRanges, parseUnifiedDiff, rangesOverlap } from '../lib/lines.js';
 import type { FileRanges } from '../lib/lines.js';
+import { predictMergeConflicts } from '../lib/mergetree.js';
 import { readState, worktreeAbsPath } from '../lib/state.js';
 import type { AgentRecord } from '../lib/state.js';
 
@@ -21,6 +23,8 @@ export interface CheckOptions {
    * ranges actually overlap; report disjoint same-file edits separately.
    */
   lines?: boolean;
+  /** Skip merge simulation entirely; flag any shared file (v0.1 behavior). */
+  filesOnly?: boolean;
   cwd?: string;
 }
 
@@ -32,12 +36,18 @@ export interface Collision {
    * 'whole-file' when line info is unknowable (binary/untracked files, …).
    */
   overlap?: string;
+  /** merge-tree mode only: why this shared file is still a collision. */
+  verdict?: 'conflicts' | 'uncommitted';
 }
 
 export interface CheckResult {
   collisions: Collision[];
   /** --lines only: multi-agent files whose edits touch disjoint lines. */
   disjoint?: Collision[];
+  /** merge-tree mode only: shared files whose committed changes auto-merge. */
+  cleanMerges?: Collision[];
+  /** Which detection semantics ran. */
+  prediction: 'merge-tree' | 'files';
   agentsChecked: number;
 }
 
@@ -52,9 +62,12 @@ export async function check(options: CheckOptions = {}): Promise<CheckResult> {
   const state = readState(repoRoot);
   const agents = Object.values(state.agents).sort((a, b) => a.name.localeCompare(b.name));
   const json = options.json ?? false;
+  const capable = await supportsMergeTree(git);
+  const useMergeTree = capable && !(options.filesOnly ?? false);
+  const prediction: 'merge-tree' | 'files' = useMergeTree ? 'merge-tree' : 'files';
 
   if (agents.length < 2) {
-    const result: CheckResult = { collisions: [], agentsChecked: agents.length };
+    const result: CheckResult = { collisions: [], prediction, agentsChecked: agents.length };
     if (options.lines) result.disjoint = [];
     if (json) {
       console.log(JSON.stringify(result, null, 2));
@@ -71,8 +84,14 @@ export async function check(options: CheckOptions = {}): Promise<CheckResult> {
   // --lines only: file -> agent -> edited ranges (merge-base coordinates).
   const rangesByFile = new Map<string, Map<string, FileRanges>>();
 
+  // merge-tree mode: simulation can't see uncommitted work, and can't run at
+  // all when a branch is missing — both fail closed rather than silently clean.
+  const uncommittedByAgent = new Map<string, Set<string>>();
+  const unsimulatable = new Set<string>();
+
   for (const record of agents) {
     const files = new Set<string>();
+    const uncommitted = new Set<string>();
     if (
       (await branchExists(git, record.branch)) &&
       (await branchExists(git, record.baseBranch))
@@ -80,11 +99,17 @@ export async function check(options: CheckOptions = {}): Promise<CheckResult> {
       for (const f of await changedFilesVsBase(git, record.baseBranch, record.branch)) {
         files.add(f);
       }
+    } else {
+      unsimulatable.add(record.name);
     }
     const abs = worktreeAbsPath(repoRoot, record);
     if (existsSync(abs)) {
-      for (const f of await uncommittedFiles(abs)) files.add(f.path);
+      for (const f of await uncommittedFiles(abs)) {
+        files.add(f.path);
+        uncommitted.add(f.path);
+      }
     }
+    uncommittedByAgent.set(record.name, uncommitted);
     for (const file of files) {
       const touchers = agentsByFile.get(file) ?? [];
       touchers.push(record.name);
@@ -105,30 +130,82 @@ export async function check(options: CheckOptions = {}): Promise<CheckResult> {
     .map(([file, names]) => ({ file, agents: [...names].sort() }))
     .sort((a, b) => a.file.localeCompare(b.file));
 
+  // Merge simulation: every unordered pair of agents sharing a file gets a real
+  // in-memory three-way merge, and each shared file inherits the strongest
+  // verdict across the pairs that touch it (conflicts > uncommitted > clean).
+  let working: Collision[] = multiAgent;
+  let cleanMerges: Collision[] | undefined;
+  if (useMergeTree && multiAgent.length > 0) {
+    const byName = new Map(agents.map((a) => [a.name, a]));
+    const pairKeys = new Set<string>();
+    for (const { agents: names } of multiAgent) {
+      for (let i = 0; i < names.length; i += 1) {
+        for (let j = i + 1; j < names.length; j += 1) {
+          pairKeys.add(`${names[i]}\n${names[j]}`);
+        }
+      }
+    }
+    const conflicted = new Set<string>();
+    for (const key of pairKeys) {
+      const [a, b] = key.split('\n').map((n) => byName.get(n));
+      if (!a || !b || unsimulatable.has(a.name) || unsimulatable.has(b.name)) continue;
+      const res = await predictMergeConflicts(git, a.branch, b.branch);
+      for (const f of res.conflictedFiles) conflicted.add(f);
+    }
+    const verdicted: Collision[] = [];
+    cleanMerges = [];
+    for (const c of multiAgent) {
+      if (conflicted.has(c.file)) {
+        verdicted.push({ ...c, verdict: 'conflicts' });
+      } else if (
+        c.agents.some((n) => unsimulatable.has(n) || uncommittedByAgent.get(n)?.has(c.file))
+      ) {
+        // Simulation can't see uncommitted work or missing branches: fail closed.
+        verdicted.push({ ...c, verdict: 'uncommitted' });
+      } else {
+        cleanMerges.push(c);
+      }
+    }
+    working = verdicted;
+  } else if (useMergeTree) {
+    cleanMerges = [];
+  }
+
+  /** Overlapping edited ranges for one file, or undefined when disjoint. */
+  const lineOverlap = (file: string, names: string[]): string | undefined => {
+    const perAgent = rangesByFile.get(file);
+    // An agent with no parsed ranges has no net change vs merge-base.
+    const entries = names.map((n) => perAgent?.get(n) ?? []);
+    const overlap = rangesOverlap(entries);
+    if (overlap === 'whole') return 'whole-file';
+    return overlap.length > 0 ? formatRanges(overlap) : undefined;
+  };
+
   let collisions: Collision[];
   let disjoint: Collision[] | undefined;
   if (options.lines) {
-    collisions = [];
-    disjoint = [];
-    for (const { file, agents: names } of multiAgent) {
-      const perAgent = rangesByFile.get(file);
-      // An agent with no parsed ranges has no net change vs merge-base.
-      const entries = names.map((n) => perAgent?.get(n) ?? []);
-      const overlap = rangesOverlap(entries);
-      if (overlap === 'whole') {
-        collisions.push({ file, agents: names, overlap: 'whole-file' });
-      } else if (overlap.length > 0) {
-        collisions.push({ file, agents: names, overlap: formatRanges(overlap) });
-      } else {
-        disjoint.push({ file, agents: names });
+    if (useMergeTree) {
+      // Verdict decides collision-ness; lines are extra context on each row.
+      collisions = working.map((c) => ({ ...c, overlap: lineOverlap(c.file, c.agents) ?? '' }));
+    } else {
+      collisions = [];
+      disjoint = [];
+      for (const { file, agents: names } of working) {
+        const overlap = lineOverlap(file, names);
+        if (overlap !== undefined) {
+          collisions.push({ file, agents: names, overlap });
+        } else {
+          disjoint.push({ file, agents: names });
+        }
       }
     }
   } else {
-    collisions = multiAgent;
+    collisions = working;
   }
 
-  const result: CheckResult = { collisions, agentsChecked: agents.length };
+  const result: CheckResult = { collisions, prediction, agentsChecked: agents.length };
   if (disjoint !== undefined) result.disjoint = disjoint;
+  if (cleanMerges !== undefined) result.cleanMerges = cleanMerges;
 
   if (json) {
     console.log(JSON.stringify(result, null, 2));
@@ -139,25 +216,41 @@ export async function check(options: CheckOptions = {}): Promise<CheckResult> {
     console.log(ok(`No collisions across ${agents.length} agents.`));
   } else {
     console.log(fail(`${plural(collisions.length, 'collision risk')} detected:`));
+    const headers = ['FILE', 'AGENTS'];
+    if (options.lines) headers.push('LINES');
+    if (useMergeTree) headers.push('VERDICT');
     console.log(
-      options.lines
-        ? table(
-            ['FILE', 'AGENTS', 'LINES'],
-            collisions.map((c) => [c.file, c.agents.join(', '), c.overlap ?? '']),
-          )
-        : table(
-            ['FILE', 'AGENTS'],
-            collisions.map((c) => [c.file, c.agents.join(', ')]),
-          ),
+      table(
+        headers,
+        collisions.map((c) => {
+          const row = [c.file, c.agents.join(', ')];
+          if (options.lines) row.push(c.overlap ?? '');
+          if (useMergeTree) {
+            row.push(c.verdict === 'conflicts' ? 'will conflict' : 'uncommitted edits');
+          }
+          return row;
+        }),
+      ),
     );
     console.log(
       dim(
-        options.lines
-          ? 'Line ranges are relative to the merge base — exact when the agents share a base, a heuristic otherwise.'
-          : 'These files are touched by more than one agent (committed or uncommitted). ' +
-              'Coordinate before merging.',
+        useMergeTree
+          ? "Verdicts from git merge-tree simulation of each agent pair's committed work; uncommitted edits can't be simulated and stay blocking."
+          : options.lines
+            ? 'Line ranges are relative to the merge base — exact when the agents share a base, a heuristic otherwise.'
+            : 'These files are touched by more than one agent (committed or uncommitted). ' +
+              'Coordinate before merging.' +
+              (capable ? '' : ' (file-level only: git < 2.38 lacks merge-tree)'),
       ),
     );
+  }
+  if (cleanMerges && cleanMerges.length > 0) {
+    console.log(
+      dim(
+        `${plural(cleanMerges.length, 'shared file')} whose committed changes merge cleanly (not counted):`,
+      ),
+    );
+    for (const c of cleanMerges) console.log(dim(`  ${c.file} (${c.agents.join(', ')})`));
   }
   if (disjoint && disjoint.length > 0) {
     console.log(
