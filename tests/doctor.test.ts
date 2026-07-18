@@ -3,11 +3,12 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { doctor } from '../src/commands/doctor.js';
+import { merge } from '../src/commands/merge.js';
 import { spawn } from '../src/commands/spawn.js';
 import { branchExists, gitAt } from '../src/lib/git.js';
 import { lockPath } from '../src/lib/lock.js';
 import { readState, statePath, writeState } from '../src/lib/state.js';
-import { makeTempRepo, worktreePath } from './helpers.js';
+import { commitFile, makeTempRepo, worktreePath } from './helpers.js';
 import type { TempRepo } from './helpers.js';
 
 let repo: TempRepo;
@@ -170,5 +171,25 @@ describe('conflict prediction capability', () => {
     const check = result.checks.find((c) => c.name === 'conflict-prediction');
     expect(check?.ok).toBe(true);
     expect(check?.detail).toMatch(/available|unavailable/);
+  });
+});
+
+describe('undo record check', () => {
+  it('reports no pending undo on a fresh repo', async () => {
+    const result = await doctor({ cwd: repo.root });
+    expect(result.checks.find((c) => c.name === 'undo-record')?.detail).toBe(
+      'no pending undo record',
+    );
+  });
+
+  it('reports an available undo after a merge', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'feature.txt', 'f\n', 'feat: feature');
+    await merge('alice', { cwd: repo.root });
+
+    const result = await doctor({ cwd: repo.root });
+    const check = result.checks.find((c) => c.name === 'undo-record');
+    expect(check?.ok).toBe(true);
+    expect(check?.detail).toMatch(/fleet undo available: merge of fleet\/alice into main/);
   });
 });

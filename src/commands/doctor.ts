@@ -2,7 +2,7 @@ import { existsSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { simpleGit } from 'simple-git';
 import type { SimpleGit } from 'simple-git';
-import { dim, fail, ok, warn } from '../lib/format.js';
+import { dim, fail, ok, relativeTime, warn } from '../lib/format.js';
 import {
   atLeast,
   currentBranch,
@@ -16,6 +16,7 @@ import {
 import { holdingLock, lockPath, lockStatus, withLock } from '../lib/lock.js';
 import { readState, worktreeAbsPath, worktreesDir, writeState } from '../lib/state.js';
 import type { AgentRecord, FleetState } from '../lib/state.js';
+import { readUndoRecord } from '../lib/undo.js';
 
 /** Minimum git version Switchyard needs (`--path-format=absolute` support). */
 export const MIN_GIT = { major: 2, minor: 31 };
@@ -34,6 +35,7 @@ export interface DoctorCheck {
     | 'conflict-prediction'
     | 'repository'
     | 'lock'
+    | 'undo-record'
     | 'state-file'
     | 'orphaned-worktrees'
     | 'stale-entries';
@@ -128,6 +130,17 @@ async function doctorRun(options: DoctorOptions = {}): Promise<DoctorResult> {
       fixed: false,
     });
   }
+
+  // --- pending undo ----------------------------------------------------------
+  const undoRec = readUndoRecord(repoRoot);
+  checks.push({
+    name: 'undo-record',
+    ok: true, // informational
+    detail: undoRec
+      ? `fleet undo available: merge of ${undoRec.agent.branch} into ${undoRec.into} (${relativeTime(undoRec.mergedAt)})`
+      : 'no pending undo record',
+    fixed: false,
+  });
 
   const git = gitAt(repoRoot);
   const worktrees = await listGitWorktrees(git);
