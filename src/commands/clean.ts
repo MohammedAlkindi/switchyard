@@ -12,6 +12,7 @@ import {
   removeWorktree,
   uncommittedFiles,
 } from '../lib/git.js';
+import { withLock } from '../lib/lock.js';
 import { readState, worktreeAbsPath, writeState } from '../lib/state.js';
 
 export interface CleanOptions {
@@ -45,6 +46,10 @@ export interface CleanResult {
  */
 export async function clean(options: CleanOptions = {}): Promise<CleanResult> {
   const repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());
+  return withLock(repoRoot, 'clean', () => cleanLocked(options, repoRoot));
+}
+
+async function cleanLocked(options: CleanOptions, repoRoot: string): Promise<CleanResult> {
   const git = gitAt(repoRoot);
   const state = readState(repoRoot);
   const agents = Object.values(state.agents).sort((a, b) => a.name.localeCompare(b.name));

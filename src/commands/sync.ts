@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { FleetError } from '../lib/errors.js';
 import { ok, plural } from '../lib/format.js';
 import { aheadBehind, getMainRepoRoot, gitAt, verifyBranch } from '../lib/git.js';
+import { withLock } from '../lib/lock.js';
 import { getAgent, readState, worktreeAbsPath } from '../lib/state.js';
 
 export interface SyncOptions {
@@ -25,6 +26,14 @@ export interface SyncResult {
  */
 export async function sync(name: string, options: SyncOptions = {}): Promise<SyncResult> {
   const repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());
+  return withLock(repoRoot, 'sync', () => syncLocked(name, options, repoRoot));
+}
+
+async function syncLocked(
+  name: string,
+  options: SyncOptions,
+  repoRoot: string,
+): Promise<SyncResult> {
   const git = gitAt(repoRoot);
   const state = readState(repoRoot);
   const record = getAgent(state, name);

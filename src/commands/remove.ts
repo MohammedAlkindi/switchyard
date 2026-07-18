@@ -11,6 +11,7 @@ import {
   removeWorktree,
   uncommittedFiles,
 } from '../lib/git.js';
+import { withLock } from '../lib/lock.js';
 import { getAgent, readState, worktreeAbsPath, writeState } from '../lib/state.js';
 
 export interface RemoveOptions {
@@ -29,6 +30,14 @@ export interface RemoveResult {
 
 export async function remove(name: string, options: RemoveOptions = {}): Promise<RemoveResult> {
   const repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());
+  return withLock(repoRoot, 'remove', () => removeLocked(name, options, repoRoot));
+}
+
+async function removeLocked(
+  name: string,
+  options: RemoveOptions,
+  repoRoot: string,
+): Promise<RemoveResult> {
   const git = gitAt(repoRoot);
   const state = readState(repoRoot);
   const record = getAgent(state, name);

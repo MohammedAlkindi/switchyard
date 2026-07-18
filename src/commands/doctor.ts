@@ -10,6 +10,7 @@ import {
   gitAt,
   pruneWorktrees,
 } from '../lib/git.js';
+import { withLock } from '../lib/lock.js';
 import { readState, worktreeAbsPath, worktreesDir, writeState } from '../lib/state.js';
 import type { AgentRecord, FleetState } from '../lib/state.js';
 
@@ -45,6 +46,18 @@ export interface DoctorResult {
  * re-derived from actual `git worktree list` output, never guessed.
  */
 export async function doctor(options: DoctorOptions = {}): Promise<DoctorResult> {
+  if (!(options.fix ?? false)) return doctorRun(options);
+  let repoRoot: string;
+  try {
+    repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());
+  } catch {
+    // Not in a repo: doctorRun's repository check reports it; nothing to lock.
+    return doctorRun(options);
+  }
+  return withLock(repoRoot, 'doctor --fix', () => doctorRun(options));
+}
+
+async function doctorRun(options: DoctorOptions = {}): Promise<DoctorResult> {
   const fix = options.fix ?? false;
   const checks: DoctorCheck[] = [];
 

@@ -13,6 +13,7 @@ import {
   gitAt,
   verifyBranch,
 } from '../lib/git.js';
+import { withLock } from '../lib/lock.js';
 import { readState, worktreesDir, writeState } from '../lib/state.js';
 import type { AgentRecord } from '../lib/state.js';
 
@@ -66,8 +67,15 @@ function validateAgentName(name: string): void {
 
 export async function spawn(name: string, options: SpawnOptions = {}): Promise<SpawnResult> {
   validateAgentName(name);
-
   const repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());
+  return withLock(repoRoot, 'spawn', () => spawnLocked(name, options, repoRoot));
+}
+
+async function spawnLocked(
+  name: string,
+  options: SpawnOptions,
+  repoRoot: string,
+): Promise<SpawnResult> {
   const git = gitAt(repoRoot);
   const state = readState(repoRoot);
   const branch = `fleet/${name}`;

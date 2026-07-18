@@ -12,6 +12,7 @@ import {
   uncommittedFiles,
   verifyBranch,
 } from '../lib/git.js';
+import { withLock } from '../lib/lock.js';
 import { runShell } from '../lib/proc.js';
 import { getAgent, readState, worktreeAbsPath, writeState } from '../lib/state.js';
 import { check } from './check.js';
@@ -45,6 +46,14 @@ export interface MergeResult {
  */
 export async function merge(name: string, options: MergeOptions = {}): Promise<MergeResult> {
   const repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());
+  return withLock(repoRoot, 'merge', () => mergeLocked(name, options, repoRoot));
+}
+
+async function mergeLocked(
+  name: string,
+  options: MergeOptions,
+  repoRoot: string,
+): Promise<MergeResult> {
   const git = gitAt(repoRoot);
   const state = readState(repoRoot);
   const config = readConfig(repoRoot);
