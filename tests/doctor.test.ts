@@ -163,3 +163,12 @@ describe('mutation lock check', () => {
     expect(result.checks.find((c) => c.name === 'lock')?.detail).toBe('no mutation lock held');
   });
 });
+
+describe('conflict prediction capability', () => {
+  it('reports conflict-prediction capability as information', async () => {
+    const result = await doctor({ cwd: repo.root });
+    const check = result.checks.find((c) => c.name === 'conflict-prediction');
+    expect(check?.ok).toBe(true);
+    expect(check?.detail).toMatch(/available|unavailable/);
+  });
+});

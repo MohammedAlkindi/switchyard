@@ -4,10 +4,13 @@ import { simpleGit } from 'simple-git';
 import type { SimpleGit } from 'simple-git';
 import { dim, fail, ok, warn } from '../lib/format.js';
 import {
+  atLeast,
   currentBranch,
   defaultBaseBranch,
   getMainRepoRoot,
   gitAt,
+  gitVersion,
+  MERGE_TREE_MIN,
   pruneWorktrees,
 } from '../lib/git.js';
 import { holdingLock, lockPath, lockStatus, withLock } from '../lib/lock.js';
@@ -26,7 +29,14 @@ export interface DoctorOptions {
 }
 
 export interface DoctorCheck {
-  name: 'git-version' | 'repository' | 'lock' | 'state-file' | 'orphaned-worktrees' | 'stale-entries';
+  name:
+    | 'git-version'
+    | 'conflict-prediction'
+    | 'repository'
+    | 'lock'
+    | 'state-file'
+    | 'orphaned-worktrees'
+    | 'stale-entries';
   /** Whether the check was healthy before any fixing. */
   ok: boolean;
   detail: string;
@@ -62,6 +72,19 @@ async function doctorRun(options: DoctorOptions = {}): Promise<DoctorResult> {
   const checks: DoctorCheck[] = [];
 
   checks.push(await checkGitVersion());
+
+  {
+    const v = await gitVersion(simpleGit());
+    const capable = v !== null && atLeast(v, MERGE_TREE_MIN);
+    checks.push({
+      name: 'conflict-prediction',
+      ok: true, // informational: old git is a capability note, not ill health
+      detail: capable
+        ? `available (git ${v.major}.${v.minor}; merge-tree needs ${MERGE_TREE_MIN.major}.${MERGE_TREE_MIN.minor}+)`
+        : `unavailable — file-level checks only (git ${v ? `${v.major}.${v.minor}` : 'unknown'} < ${MERGE_TREE_MIN.major}.${MERGE_TREE_MIN.minor})`,
+      fixed: false,
+    });
+  }
 
   let repoRoot: string;
   try {
