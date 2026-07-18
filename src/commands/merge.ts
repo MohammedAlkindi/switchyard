@@ -5,16 +5,25 @@ import { dim, ok, plural, warn } from '../lib/format.js';
 import {
   currentBranch,
   deleteBranch,
+  deleteRef,
   getMainRepoRoot,
   gitAt,
   pruneWorktrees,
   removeWorktree,
+  revParseOid,
   uncommittedFiles,
+  updateRef,
   verifyBranch,
 } from '../lib/git.js';
 import { withLock } from '../lib/lock.js';
 import { runShell } from '../lib/proc.js';
 import { getAgent, readState, worktreeAbsPath, writeState } from '../lib/state.js';
+import {
+  clearUndoRecord,
+  UNDO_BRANCH_REF,
+  UNDO_HEAD_REF,
+  writeUndoRecord,
+} from '../lib/undo.js';
 import { check } from './check.js';
 import { clean } from './clean.js';
 
@@ -118,11 +127,28 @@ async function mergeLocked(
     }
   }
 
+  // Record the pre-merge world for `fleet undo`: refs now (GC-safe even after
+  // the branch is deleted), the JSON record only after success — undo must
+  // never be able to act on a failed merge. Any merge attempt invalidates a
+  // previous undo record, since these refs are single-slot.
+  const headBefore = await revParseOid(git, 'HEAD');
+  const branchTip = await revParseOid(git, record.branch);
+  if (!headBefore || !branchTip) {
+    throw new FleetError(
+      'Could not resolve HEAD or the agent branch; refusing to merge without undo state.',
+    );
+  }
+  clearUndoRecord(repoRoot);
+  await updateRef(git, UNDO_HEAD_REF, headBefore);
+  await updateRef(git, UNDO_BRANCH_REF, branchTip);
+
   try {
     await git.merge([record.branch]);
   } catch (err) {
     const status = await git.status();
     if (status.conflicted.length > 0) {
+      await deleteRef(git, UNDO_HEAD_REF);
+      await deleteRef(git, UNDO_BRANCH_REF);
       // Never leave the repo mid-merge: abort before reporting.
       await git.raw(['merge', '--abort']);
       throw new FleetError(
@@ -131,6 +157,8 @@ async function mergeLocked(
           `\nThe merge was aborted — ${into} is unchanged. Resolve manually with \`git merge ${record.branch}\` when ready.`,
       );
     }
+    await deleteRef(git, UNDO_HEAD_REF);
+    await deleteRef(git, UNDO_BRANCH_REF);
     const message = err instanceof Error ? err.message : String(err);
     throw new FleetError(`git merge failed before starting: ${message}`);
   }
@@ -169,6 +197,19 @@ async function mergeLocked(
       console.log(`  removed worktree and deleted ${record.branch}`);
     }
   }
+
+  const headAfter = (await revParseOid(git, 'HEAD')) ?? headBefore;
+  writeUndoRecord(repoRoot, {
+    version: 1,
+    agent: record,
+    into,
+    headBefore,
+    branchTip,
+    headAfter,
+    cleaned,
+    branchDeleted,
+    mergedAt: new Date().toISOString(),
+  });
 
   let autoCleaned: string[] = [];
   if (config.autoClean && doClean) {

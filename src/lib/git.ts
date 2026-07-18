@@ -165,6 +165,42 @@ export async function isMergedInto(git: SimpleGit, branch: string, base: string)
   return Number(out.trim()) === 0;
 }
 
+/** OID of `ref`'s commit, or null when it doesn't resolve. */
+export async function revParseOid(git: SimpleGit, ref: string): Promise<string | null> {
+  try {
+    const out = await git.raw(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
+    return out.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateRef(git: SimpleGit, ref: string, oid: string): Promise<void> {
+  await git.raw(['update-ref', ref, oid]);
+}
+
+export async function deleteRef(git: SimpleGit, ref: string): Promise<void> {
+  await git.raw(['update-ref', '-d', ref]);
+}
+
+/** Create a branch at a commit without checking it out. */
+export async function createBranchAt(git: SimpleGit, branch: string, oid: string): Promise<void> {
+  await git.raw(['branch', branch, oid]);
+}
+
+/** Attach a worktree for an existing branch (addWorktree creates a new branch). */
+export async function addWorktreeForBranch(
+  git: SimpleGit,
+  worktreePath: string,
+  branch: string,
+): Promise<void> {
+  await git.raw(['worktree', 'add', worktreePath, branch]);
+}
+
+export async function resetHardTo(git: SimpleGit, oid: string): Promise<void> {
+  await git.raw(['reset', '--hard', oid]);
+}
+
 export interface GitVersion {
   major: number;
   minor: number;
