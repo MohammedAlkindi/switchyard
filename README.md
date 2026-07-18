@@ -88,6 +88,7 @@ fleet sync claude               # base moved on? catch the branch up
 fleet exec claude -- npm test   # run commands in the worktree without cd'ing
 fleet diff claude               # review the branch before merging
 fleet merge claude              # merge into your current branch + clean up the agent
+fleet undo                      # …and roll that merge back if it was a mistake
 fleet pr claude                 # …or push it and open a PR via gh instead
 ```
 
@@ -103,6 +104,7 @@ fleet pr claude                 # …or push it and open a PR via gh instead
 | `fleet sync <agent>` | Merge the agent's base branch into its branch, catching it up. A conflicting merge is aborted — never left half-done | — |
 | `fleet exec <agent> -- <cmd>` | Run a shell command inside the agent's worktree (e.g. `fleet exec claude -- npm test`) | `--all` run in every worktree sequentially; exits 1 if any run fails |
 | `fleet merge <agent>` | Check for collisions, run the `preMerge` hook, merge the agent's branch into the current branch, then remove the worktree and branch. A conflicting merge is aborted — never left half-done. Overlaps that provably merge cleanly no longer block; predicted conflicts and uncommitted overlaps still do | `--no-clean` keep the worktree and branch, `--delete-branch` explicit form of the default cleanup |
+| `fleet undo` | Roll back the last `fleet merge`: reset the target branch, restore the agent's branch, worktree, and state entry. Single-level; refuses if history moved on | — |
 | `fleet pr <agent>` | Push the agent's branch to `origin` and open a pull request with the [GitHub CLI](https://cli.github.com) — the review-based alternative to a local merge | `--title <t>`, `--base <branch>`, `--draft` |
 | `fleet remove <agent>` | Remove the worktree; refuses if there are uncommitted changes | `--force` discard changes, `--delete-branch` also delete the branch |
 | `fleet clean` | Remove agents whose branches are fully merged into their base | `--dry-run` list only, `--stale <days>` also remove long-idle agents (clean worktrees only; their branches are kept) |

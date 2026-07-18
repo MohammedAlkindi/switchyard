@@ -18,6 +18,9 @@ this package.
   `fleet merge` gate simulate each agent pair's merge with `git merge-tree`.
   Shared files that provably merge cleanly are informational instead of
   blocking. `--files-only` restores file-level behavior.
+- `fleet undo`: one-command rollback of the last `fleet merge` — resets the
+  target branch and restores the agent's branch, worktree, and state entry.
+  `fleet doctor` reports when an undo is available.
 
 ### Changed
 

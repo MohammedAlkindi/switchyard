@@ -100,6 +100,20 @@ removes dead locks. Read-only commands and `fleet exec` never take the lock
 with state being local by design — and reentrant within one process
 (merge → autoClean → clean). In-process parallel mutation remains unsupported.
 
+## Undo model
+
+`fleet merge` records its pre-merge world before touching anything: two refs —
+`refs/fleet/undo-head` (target branch HEAD) and `refs/fleet/undo-branch`
+(agent branch tip) — pin the commits against GC even after the branch is
+deleted, and after success `.fleet/undo.json` stores the agent record, target
+branch, and post-merge HEAD. A failed or aborted merge deletes the refs and
+writes no record, so `fleet undo` can never act on a failed merge. Undo
+refuses unless the current branch, HEAD, and refs all match the record and
+the main worktree has no tracked changes; then it hard-resets the target
+branch, recreates the branch/worktree that cleanup removed, restores the
+state entry, and clears the record. Single-level by design: any new merge
+overwrites the slot. `fleet doctor` reports a pending record.
+
 ## Config file
 
 An optional `.fleetrc.json` at the repo root (committed or not — the user's choice) provides per-repo defaults, read by `src/lib/config.ts`:
