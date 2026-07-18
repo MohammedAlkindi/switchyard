@@ -71,6 +71,20 @@ Switchyard also writes `.fleet/` into `.git/info/exclude` (not `.gitignore`) on 
 
 Writes go through a write-then-rename (`state.json.tmp` → `state.json`) in `src/lib/state.ts`, so a crash mid-write can't corrupt the file. Commands tolerate drift between state and reality (a manually deleted worktree shows as `worktree missing` in `fleet list`; a manually deleted branch becomes a `fleet clean` candidate) rather than crashing — and `fleet doctor --fix` actively repairs drift: it rebuilds a corrupted `state.json` from real `git worktree list` output, adopts orphaned worktrees back into state, removes leftover non-worktree directories under `.fleet/worktrees/`, and prunes entries whose worktree is gone (branches are never deleted by doctor). Rebuilt entries carry re-derived `baseBranch`/`createdAt` values, not the originals.
 
+## Mutation lock
+
+Every mutating command (`spawn`, `merge`, `remove`, `clean`, `sync`,
+`doctor --fix`, `undo`) runs under `.fleet/lock` — an atomically created file
+holding the holder's PID, command, and start time (`src/lib/lock.ts`). This
+serializes read→modify→write cycles on `state.json` across processes, which
+matters because agents themselves run `fleet` commands concurrently. Waiters
+retry for up to 10 s, then fail naming the holder. A lock whose PID is dead is
+taken over automatically; `fleet doctor` reports lock state and `--fix`
+removes dead locks. Read-only commands and `fleet exec` never take the lock
+(exec runs long agent workloads). The lock is same-machine only — consistent
+with state being local by design — and reentrant within one process
+(merge → autoClean → clean). In-process parallel mutation remains unsupported.
+
 ## Config file
 
 An optional `.fleetrc.json` at the repo root (committed or not — the user's choice) provides per-repo defaults, read by `src/lib/config.ts`:

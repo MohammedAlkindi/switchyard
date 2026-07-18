@@ -9,6 +9,12 @@ this package.
 
 ## [Unreleased]
 
+### Added
+
+- Inter-process mutation lock (`.fleet/lock`): concurrent `fleet` commands
+  from multiple processes no longer race on `state.json` (lost-update bug).
+  `fleet doctor` reports the lock; `--fix` removes dead ones.
+
 ## [0.1.0] - 2026-07-17
 
 ### Added

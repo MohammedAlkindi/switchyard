@@ -10,7 +10,7 @@ import {
   gitAt,
   pruneWorktrees,
 } from '../lib/git.js';
-import { withLock } from '../lib/lock.js';
+import { holdingLock, lockPath, lockStatus, withLock } from '../lib/lock.js';
 import { readState, worktreeAbsPath, worktreesDir, writeState } from '../lib/state.js';
 import type { AgentRecord, FleetState } from '../lib/state.js';
 
@@ -26,7 +26,7 @@ export interface DoctorOptions {
 }
 
 export interface DoctorCheck {
-  name: 'git-version' | 'repository' | 'state-file' | 'orphaned-worktrees' | 'stale-entries';
+  name: 'git-version' | 'repository' | 'lock' | 'state-file' | 'orphaned-worktrees' | 'stale-entries';
   /** Whether the check was healthy before any fixing. */
   ok: boolean;
   detail: string;
@@ -75,6 +75,35 @@ async function doctorRun(options: DoctorOptions = {}): Promise<DoctorResult> {
       fixed: false,
     });
     return finish(checks, options.json ?? false);
+  }
+
+  // --- mutation lock ---------------------------------------------------------
+  const lock = lockStatus(repoRoot);
+  if (lock.state === 'none' || holdingLock()) {
+    // Our own lock (doctor --fix runs locked) is not a finding.
+    checks.push({ name: 'lock', ok: true, detail: 'no mutation lock held', fixed: false });
+  } else if (lock.state === 'live') {
+    checks.push({
+      name: 'lock',
+      ok: true,
+      detail: `held by live pid ${lock.info?.pid ?? '?'} (${lock.info?.command ?? 'unknown'}, ${Math.round(lock.ageMs / 1000)}s)`,
+      fixed: false,
+    });
+  } else if (fix) {
+    rmSync(lockPath(repoRoot), { force: true });
+    checks.push({
+      name: 'lock',
+      ok: false,
+      detail: `stale lock removed (pid ${lock.info?.pid ?? 'unknown'} is gone)`,
+      fixed: true,
+    });
+  } else {
+    checks.push({
+      name: 'lock',
+      ok: false,
+      detail: `stale lock: pid ${lock.info?.pid ?? 'unknown'} is gone — --fix will remove it`,
+      fixed: false,
+    });
   }
 
   const git = gitAt(repoRoot);

@@ -42,6 +42,17 @@ export function lockPath(repoRoot: string): string {
   return path.join(fleetDir(repoRoot), 'lock');
 }
 
+/**
+ * True when this process is inside a `withLock` body, i.e. the lock on disk is
+ * the one we took. Callers that inspect the lock (`fleet doctor`) need this to
+ * tell "someone else is mutating" from "I am the mutator" — a PID comparison
+ * can't, since a foreign lock file may carry our PID after reuse, and `doctor
+ * --fix` inspects the very lock it holds.
+ */
+export function holdingLock(): boolean {
+  return holdDepth > 0;
+}
+
 /** True when a process with this PID is alive on this machine. */
 function pidAlive(pid: number): boolean {
   try {

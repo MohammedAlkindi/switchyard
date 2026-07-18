@@ -1,9 +1,11 @@
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { doctor } from '../src/commands/doctor.js';
 import { spawn } from '../src/commands/spawn.js';
 import { branchExists, gitAt } from '../src/lib/git.js';
+import { lockPath } from '../src/lib/lock.js';
 import { readState, statePath, writeState } from '../src/lib/state.js';
 import { makeTempRepo, worktreePath } from './helpers.js';
 import type { TempRepo } from './helpers.js';
@@ -115,5 +117,49 @@ describe('fleet doctor', () => {
     expect(readState(repo.root).agents).toEqual({});
     // Pruning state never deletes branches.
     expect(await branchExists(gitAt(repo.root), 'fleet/alice')).toBe(true);
+  });
+});
+
+describe('mutation lock check', () => {
+  function writeLock(pid: number): void {
+    mkdirSync(path.join(repo.root, '.fleet'), { recursive: true });
+    writeFileSync(
+      lockPath(repo.root),
+      JSON.stringify({ pid, command: 'spawn', startedAt: new Date().toISOString() }),
+      'utf8',
+    );
+  }
+
+  /** PID that existed and is now certainly dead: a `node -e ""` that already exited. */
+  function deadPid(): number {
+    const child = spawnSync(process.execPath, ['-e', '']);
+    if (child.pid === undefined) throw new Error('could not spawn a probe process');
+    return child.pid;
+  }
+
+  it('reports a live lock as healthy information', async () => {
+    writeLock(process.pid);
+    const result = await doctor({ cwd: repo.root });
+    const check = result.checks.find((c) => c.name === 'lock');
+    expect(check?.ok).toBe(true);
+    expect(check?.detail).toMatch(/held by live pid/);
+  });
+
+  it('flags a stale lock and --fix removes it', async () => {
+    writeLock(deadPid());
+    const before = await doctor({ cwd: repo.root });
+    expect(before.checks.find((c) => c.name === 'lock')?.ok).toBe(false);
+    expect(before.healthy).toBe(false);
+
+    writeLock(deadPid()); // doctor without --fix must not have removed it
+    const fixed = await doctor({ fix: true, cwd: repo.root });
+    const check = fixed.checks.find((c) => c.name === 'lock');
+    expect(check?.ok).toBe(true); // withLock's takeover already cleaned it
+    expect(existsSync(lockPath(repo.root))).toBe(false);
+  });
+
+  it('reports no lock when none is held', async () => {
+    const result = await doctor({ cwd: repo.root });
+    expect(result.checks.find((c) => c.name === 'lock')?.detail).toBe('no mutation lock held');
   });
 });
