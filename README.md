@@ -13,13 +13,18 @@
 [![npm downloads](https://img.shields.io/npm/dm/@switchyardhq/switchyard)](https://www.npmjs.com/package/@switchyardhq/switchyard)
 [![license](https://img.shields.io/github/license/MohammedAlkindi/Switchyard)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/MohammedAlkindi/Switchyard/ci.yml?branch=main&label=CI)](https://github.com/MohammedAlkindi/Switchyard/actions/workflows/ci.yml)
-![coverage](https://img.shields.io/badge/coverage-83%25-green)
+![coverage](https://img.shields.io/badge/coverage-80%25-green)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/MohammedAlkindi/Switchyard/pulls)
 
 <!-- The coverage badge is a static number: re-run `npm run test:coverage` and update it
      when it drifts. Replace with a Codecov (or similar) badge once coverage upload is
-     wired into CI. -->
+     wired into CI.
+     It understates real coverage. `src/cli.ts` and `src/commands/mcp.ts` both report 0%
+     because their tests (lock-race.test.ts, mcp-server.test.ts) drive them as real
+     subprocesses, which v8 instrumentation in the parent process cannot see. The
+     protocol logic those two files delegate to — src/lib/jsonrpc.ts and src/lib/mcp.ts —
+     is at 100%. -->
 
 
 <p align="center">
