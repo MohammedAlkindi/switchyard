@@ -9,6 +9,7 @@ import { diff } from './commands/diff.js';
 import { doctor } from './commands/doctor.js';
 import { exec } from './commands/exec.js';
 import { list } from './commands/list.js';
+import { mcp } from './commands/mcp.js';
 import { merge } from './commands/merge.js';
 import { pr } from './commands/pr.js';
 import { remove } from './commands/remove.js';
@@ -168,6 +169,11 @@ program
   );
 
 program
+  .command('mcp')
+  .description('serve the read-only fleet tools to an AI agent over MCP (stdio)')
+  .action(() => run(() => mcp()));
+
+program
   .command('completion')
   .description('output a shell completion script (agent names are a snapshot)')
   .argument('<shell>', 'bash, zsh, or fish')
@@ -208,7 +214,8 @@ program.addHelpText(
     '  fleet remove codex --force      drop a worktree, discarding its changes\n' +
     '  fleet clean --stale 14          sweep merged agents + 2-week-idle ones\n' +
     '  fleet doctor --fix              repair state drift after manual surgery\n' +
-    '  fleet list --json               agent table as JSON, for scripts and CI\n',
+    '  fleet list --json               agent table as JSON, for scripts and CI\n' +
+    '  fleet mcp                       serve read-only fleet tools to an agent\n',
 );
 
 program.parseAsync(process.argv).catch((err: unknown) => {
