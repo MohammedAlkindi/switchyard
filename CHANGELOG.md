@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 See [docs/deployment.md](docs/deployment.md) for what patch/minor/major mean for
 this package.
 
+## [0.3.0] - 2026-07-19
+
+### Added
+
+- `fleet mcp`: serves fleet state to AI agents over the Model Context Protocol
+  (stdio transport, revision `2025-11-25`). Four read-only tools — `fleet_list`,
+  `fleet_status`, `fleet_check`, `fleet_lock_status` — each returning the same
+  object the matching `--json` flag prints, so the CLI and the MCP surface
+  cannot disagree about state. Configure a client with
+  `command: "fleet", args: ["mcp"]`.
+- A Claude Code skill shipped in the package at `skills/switchyard/SKILL.md`:
+  work in your own worktree, check before editing rather than before merging,
+  how to read each collision verdict, and that provisioning is something to ask
+  a human for. Install it by copying into your repo's `.claude/skills/`.
+- Pure cores for `fleet check` and `fleet status` (`collectCheck`,
+  `collectStatus`, and the matching `buildCheckReport` / `buildStatusReport`
+  renderers), mirroring `collectListings` / `buildListTable`. Callers that need
+  the data rather than the rendering no longer have to capture stdout.
+
+### Notes
+
+- **The MCP surface is read-only by design.** There is no tool to spawn, merge,
+  remove, or clean — agents can observe the fleet but not join it, and
+  provisioning stays a human action. The server states this at handshake time
+  because an agent that hunts for a spawn tool, finds none, and falls back to a
+  raw `git worktree add` recreates exactly the untracked state Switchyard
+  prevents.
+- No new runtime dependencies; the footprint is still `commander`,
+  `simple-git`, `chalk`, `cli-table3`. The MCP SDK was declined — the surface
+  needed here is one handshake and two methods over newline-delimited JSON.
+- No change to `state.json` (still `version: 1`) and no change to `lock.ts`.
+  The server never acquires the mutation lock, which is asserted by test.
+
 ## [0.2.0] - 2026-07-19
 
 ### Added
@@ -76,6 +109,7 @@ this package.
   even though unscoped `switchyard` is taken). The installed binary is
   `fleet`.
 
-[Unreleased]: https://github.com/MohammedAlkindi/Switchyard/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/MohammedAlkindi/Switchyard/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/MohammedAlkindi/Switchyard/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MohammedAlkindi/Switchyard/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MohammedAlkindi/Switchyard/releases/tag/v0.1.0

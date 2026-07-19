@@ -114,6 +114,52 @@ branch, recreates the branch/worktree that cleanup removed, restores the
 state entry, and clears the record. Single-level by design: any new merge
 overwrites the slot. `fleet doctor` reports a pending record.
 
+## MCP surface
+
+`fleet mcp` (`src/commands/mcp.ts`) serves four read-only tools —
+`fleet_list`, `fleet_status`, `fleet_check`, `fleet_lock_status` — over MCP's
+stdio transport, so the agents themselves can read fleet state. Three
+constraints shaped the implementation.
+
+**stdout is the protocol channel.** Any stray write corrupts the JSON-RPC
+stream and kills the client session. The command functions compute *and* print,
+so they cannot be called from a tool handler; the tools call the pure
+collectors instead (`collectListings`, `collectStatus`, `collectCheck`, plus
+`lockStatus`, which never printed). That separation — data-gathering split from
+rendering, mirroring `collectListings`/`buildListTable` — is the mechanism.
+Rerouting `console` to stderr is layered on top as a net for anything that
+writes without going through them, not as the mechanism itself.
+
+**Requests are handled strictly one at a time** (`src/lib/jsonrpc.ts`). No v0.3
+tool mutates anything, so the process-global reentrancy counter in
+`withLock` cannot be re-entered today; the subprocess test asserts the server
+never creates `.fleet/lock` at all. Serialization is forward-protection: the
+guarantee is cheaper to build in now than to retrofit into a server written
+assuming concurrency. `lock.ts` is unmodified.
+
+**State is re-read on every call.** The server is long-lived while agents spawn
+and merge underneath it, so any caching would serve stale answers; a test
+spawns an agent through the CLI mid-session and asserts it appears.
+
+The protocol layer (`src/lib/mcp.ts`) is transport-agnostic and targets
+revision `2025-11-25`, verified against the published spec rather than assumed
+— notably that stdio framing is newline-delimited JSON, not `Content-Length`
+headers, and that an unsupported version is a negotiation rather than an error.
+Tool payloads are JSON-stringified into a text content block. The spec's
+`structuredContent` is declined because it must be a JSON *object* while
+`fleet_list` returns an array: honoring it would mean either wrapping that one
+result in a new envelope or making one tool answer unlike the other three.
+
+Errors split along whether a model could recover: an unknown tool is a JSON-RPC
+error (no retry fixes it), while every execution failure is an `isError` result
+carrying the `FleetError` message, which is already written to be acted on.
+Unexpected failures land there too, deliberately — a branch deleted or worktree
+removed in another terminal must not take down the calling agent's session.
+
+No mutating tool is exposed, which also means the `postSpawn` hook is not
+reachable from an agent. Adding `fleet_spawn` later reopens that trust boundary
+and would need saying so.
+
 ## Config file
 
 An optional `.fleetrc.json` at the repo root (committed or not — the user's choice) provides per-repo defaults, read by `src/lib/config.ts`:
@@ -146,4 +192,5 @@ Precedence is always CLI flag > `.fleetrc.json` > built-in default. Unknown keys
 - **No submodule support.** Worktrees of repos with submodules are untested and likely broken; don't rely on them.
 - **No remote/multi-machine coordination.** `state.json` is local disk only — two machines managing the same clone don't see each other's agents. Nothing syncs, nothing locks.
 - **Collision detection is file-level by default.** Two agents editing disjoint parts of one file is still flagged — deliberately, since file-level overlap is where merge pain starts. `fleet check --lines` opts into line-range intersection, with the merge-base caveat described above.
+- **The MCP surface is read-only.** Agents can observe the fleet but not join it: there is no tool to spawn, merge, remove, or clean. If early use shows agents ignoring the tools because they cannot act on what they see, that is the signal to promote `fleet_spawn` — a contained change, and one far easier to widen than to narrow once agents depend on it.
 - **`clean --stale` judges idleness by the branch's last commit date.** Uncommitted-but-untouched-for-weeks worktrees are protected by the dirty check instead (never removed), since file mtimes are too easy to disturb to trust for deletion.
