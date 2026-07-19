@@ -1,6 +1,6 @@
 {
   "name": "@switchyardhq/switchyard",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Manage multiple AI coding agents working on the same git repository: isolated worktrees per agent, collision detection before merge, safe cleanup.",
   "keywords": [
     "git",
@@ -27,7 +27,8 @@
   "main": "dist/cli.js",
   "files": [
     "dist",
-    "schema"
+    "schema",
+    "skills"
   ],
   "engines": {
     "node": ">=18.17"

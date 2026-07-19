@@ -13,13 +13,18 @@
 [![npm downloads](https://img.shields.io/npm/dm/@switchyardhq/switchyard)](https://www.npmjs.com/package/@switchyardhq/switchyard)
 [![license](https://img.shields.io/github/license/MohammedAlkindi/Switchyard)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/MohammedAlkindi/Switchyard/ci.yml?branch=main&label=CI)](https://github.com/MohammedAlkindi/Switchyard/actions/workflows/ci.yml)
-![coverage](https://img.shields.io/badge/coverage-83%25-green)
+![coverage](https://img.shields.io/badge/coverage-80%25-green)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/MohammedAlkindi/Switchyard/pulls)
 
 <!-- The coverage badge is a static number: re-run `npm run test:coverage` and update it
      when it drifts. Replace with a Codecov (or similar) badge once coverage upload is
-     wired into CI. -->
+     wired into CI.
+     It understates real coverage. `src/cli.ts` and `src/commands/mcp.ts` both report 0%
+     because their tests (lock-race.test.ts, mcp-server.test.ts) drive them as real
+     subprocesses, which v8 instrumentation in the parent process cannot see. The
+     protocol logic those two files delegate to — src/lib/jsonrpc.ts and src/lib/mcp.ts —
+     is at 100%. -->
 
 
 <p align="center">
@@ -111,6 +116,7 @@ fleet pr claude                 # …or push it and open a PR via gh instead
 | `fleet watch` | `fleet list`, re-rendered live until Ctrl+C | `--interval <seconds>` refresh rate (default 3) |
 | `fleet doctor` | Diagnose git version, state file validity, orphaned worktrees, and stale entries. Exits 1 if problems remain | `--fix` repair: rebuild state from `git worktree list`, adopt/remove orphans, prune stale entries; `--json` machine-readable output |
 | `fleet completion <shell>` | Print a completion script for `bash`, `zsh`, or `fish` (agent names are a snapshot from generation time) | — |
+| `fleet mcp` | Serve the read-only fleet tools to an AI agent over MCP (stdio). Not run by hand — see [Use it from an AI agent](#use-it-from-an-ai-agent-mcp) | — |
 
 All commands work from the main checkout **or** from inside any agent worktree.
 
@@ -131,6 +137,116 @@ conflict": each pair of overlapping agents is merged in memory with
 list (they no longer exit 1). `--files-only` restores plain file-level
 behavior; older git falls back to it automatically. JSON output carries
 `prediction: "merge-tree" | "files"` so scripts know which semantics ran.
+
+## Use it from an AI agent (MCP)
+
+Everything above assumes a human at a terminal. `fleet mcp` gives the agents
+themselves a way to see the fleet: it serves Switchyard state over the
+[Model Context Protocol](https://modelcontextprotocol.io) on stdio, so an agent
+can check for collisions **before** it starts editing rather than discovering
+them at merge time.
+
+Point an MCP client at it:
+
+```json
+{
+  "mcpServers": {
+    "switchyard": {
+      "command": "fleet",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Without a global install, use `"command": "npx", "args": ["-y", "@switchyardhq/switchyard", "mcp"]`.
+
+### The tools
+
+| Tool | Arguments | Returns |
+| --- | --- | --- |
+| `fleet_list` | — | Every active agent: branch, base, worktree path, ahead/behind, uncommitted count, last activity |
+| `fleet_status` | `agent` | One agent in detail: record, ahead/behind, uncommitted files, diffstat vs base |
+| `fleet_check` | `lines?`, `filesOnly?` | Files touched by more than one agent, with merge-simulation verdicts |
+| `fleet_lock_status` | — | Whether a `fleet` command is currently mutating the repo |
+
+Each returns the same object the matching `--json` flag prints, so the CLI and
+the MCP surface can never disagree about what the state is.
+
+### What the agent actually sees
+
+The demo GIF above shows the human side. This is the same collision from the
+agent's side — a real session against `fleet mcp`, two agents having both
+rewritten `src/api/routes.ts`:
+
+```jsonc
+// → the client opens the session
+{"jsonrpc":"2.0","id":1,"method":"initialize",
+ "params":{"protocolVersion":"2025-11-25","capabilities":{},
+           "clientInfo":{"name":"demo-client","version":"1.0.0"}}}
+
+// ← the server answers, and states the read-only contract up front
+{"jsonrpc":"2.0","id":1,"result":{
+  "protocolVersion":"2025-11-25",
+  "capabilities":{"tools":{}},
+  "serverInfo":{"name":"switchyard","title":"Switchyard","version":"0.3.0"},
+  "instructions":"... These tools are read-only by design. Spawning agents,
+                  merging, and removing worktrees are human actions in this
+                  release — there are no tools for them. Ask for
+                  `fleet spawn <name>` rather than creating a worktree yourself."}}
+
+// → before editing anything, the agent checks
+{"jsonrpc":"2.0","id":2,"method":"tools/call",
+ "params":{"name":"fleet_check","arguments":{}}}
+```
+
+The reply's content block carries the same object `fleet check --json` prints:
+
+```json
+{
+  "collisions": [
+    { "file": "src/api/routes.ts", "agents": ["claude", "codex"], "verdict": "conflicts" }
+  ],
+  "prediction": "merge-tree",
+  "agentsChecked": 2,
+  "cleanMerges": []
+}
+```
+
+`"verdict": "conflicts"` is the agent's cue to stop and coordinate — reached
+before it wrote a line, rather than at merge time.
+
+### These tools are read-only, deliberately
+
+There is no `fleet_spawn`, `fleet_merge`, or `fleet_remove`. Agents can observe
+the fleet; they cannot join or change it. Provisioning and merging stay human
+actions in this release.
+
+That is a real limitation, not a technicality, and it has a failure mode worth
+naming: an agent that goes looking for a spawn tool, finds none, and falls back
+to a raw `git worktree add` has produced exactly the untracked, uncoordinated
+state Switchyard exists to prevent. The server therefore says so at handshake
+time, and the shipped skill says so again — an agent should *ask* for
+`fleet spawn <name>` instead.
+
+A pleasant consequence: since `spawn` is not exposed, the `postSpawn` hook
+(arbitrary shell from `.fleetrc.json`) is not reachable from an agent at all.
+
+### The skill
+
+The package ships a Claude Code skill at
+`node_modules/@switchyardhq/switchyard/skills/switchyard/SKILL.md`. Copy it into
+your repo's `.claude/skills/` to install it:
+
+```sh
+mkdir -p .claude/skills/switchyard
+cp node_modules/@switchyardhq/switchyard/skills/switchyard/SKILL.md .claude/skills/switchyard/
+```
+
+It teaches the convention the tools alone cannot: work in your own worktree,
+check before editing rather than before merging, how to read each verdict, and
+that provisioning is something to ask for. Installing it is a manual copy on
+purpose — writing into your repo deserves its own design pass.
 
 ## Configuration
 
