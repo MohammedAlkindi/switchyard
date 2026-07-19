@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 See [docs/deployment.md](docs/deployment.md) for what patch/minor/major mean for
 this package.
 
+## [Unreleased]
+
+### Added
+
+- `fleet init`: brings a repository into the fleet workflow in one command.
+  Writes `.fleet/` into `.git/info/exclude`, a starter `.fleetrc.json` wired to
+  the config schema, the Claude Code skill into `.claude/skills/switchyard/`,
+  and an agent-neutral protocol block into `AGENTS.md` (created if absent).
+  Idempotent — re-run after upgrading to refresh the agent-facing docs.
+  `--force` overwrites an existing `.fleetrc.json`; `--json` prints the result.
+
+### Changed
+
+- **The shipped skill now installs itself.** 0.3.0 shipped it in the tarball and
+  documented a manual `cp` into `.claude/skills/`, which meant the convention
+  usually never reached the agents that needed it. `fleet init` installs it, and
+  re-running refreshes it.
+- Agents other than Claude Code can now learn the convention. The `AGENTS.md`
+  block carries the short version for anything that reads that file — Codex,
+  Cursor, and others — where previously only a Claude Code skill existed.
+
+### Notes
+
+- What `fleet init` overwrites is split on ownership. `.fleetrc.json` is your
+  file and is never replaced without `--force`; the skill and the `AGENTS.md`
+  block are package-managed and refreshed every run. In `AGENTS.md` only the
+  region between `<!-- switchyard:begin -->` and `<!-- switchyard:end -->` is
+  rewritten. Broken markers are an error, not a guess.
+- No new runtime dependencies, and no change to `state.json` (still
+  `version: 1`) — `fleet init` adds no persisted fleet state of its own.
+- The MCP surface is unchanged and still read-only.
+
 ## [0.3.0] - 2026-07-19
 
 ### Added
