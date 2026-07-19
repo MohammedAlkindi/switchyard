@@ -40,6 +40,8 @@ describe('published package contents', () => {
     const files = packedFiles();
     expect(files).toContain('dist/cli.js');
     expect(files).toContain('dist/commands/mcp.js');
+    // `fleet init` reads the packaged skill at runtime; both must ship.
+    expect(files).toContain('dist/commands/init.js');
     expect(files.some((f) => f.startsWith('schema/'))).toBe(true);
   });
 
