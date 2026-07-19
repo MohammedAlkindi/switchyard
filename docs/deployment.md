@@ -42,6 +42,14 @@ git push origin main --follow-tags
 
 `npm version` bumps `package.json`, commits, and tags in one step — don't edit the version by hand.
 
+> [!IMPORTANT]
+> If you bypass `npm version`'s git step — e.g. `npm version <type> --no-git-tag-version`
+> to land the bump and the changelog move as one commit — you must create the tag
+> **annotated**: `git tag -a v0.2.0 -m "0.2.0"`. `git push --follow-tags` pushes
+> annotated tags *only*, so a lightweight `git tag v0.2.0` is silently left behind,
+> the release workflow never fires, and nothing publishes — with no error to tell you.
+> Either tag annotated, or push it explicitly with `git push origin v0.2.0`.
+
 Pushing the `v*` tag triggers the release workflow (`.github/workflows/release.yml`): it re-runs lint, typecheck, and the test suite, verifies the tag matches `package.json`, and publishes to npm with [provenance](https://docs.npmjs.com/generating-provenance-statements). It authenticates with the `NPM_TOKEN` repository secret — a granular npm automation token with publish rights on `@switchyardhq/switchyard`; rotate it from npmjs.com → Access Tokens if it leaks or expires. A manual `npm publish` from a clean checkout still works as a fallback (`prepublishOnly` runs the same checks), but the workflow is the normal path — it can't publish uncommitted work.
 
 Semver conventions for this package:
