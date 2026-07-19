@@ -160,6 +160,50 @@ No mutating tool is exposed, which also means the `postSpawn` hook is not
 reachable from an agent. Adding `fleet_spawn` later reopens that trust boundary
 and would need saying so.
 
+## Onboarding: `fleet init`
+
+Every guarantee above is reachable only if the agents in the repo know the
+convention exists. Before `fleet init` that knowledge travelled by manual file
+copy, which meant it usually did not travel at all: the MCP tools report state
+but cannot convey that checking belongs *before* the edit, and an agent that
+finds no spawn tool and was never told why falls back to raw `git worktree add`
+— the exact untracked state Switchyard exists to prevent.
+
+`fleet init` (`src/commands/init.ts`) writes four things, in this order:
+
+1. `.fleet/` into `.git/info/exclude`, so a repo that has never spawned still
+   ignores the directory.
+2. A starter `.fleetrc.json` carrying only `$schema`, which is what makes every
+   valid key discoverable through editor autocomplete.
+3. `.claude/skills/switchyard/SKILL.md`, copied from the packaged skill.
+4. A protocol block in `AGENTS.md`, created if the file is absent.
+
+**Two artifacts, not one generated from the other.** A skill loaded on demand
+can afford a hundred lines; a file every agent reads up front cannot. Rendering
+a summary out of the skill automatically produces a worse block than writing the
+short version directly, so `AGENTS_BLOCK` in `src/lib/protocol.ts` is maintained
+as its own text — a TypeScript constant rather than a shipped file, so it needs
+no `files` entry and has no runtime resolution failure mode. The skill *is* read
+from disk, because Claude Code requires it as a file at a fixed path anyway.
+
+**What init overwrites is split on ownership.** `.fleetrc.json` is the user's
+file and is never replaced without `--force`. The skill and the `AGENTS.md`
+block are package-managed content, refreshed on every run — a stale convention
+is the failure this command exists to fix, so re-running after an upgrade is the
+intended way to stay current.
+
+Idempotence rests on the `<!-- switchyard:begin -->` / `<!-- switchyard:end -->`
+markers: `upsertMarkedBlock` (pure, so the placement rules test without a
+filesystem) replaces the marked region when the pair is present and appends when
+it is not. A half-present or inverted pair is a hard error rather than a guess,
+because guessing where the user's content ends risks eating it. Files are
+written only when the content would actually change, so a second `init` reports
+`unchanged` and touches no mtimes.
+
+Init takes the mutation lock even though it never reads or writes
+`state.json` — two concurrent runs would otherwise interleave their
+read-modify-write of `AGENTS.md` and could duplicate the block.
+
 ## Config file
 
 An optional `.fleetrc.json` at the repo root (committed or not — the user's choice) provides per-repo defaults, read by `src/lib/config.ts`:

@@ -86,6 +86,7 @@ Requires Node.js >= 18.17 and git >= 2.31. The installed command is `fleet`.
 
 ```sh
 cd your-repo
+fleet init                      # config, ignore entry, and the agent-facing docs
 fleet spawn claude              # isolated worktree on branch fleet/claude
 cd .fleet/worktrees/claude      # point your agent here and let it work
 fleet check                     # any files also touched by other agents?
@@ -101,6 +102,7 @@ fleet pr claude                 # …or push it and open a PR via gh instead
 
 | Command | Description | Key flags |
 | --- | --- | --- |
+| `fleet init` | Set the repo up for the fleet workflow: starter `.fleetrc.json`, `.fleet/` in `.git/info/exclude`, the Claude Code skill in `.claude/skills/`, and a protocol block in `AGENTS.md`. Idempotent — re-run after upgrading to refresh the agent-facing docs | `--force` overwrite an existing `.fleetrc.json`, `--json` machine-readable output |
 | `fleet spawn <agent>` | Create a worktree in `.fleet/worktrees/<agent>/` on a new branch `fleet/<agent>`, then provision it (`copyOnSpawn` / `postSpawn` below) | `--from <branch>` base branch (default: current branch) |
 | `fleet list` | All active agents: branch, base, ahead/behind, uncommitted count, last activity | `--json` machine-readable output |
 | `fleet status <agent>` | One agent in detail: uncommitted files, diff stat vs base, ahead/behind | `--json` machine-readable output |
@@ -232,21 +234,31 @@ time, and the shipped skill says so again — an agent should *ask* for
 A pleasant consequence: since `spawn` is not exposed, the `postSpawn` hook
 (arbitrary shell from `.fleetrc.json`) is not reachable from an agent at all.
 
-### The skill
+### Teaching agents the convention
 
-The package ships a Claude Code skill at
-`node_modules/@switchyardhq/switchyard/skills/switchyard/SKILL.md`. Copy it into
-your repo's `.claude/skills/` to install it:
+The tools report state; they cannot convey that you are expected to check
+*before* editing rather than before merging, or that provisioning is something
+to ask a human for. That convention is the actual product, and `fleet init`
+installs it in two forms:
 
-```sh
-mkdir -p .claude/skills/switchyard
-cp node_modules/@switchyardhq/switchyard/skills/switchyard/SKILL.md .claude/skills/switchyard/
-```
+| Artifact | Audience |
+| --- | --- |
+| `.claude/skills/switchyard/SKILL.md` | Claude Code, which loads the full skill on demand |
+| A marked block in `AGENTS.md` | Any agent that reads `AGENTS.md` up front — Codex, Cursor, and others |
 
-It teaches the convention the tools alone cannot: work in your own worktree,
-check before editing rather than before merging, how to read each verdict, and
-that provisioning is something to ask for. Installing it is a manual copy on
-purpose — writing into your repo deserves its own design pass.
+Two texts rather than one generated from the other, because the audiences
+differ: a skill loaded on demand can afford a hundred lines, an always-read
+file cannot.
+
+Both are package-managed and refreshed on every `fleet init`, so upgrading the
+package and re-running is enough to keep them current. In `AGENTS.md` only the
+region between `<!-- switchyard:begin -->` and `<!-- switchyard:end -->` is
+rewritten — the rest of the file is yours and is never touched. `.fleetrc.json`
+is treated the opposite way: it is your file, so init never overwrites it
+without `--force`.
+
+If the markers are ever half-deleted or inverted, init refuses rather than
+guessing where your content ends.
 
 ## Configuration
 

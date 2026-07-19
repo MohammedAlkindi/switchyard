@@ -242,8 +242,11 @@ export async function supportsMergeTree(git: SimpleGit): Promise<boolean> {
 /**
  * Ensure `.fleet/` is ignored via `.git/info/exclude` so Switchyard never dirties
  * the repos it manages — even ones whose .gitignore doesn't mention it.
+ *
+ * Returns whether the entry had to be added, so callers that report what they
+ * did (`fleet init`) can tell "already ignored" from "just ignored it".
  */
-export async function ensureFleetExcluded(repoRoot: string): Promise<void> {
+export async function ensureFleetExcluded(repoRoot: string): Promise<boolean> {
   const commonDirRaw = await gitAt(repoRoot).raw([
     'rev-parse',
     '--path-format=absolute',
@@ -253,8 +256,9 @@ export async function ensureFleetExcluded(repoRoot: string): Promise<void> {
   const excludeFile = path.join(infoDir, 'exclude');
   const entry = '.fleet/';
   const current = existsSync(excludeFile) ? readFileSync(excludeFile, 'utf8') : '';
-  if (current.split(/\r?\n/).some((line) => line.trim() === entry)) return;
+  if (current.split(/\r?\n/).some((line) => line.trim() === entry)) return false;
   mkdirSync(infoDir, { recursive: true });
   const prefix = current.length > 0 && !current.endsWith('\n') ? '\n' : '';
   appendFileSync(excludeFile, `${prefix}# added by fleet\n${entry}\n`, 'utf8');
+  return true;
 }
