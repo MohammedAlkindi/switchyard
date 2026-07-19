@@ -13,7 +13,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@switchyardhq/switchyard)](https://www.npmjs.com/package/@switchyardhq/switchyard)
 [![license](https://img.shields.io/github/license/MohammedAlkindi/Switchyard)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/MohammedAlkindi/Switchyard/ci.yml?branch=main&label=CI)](https://github.com/MohammedAlkindi/Switchyard/actions/workflows/ci.yml)
-![coverage](https://img.shields.io/badge/coverage-80%25-green)
+![coverage](https://img.shields.io/badge/coverage-83%25-green)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/MohammedAlkindi/Switchyard/pulls)
 
