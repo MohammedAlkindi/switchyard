@@ -52,16 +52,16 @@ export interface CheckResult {
 }
 
 /**
- * Cross-reference every agent branch's changed files (committed vs base, plus
- * uncommitted edits in the worktree) and flag files touched by more than one
- * agent — the collision risks to resolve before anyone merges.
+ * Compute the collision report without printing anything. Mirrors
+ * `collectListings` in list.ts: callers that need the data rather than the
+ * rendering — `--json`, and any transport where stdout is not free-form — use
+ * this instead of `check()`.
  */
-export async function check(options: CheckOptions = {}): Promise<CheckResult> {
+export async function collectCheck(options: CheckOptions = {}): Promise<CheckResult> {
   const repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());
   const git = gitAt(repoRoot);
   const state = readState(repoRoot);
   const agents = Object.values(state.agents).sort((a, b) => a.name.localeCompare(b.name));
-  const json = options.json ?? false;
   const capable = await supportsMergeTree(git);
   const useMergeTree = capable && !(options.filesOnly ?? false);
   const prediction: 'merge-tree' | 'files' = useMergeTree ? 'merge-tree' : 'files';
@@ -69,14 +69,6 @@ export async function check(options: CheckOptions = {}): Promise<CheckResult> {
   if (agents.length < 2) {
     const result: CheckResult = { collisions: [], prediction, agentsChecked: agents.length };
     if (options.lines) result.disjoint = [];
-    if (json) {
-      console.log(JSON.stringify(result, null, 2));
-    } else {
-      console.log(
-        `Nothing to check: ${plural(agents.length, 'active agent')} ` +
-          '(collisions need at least 2).',
-      );
-    }
     return result;
   }
 
@@ -206,25 +198,42 @@ export async function check(options: CheckOptions = {}): Promise<CheckResult> {
   const result: CheckResult = { collisions, prediction, agentsChecked: agents.length };
   if (disjoint !== undefined) result.disjoint = disjoint;
   if (cleanMerges !== undefined) result.cleanMerges = cleanMerges;
+  return result;
+}
 
-  if (json) {
-    console.log(JSON.stringify(result, null, 2));
-    return result;
+/**
+ * Render a check result as the `fleet check` human report. `capable` reports
+ * whether the installed git supports merge-tree at all, which only affects the
+ * hint text — it is not part of `CheckResult`, so the JSON shape is unchanged.
+ */
+export function buildCheckReport(
+  result: CheckResult,
+  opts: { lines?: boolean; capable: boolean },
+): string {
+  const { collisions, disjoint, cleanMerges, prediction, agentsChecked } = result;
+  const useMergeTree = prediction === 'merge-tree';
+
+  if (agentsChecked < 2) {
+    return (
+      `Nothing to check: ${plural(agentsChecked, 'active agent')} ` +
+      '(collisions need at least 2).'
+    );
   }
 
+  const out: string[] = [];
   if (collisions.length === 0) {
-    console.log(ok(`No collisions across ${agents.length} agents.`));
+    out.push(ok(`No collisions across ${agentsChecked} agents.`));
   } else {
-    console.log(fail(`${plural(collisions.length, 'collision risk')} detected:`));
+    out.push(fail(`${plural(collisions.length, 'collision risk')} detected:`));
     const headers = ['FILE', 'AGENTS'];
-    if (options.lines) headers.push('LINES');
+    if (opts.lines) headers.push('LINES');
     if (useMergeTree) headers.push('VERDICT');
-    console.log(
+    out.push(
       table(
         headers,
         collisions.map((c) => {
           const row = [c.file, c.agents.join(', ')];
-          if (options.lines) row.push(c.overlap ?? '');
+          if (opts.lines) row.push(c.overlap ?? '');
           if (useMergeTree) {
             row.push(c.verdict === 'conflicts' ? 'will conflict' : 'uncommitted edits');
           }
@@ -232,37 +241,56 @@ export async function check(options: CheckOptions = {}): Promise<CheckResult> {
         }),
       ),
     );
-    console.log(
+    out.push(
       dim(
         useMergeTree
           ? "Verdicts from git merge-tree simulation of each agent pair's committed work; uncommitted edits can't be simulated and stay blocking."
-          : options.lines
+          : opts.lines
             ? 'Line ranges are relative to the merge base — exact when the agents share a base, a heuristic otherwise.'
             : 'These files are touched by more than one agent (committed or uncommitted). ' +
               'Coordinate before merging.' +
-              (capable ? '' : ' (file-level only: git < 2.38 lacks merge-tree)'),
+              (opts.capable ? '' : ' (file-level only: git < 2.38 lacks merge-tree)'),
       ),
     );
   }
   if (cleanMerges && cleanMerges.length > 0) {
-    console.log(
+    out.push(
       dim(
         `${plural(cleanMerges.length, 'shared file')} whose committed changes merge cleanly (not counted):`,
       ),
     );
-    for (const c of cleanMerges) console.log(dim(`  ${c.file} (${c.agents.join(', ')})`));
+    for (const c of cleanMerges) out.push(dim(`  ${c.file} (${c.agents.join(', ')})`));
   }
   if (disjoint && disjoint.length > 0) {
-    console.log(
+    out.push(
       dim(
         `${plural(disjoint.length, 'shared file')} with disjoint line edits (not counted as collisions):`,
       ),
     );
     for (const d of disjoint) {
-      console.log(dim(`  ${d.file} (${d.agents.join(', ')})`));
+      out.push(dim(`  ${d.file} (${d.agents.join(', ')})`));
     }
   }
 
+  return out.join('\n');
+}
+
+/**
+ * Cross-reference every agent branch's changed files (committed vs base, plus
+ * uncommitted edits in the worktree) and flag files touched by more than one
+ * agent — the collision risks to resolve before anyone merges.
+ */
+export async function check(options: CheckOptions = {}): Promise<CheckResult> {
+  const repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());
+  const result = await collectCheck({ ...options, cwd: repoRoot });
+
+  if (options.json ?? false) {
+    console.log(JSON.stringify(result, null, 2));
+    return result;
+  }
+
+  const capable = await supportsMergeTree(gitAt(repoRoot));
+  console.log(buildCheckReport(result, { lines: options.lines, capable }));
   return result;
 }
 

@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { check } from '../src/commands/check.js';
+import { buildCheckReport, check, collectCheck } from '../src/commands/check.js';
 import { spawn } from '../src/commands/spawn.js';
 import { commitFile, makeTempRepo, worktreePath } from './helpers.js';
 import type { TempRepo } from './helpers.js';
@@ -233,5 +233,65 @@ describe('fleet check --lines (files-only mode)', () => {
     expect(result.collisions).toEqual([
       { file: 'new.txt', agents: ['alice', 'bob'], overlap: 'whole-file' },
     ]);
+  });
+});
+
+describe('collectCheck (pure core)', () => {
+  it('returns the same result as check() while writing nothing to stdout', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'src.txt', 'alice\n', 'feat: alice edit');
+    await commitFile(worktreePath(repo.root, 'bob'), 'src.txt', 'bob\n', 'feat: bob edit');
+
+    const printed = await check({ cwd: repo.root });
+    vi.mocked(console.log).mockClear();
+
+    const collected = await collectCheck({ cwd: repo.root });
+
+    expect(console.log).not.toHaveBeenCalled();
+    expect(collected).toEqual(printed);
+  });
+
+  it('stays silent on the fewer-than-two-agents early return', async () => {
+    await spawn('alice', { cwd: repo.root });
+    vi.mocked(console.log).mockClear();
+
+    const result = await collectCheck({ cwd: repo.root });
+
+    expect(console.log).not.toHaveBeenCalled();
+    expect(result.agentsChecked).toBe(1);
+    expect(result.collisions).toEqual([]);
+  });
+
+  it('stays silent with --lines and --files-only', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'src.txt', 'alice\nline2\n', 'feat: a');
+    await commitFile(worktreePath(repo.root, 'bob'), 'src.txt', 'line1\nbob\n', 'feat: b');
+
+    const printed = await check({ lines: true, filesOnly: true, cwd: repo.root });
+    vi.mocked(console.log).mockClear();
+
+    const collected = await collectCheck({ lines: true, filesOnly: true, cwd: repo.root });
+
+    expect(console.log).not.toHaveBeenCalled();
+    expect(collected).toEqual(printed);
+  });
+});
+
+describe('buildCheckReport (pure renderer)', () => {
+  it('renders the collision table without writing to stdout', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'src.txt', 'alice\n', 'feat: alice edit');
+    await commitFile(worktreePath(repo.root, 'bob'), 'src.txt', 'bob\n', 'feat: bob edit');
+    const result = await collectCheck({ cwd: repo.root });
+    vi.mocked(console.log).mockClear();
+
+    const report = buildCheckReport(result, { capable: true });
+
+    expect(console.log).not.toHaveBeenCalled();
+    expect(report).toContain('src.txt');
+    expect(report).toContain('will conflict');
   });
 });

@@ -27,7 +27,16 @@ export interface StatusResult {
   worktreeMissing: boolean;
 }
 
-export async function status(name: string, options: StatusOptions = {}): Promise<StatusResult> {
+/**
+ * Gather the per-agent data `fleet status` displays, without printing anything.
+ * Mirrors `collectListings` in list.ts: callers that need the data rather than
+ * the rendering — `--json`, and any transport where stdout is not free-form —
+ * use this instead of `status()`.
+ */
+export async function collectStatus(
+  name: string,
+  options: StatusOptions = {},
+): Promise<StatusResult> {
   const repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());
   const git = gitAt(repoRoot);
   const state = readState(repoRoot);
@@ -44,35 +53,50 @@ export async function status(name: string, options: StatusOptions = {}): Promise
   ).trimEnd();
   const uncommitted = worktreeMissing ? [] : await uncommittedFiles(abs);
 
-  const result: StatusResult = { record, ahead, behind, uncommitted, diffStat, worktreeMissing };
+  return { record, ahead, behind, uncommitted, diffStat, worktreeMissing };
+}
+
+/** Render a status result as the `fleet status` human summary. */
+export function buildStatusReport(result: StatusResult, worktreeAbs: string): string {
+  const { record, ahead, behind, uncommitted, diffStat, worktreeMissing } = result;
+  const out: string[] = [];
+
+  out.push(bold(`Agent ${record.name}`));
+  out.push(`  branch:   ${record.branch}`);
+  out.push(`  base:     ${record.baseBranch} (${ahead} ahead, ${behind} behind)`);
+  out.push(`  worktree: ${worktreeAbs}${worktreeMissing ? ` ${warn('(missing)')}` : ''}`);
+  out.push(`  created:  ${record.createdAt}`);
+  out.push('');
+
+  if (uncommitted.length > 0) {
+    out.push(bold(`Uncommitted changes (${uncommitted.length}):`));
+    for (const f of uncommitted) {
+      out.push(`  ${warn(f.status.padEnd(2))} ${f.path}`);
+    }
+  } else if (!worktreeMissing) {
+    out.push(ok('Working tree clean.'));
+  }
+  out.push('');
+
+  if (diffStat) {
+    out.push(bold(`Committed changes vs ${record.baseBranch}:`));
+    out.push(diffStat);
+  } else {
+    out.push(dim(`No committed changes vs ${record.baseBranch} yet.`));
+  }
+
+  return out.join('\n');
+}
+
+export async function status(name: string, options: StatusOptions = {}): Promise<StatusResult> {
+  const repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());
+  const result = await collectStatus(name, { ...options, cwd: repoRoot });
+
   if (options.json) {
     console.log(JSON.stringify(result, null, 2));
     return result;
   }
 
-  console.log(bold(`Agent ${record.name}`));
-  console.log(`  branch:   ${record.branch}`);
-  console.log(`  base:     ${record.baseBranch} (${ahead} ahead, ${behind} behind)`);
-  console.log(`  worktree: ${abs}${worktreeMissing ? ` ${warn('(missing)')}` : ''}`);
-  console.log(`  created:  ${record.createdAt}`);
-  console.log('');
-
-  if (uncommitted.length > 0) {
-    console.log(bold(`Uncommitted changes (${uncommitted.length}):`));
-    for (const f of uncommitted) {
-      console.log(`  ${warn(f.status.padEnd(2))} ${f.path}`);
-    }
-  } else if (!worktreeMissing) {
-    console.log(ok('Working tree clean.'));
-  }
-  console.log('');
-
-  if (diffStat) {
-    console.log(bold(`Committed changes vs ${record.baseBranch}:`));
-    console.log(diffStat);
-  } else {
-    console.log(dim(`No committed changes vs ${record.baseBranch} yet.`));
-  }
-
+  console.log(buildStatusReport(result, worktreeAbsPath(repoRoot, result.record)));
   return result;
 }
