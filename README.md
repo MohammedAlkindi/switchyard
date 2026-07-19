@@ -168,6 +168,49 @@ Without a global install, use `"command": "npx", "args": ["-y", "@switchyardhq/s
 Each returns the same object the matching `--json` flag prints, so the CLI and
 the MCP surface can never disagree about what the state is.
 
+### What the agent actually sees
+
+The demo GIF above shows the human side. This is the same collision from the
+agent's side — a real session against `fleet mcp`, two agents having both
+rewritten `src/api/routes.ts`:
+
+```jsonc
+// → the client opens the session
+{"jsonrpc":"2.0","id":1,"method":"initialize",
+ "params":{"protocolVersion":"2025-11-25","capabilities":{},
+           "clientInfo":{"name":"demo-client","version":"1.0.0"}}}
+
+// ← the server answers, and states the read-only contract up front
+{"jsonrpc":"2.0","id":1,"result":{
+  "protocolVersion":"2025-11-25",
+  "capabilities":{"tools":{}},
+  "serverInfo":{"name":"switchyard","title":"Switchyard","version":"0.3.0"},
+  "instructions":"... These tools are read-only by design. Spawning agents,
+                  merging, and removing worktrees are human actions in this
+                  release — there are no tools for them. Ask for
+                  `fleet spawn <name>` rather than creating a worktree yourself."}}
+
+// → before editing anything, the agent checks
+{"jsonrpc":"2.0","id":2,"method":"tools/call",
+ "params":{"name":"fleet_check","arguments":{}}}
+```
+
+The reply's content block carries the same object `fleet check --json` prints:
+
+```json
+{
+  "collisions": [
+    { "file": "src/api/routes.ts", "agents": ["claude", "codex"], "verdict": "conflicts" }
+  ],
+  "prediction": "merge-tree",
+  "agentsChecked": 2,
+  "cleanMerges": []
+}
+```
+
+`"verdict": "conflicts"` is the agent's cue to stop and coordinate — reached
+before it wrote a line, rather than at merge time.
+
 ### These tools are read-only, deliberately
 
 There is no `fleet_spawn`, `fleet_merge`, or `fleet_remove`. Agents can observe
