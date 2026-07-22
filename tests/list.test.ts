@@ -3,6 +3,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { list } from '../src/commands/list.js';
 import { spawn } from '../src/commands/spawn.js';
+import { validate } from '../src/commands/validate.js';
 import { commitFile, makeTempRepo, worktreePath } from './helpers.js';
 import type { TempRepo } from './helpers.js';
 
@@ -48,6 +49,50 @@ describe('fleet list', () => {
 
     const listings = await list({ cwd: repo.root });
     expect(listings[0]?.worktreeMissing).toBe(true);
+  });
+
+  it('reports validation state relative to the current tip', async () => {
+    const configFile = path.join(repo.root, '.fleetrc.json');
+    writeFileSync(configFile, '{ "validate": "node -e \\"process.exit(0)\\"" }');
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+
+    // Nobody validated yet.
+    let listings = await list({ cwd: repo.root });
+    expect(listings.map((l) => l.validation)).toEqual(['none', 'none']);
+
+    // alice passes; bob is left unvalidated.
+    await validate('alice', { cwd: repo.root });
+    listings = await list({ cwd: repo.root });
+    expect(listings.find((l) => l.name === 'alice')).toMatchObject({ validation: 'passed' });
+    expect(listings.find((l) => l.name === 'alice')?.validatedAt).toBeTruthy();
+    expect(listings.find((l) => l.name === 'bob')).toMatchObject({
+      validation: 'none',
+      validatedAt: null,
+    });
+
+    // New work on top of the validated commit makes the record stale.
+    await commitFile(worktreePath(repo.root, 'alice'), 'more.txt', 'm\n', 'feat: more');
+    listings = await list({ cwd: repo.root });
+    expect(listings.find((l) => l.name === 'alice')).toMatchObject({ validation: 'stale' });
+
+    // So does changing the configured command, even at the same tip.
+    await validate('alice', { cwd: repo.root });
+    writeFileSync(configFile, '{ "validate": "node -e \\"process.exit(2)\\"" }');
+    listings = await list({ cwd: repo.root });
+    expect(listings.find((l) => l.name === 'alice')).toMatchObject({ validation: 'stale' });
+  });
+
+  it('reports a failing record as failed until the tip moves', async () => {
+    writeFileSync(
+      path.join(repo.root, '.fleetrc.json'),
+      '{ "validate": "node -e \\"process.exit(1)\\"" }',
+    );
+    await spawn('alice', { cwd: repo.root });
+    await validate('alice', { cwd: repo.root });
+
+    const listings = await list({ cwd: repo.root });
+    expect(listings[0]).toMatchObject({ validation: 'failed' });
   });
 
   it('--json prints the listings as parseable JSON', async () => {

@@ -1,12 +1,14 @@
 import { existsSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { dim, relativeTime, table, warn } from '../lib/format.js';
+import { readConfig } from '../lib/config.js';
+import { dim, fail, ok, relativeTime, table, warn } from '../lib/format.js';
 import {
   aheadBehind,
   branchExists,
   getMainRepoRoot,
   gitAt,
   lastCommitISO,
+  revParseOid,
   uncommittedFiles,
 } from '../lib/git.js';
 import { readState, worktreeAbsPath } from '../lib/state.js';
@@ -30,18 +32,27 @@ export interface AgentListing {
   uncommitted: number;
   /** ISO timestamp: newest of last commit and uncommitted-file mtimes. */
   lastActivity: string | null;
+  /**
+   * The recorded `fleet validate` outcome relative to the current tip:
+   * `passed`/`failed` when the record matches the tip and the configured
+   * command, `stale` when either moved on, `none` when never validated.
+   */
+  validation: 'passed' | 'failed' | 'stale' | 'none';
+  /** ISO timestamp of the last validation run, if any. */
+  validatedAt: string | null;
 }
 
 /** Gather the per-agent data `fleet list` displays, without printing anything. */
 export async function collectListings(options: ListOptions = {}): Promise<AgentListing[]> {
   const repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());
   const state = readState(repoRoot);
+  const validateCommand = readConfig(repoRoot).validate;
   const agents = Object.values(state.agents).sort((a, b) => a.name.localeCompare(b.name));
 
   // Each agent needs several independent, read-only git calls; running the
   // agents concurrently keeps `fleet list` (and every `fleet watch` frame)
   // fast as the fleet grows. Output order mirrors the sorted agents.
-  return Promise.all(agents.map((record) => describeAgent(repoRoot, record)));
+  return Promise.all(agents.map((record) => describeAgent(repoRoot, record, validateCommand)));
 }
 
 /** Render listings as the `fleet list` table. Shared with `fleet watch`. */
@@ -56,10 +67,20 @@ export function buildListTable(listings: AgentListing[]): string {
       : l.uncommitted === 0
         ? dim('clean')
         : warn(`${l.uncommitted} uncommitted`),
+    l.validation === 'passed'
+      ? ok('passed')
+      : l.validation === 'failed'
+        ? fail('failed')
+        : l.validation === 'stale'
+          ? warn('stale')
+          : dim('—'),
     relativeTime(l.lastActivity),
     l.worktreePath,
   ]);
-  return table(['AGENT', 'BRANCH', 'BASE', '+/-', 'CHANGES', 'LAST ACTIVITY', 'WORKTREE'], rows);
+  return table(
+    ['AGENT', 'BRANCH', 'BASE', '+/-', 'CHANGES', 'VALIDATED', 'LAST ACTIVITY', 'WORKTREE'],
+    rows,
+  );
 }
 
 export async function list(options: ListOptions = {}): Promise<AgentListing[]> {
@@ -79,15 +100,38 @@ export async function list(options: ListOptions = {}): Promise<AgentListing[]> {
   return listings;
 }
 
-async function describeAgent(repoRoot: string, record: AgentRecord): Promise<AgentListing> {
+async function describeAgent(
+  repoRoot: string,
+  record: AgentRecord,
+  validateCommand: string | undefined,
+): Promise<AgentListing> {
   const git = gitAt(repoRoot);
   const abs = worktreeAbsPath(repoRoot, record);
   const worktreeMissing = !existsSync(abs);
 
+  const branchOk = await branchExists(git, record.branch);
   let ahead: number | null = null;
   let behind: number | null = null;
-  if ((await branchExists(git, record.branch)) && (await branchExists(git, record.baseBranch))) {
+  if (branchOk && (await branchExists(git, record.baseBranch))) {
     ({ ahead, behind } = await aheadBehind(git, record.baseBranch, record.branch));
+  }
+
+  // A validation record only counts at the exact commit it certified, for the
+  // command currently configured; anything else — tip moved, command changed,
+  // branch gone — reads as stale rather than borrowed confidence.
+  let validation: AgentListing['validation'] = 'none';
+  let validatedAt: string | null = null;
+  if (record.validation) {
+    validatedAt = record.validation.at;
+    const tip = branchOk ? await revParseOid(git, record.branch) : null;
+    const commandChanged =
+      validateCommand !== undefined && record.validation.command !== validateCommand;
+    validation =
+      tip === null || record.validation.commit !== tip || commandChanged
+        ? 'stale'
+        : record.validation.ok
+          ? 'passed'
+          : 'failed';
   }
 
   let uncommitted = 0;
@@ -118,5 +162,7 @@ async function describeAgent(repoRoot: string, record: AgentRecord): Promise<Age
     behind,
     uncommitted,
     lastActivity,
+    validation,
+    validatedAt,
   };
 }
