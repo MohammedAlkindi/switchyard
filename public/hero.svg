@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img"
+     aria-labelledby="hero-title">
+  <title id="hero-title">Switchyard: two agent tracks diverge from main into isolated worktrees and rejoin at a signal-guarded junction showing a clear green aspect.</title>
+
+  <!-- signal-box enamel ground with a faint overhead glow -->
+  <rect width="1200" height="630" fill="#0f1713"/>
+  <ellipse cx="600" cy="40" rx="620" ry="220" fill="#45d183" opacity="0.035"/>
+
+  <!-- brand row -->
+  <g transform="translate(72 44) scale(0.17)" stroke="#eae3d2" stroke-width="9" fill="none">
+    <line x1="100" y1="12" x2="100" y2="188"/>
+    <line x1="176.21" y1="56" x2="23.79" y2="144"/>
+    <line x1="176.21" y1="144" x2="23.79" y2="56"/>
+    <polygon points="100,48 145.03,74 145.03,126 100,152 54.97,126 54.97,74"/>
+  </g>
+  <g transform="translate(72 44) scale(0.17)" fill="#eae3d2">
+    <circle cx="100" cy="12" r="13"/><circle cx="176.21" cy="56" r="13"/>
+    <circle cx="176.21" cy="144" r="13"/><circle cx="100" cy="188" r="13"/>
+    <circle cx="23.79" cy="144" r="13"/><circle cx="23.79" cy="56" r="13"/>
+  </g>
+  <text x="118" y="66" fill="#eae3d2" font-family="Archivo, 'Helvetica Neue', Arial, sans-serif"
+        font-size="17" font-weight="800" letter-spacing="3.5">SWITCHYARD</text>
+
+  <!-- headline -->
+  <text x="72" y="152" fill="#eae3d2" font-family="Archivo, 'Helvetica Neue', Arial, sans-serif"
+        font-size="46" font-weight="900" letter-spacing="1">EVERY AGENT GETS</text>
+  <text x="72" y="202" fill="#eae3d2" font-family="Archivo, 'Helvetica Neue', Arial, sans-serif"
+        font-size="46" font-weight="900" letter-spacing="1">ITS OWN TRACK.</text>
+
+  <!-- the yard: main line, dashed through the yard, solid outside the points -->
+  <path d="M 0 430 H 1200" fill="none" stroke="#2c3d33" stroke-width="2.5"
+        stroke-dasharray="1 6" stroke-linecap="round" opacity="0.8"/>
+  <path d="M 0 430 H 210" fill="none" stroke="#2c3d33" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M 960 430 H 1200" fill="none" stroke="#2c3d33" stroke-width="2.5" stroke-linecap="round"/>
+  <text x="24" y="418" fill="#90a498" font-family="'IBM Plex Mono', Consolas, Menlo, monospace"
+        font-size="14" letter-spacing="2">MAIN</text>
+  <text x="1128" y="418" fill="#90a498" font-family="'IBM Plex Mono', Consolas, Menlo, monospace"
+        font-size="14" letter-spacing="2">MAIN</text>
+
+  <!-- diverging agent tracks -->
+  <path d="M 210 430 C 300 430 310 350 400 350 H 770 C 860 350 870 430 960 430"
+        fill="none" stroke="#57705f" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M 210 430 C 300 430 310 510 400 510 H 770 C 860 510 870 430 960 430"
+        fill="none" stroke="#57705f" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- points markers -->
+  <circle cx="210" cy="430" r="5" fill="#eae3d2"/>
+  <circle cx="960" cy="430" r="5" fill="#eae3d2"/>
+
+  <!-- worktree labels -->
+  <g>
+    <rect x="400" y="296" width="330" height="28" rx="3" fill="#1a2820" stroke="#2c3d33"/>
+    <text x="412" y="315" fill="#eae3d2"
+          font-family="'IBM Plex Mono', Consolas, Menlo, monospace" font-size="13">fleet/claude · .fleet/worktrees/claude</text>
+  </g>
+  <g>
+    <rect x="400" y="536" width="318" height="28" rx="3" fill="#1a2820" stroke="#2c3d33"/>
+    <text x="412" y="555" fill="#eae3d2"
+          font-family="'IBM Plex Mono', Consolas, Menlo, monospace" font-size="13">fleet/codex · .fleet/worktrees/codex</text>
+  </g>
+
+  <!-- commits in motion on each track -->
+  <circle cx="560" cy="350" r="10" fill="#45d183" opacity="0.22"/>
+  <circle cx="560" cy="350" r="6" fill="#45d183"/>
+  <circle cx="648" cy="510" r="10" fill="#e8b33c" opacity="0.22"/>
+  <circle cx="648" cy="510" r="6" fill="#e8b33c"/>
+
+  <!-- junction signal: three-aspect mast, green lit -->
+  <g transform="translate(1002 318)">
+    <rect x="16" y="86" width="4" height="60" fill="#57705f"/>
+    <rect x="0" y="0" width="36" height="86" rx="8" fill="#1a2820" stroke="#57705f" stroke-width="1.5"/>
+    <circle cx="18" cy="16" r="9" fill="#2c3d33"/>
+    <circle cx="18" cy="43" r="9" fill="#2c3d33"/>
+    <circle cx="18" cy="70" r="14" fill="#45d183" opacity="0.25"/>
+    <circle cx="18" cy="70" r="9" fill="#45d183"/>
+  </g>
+
+  <!-- caption -->
+  <g font-family="'IBM Plex Mono', Consolas, Menlo, monospace">
+    <rect x="72" y="586" width="66" height="24" rx="3" fill="none" stroke="#45d183"/>
+    <text x="84" y="603" fill="#45d183" font-size="12" letter-spacing="2">CHECK</text>
+    <text x="152" y="603" fill="#90a498" font-size="14">no conflicting work between agents — junction clear, merges may proceed</text>
+  </g>
+</svg>
