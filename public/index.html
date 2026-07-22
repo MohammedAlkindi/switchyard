@@ -247,13 +247,15 @@ $ fleet check
           <tr><td><code>fleet init</code></td><td>Config, ignore entry, and the agent-facing docs. <code>--check</code> verifies without writing; exits 1 on drift.</td></tr>
           <tr class="roster-group"><th colspan="2">Run the fleet</th></tr>
           <tr><td><code>fleet spawn &lt;agent&gt;</code></td><td>Isolated worktree + branch <code>fleet/&lt;agent&gt;</code>, provisioned via hooks.</td></tr>
-          <tr><td><code>fleet list</code> / <code>watch</code></td><td>Every agent: branch, ahead/behind, changes, last activity. <code>--json</code> for scripts.</td></tr>
+          <tr><td><code>fleet list</code> / <code>watch</code></td><td>Every agent: branch, ahead/behind, changes, validation state, last activity. <code>--json</code> for scripts.</td></tr>
+          <tr><td><code>fleet dashboard</code></td><td>Agents, validation states, and collision verdicts in one live pane. <code>--once</code> for CI logs.</td></tr>
           <tr><td><code>fleet status &lt;agent&gt;</code></td><td>One agent in detail: uncommitted files, diffstat vs base.</td></tr>
           <tr><td><code>fleet exec &lt;agent&gt; -- &lt;cmd&gt;</code></td><td>Run a command inside a worktree — or every worktree with <code>--all</code>.</td></tr>
           <tr class="roster-group"><th colspan="2">Guard the junction</th></tr>
           <tr><td><code>fleet check</code></td><td>Merge-simulated collision report across all agent pairs. <code>--lines</code> for line-range precision.</td></tr>
           <tr><td><code>fleet diff &lt;agent&gt;</code></td><td>The branch's full diff against its base, for review before merging.</td></tr>
           <tr><td><code>fleet sync &lt;agent&gt;</code> / <code>--all</code></td><td>Catch one agent — or the whole fleet — up with its base. Conflicts abort cleanly.</td></tr>
+          <tr><td><code>fleet validate &lt;agent&gt;</code> / <code>--all</code></td><td>Run the repo's validation command and record the result per commit. Merge trusts a passing record.</td></tr>
           <tr class="roster-group"><th colspan="2">Bring it home</th></tr>
           <tr><td><code>fleet merge &lt;agent&gt;</code></td><td>Gate, hook, merge, clean up. Aborts on conflict, never left half-done.</td></tr>
           <tr><td><code>fleet undo</code></td><td>Roll back the last merge: branch pointer, agent branch, worktree, state.</td></tr>
