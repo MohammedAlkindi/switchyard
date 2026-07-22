@@ -68,7 +68,11 @@ branch (\`fleet/<name>\`).
    \`git worktree add\` — an untracked worktree is invisible to every other
    agent's \`fleet check\`, which is precisely the uncoordinated state
    Switchyard prevents.
-4. **Provisioning and merging are human actions.** Ask for \`fleet merge\`,
+4. **Validate before asking for a merge.** If the repo configures a
+   \`validate\` command, commit your work and run \`fleet validate <your-name>\`
+   — the recorded result is what \`fleet merge\` trusts, and a dirty worktree
+   cannot be validated.
+5. **Provisioning and merging are human actions.** Ask for \`fleet merge\`,
    \`fleet sync\`, or \`fleet pr\` by name. There is no agent-facing tool for
    them, by design.
 

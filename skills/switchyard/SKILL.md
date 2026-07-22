@@ -16,7 +16,7 @@ action in this release — see [Provisioning and merging](#provisioning-and-merg
 
 Call `fleet_list` before anything else. It returns every active agent with its
 branch, base branch, worktree path, ahead/behind counts, uncommitted file count,
-and last activity.
+validation state, and last activity.
 
 Read it to answer two questions:
 
@@ -70,6 +70,16 @@ listing: its uncommitted files and a diffstat of its committed work vs its base.
   rather than proceeding on state that may be inconsistent.
 - `none` — the repository is idle.
 
+## Prove your branch is green before asking for a merge
+
+If the repo configures a `validate` command (`.fleetrc.json`), commit your
+work and run `fleet validate <your-name>` from your worktree. The result is
+recorded against your exact commit: `fleet list` shows it to everyone, and
+`fleet merge` trusts a passing record instead of re-running the tests at merge
+time. A dirty worktree cannot be validated — the record certifies a commit, so
+commit first. New commits make the record stale; validate again when you're
+done.
+
 ## Provisioning and merging are human actions
 
 There is no tool here to spawn an agent, merge a branch, remove a worktree, or
@@ -98,4 +108,6 @@ When you need one of these, ask for it by name:
 3. `fleet_check` — before opening the files you plan to edit.
 4. Do the work, committing to your `fleet/<name>` branch as you go.
 5. `fleet_check` again — confirm nothing collided while you worked.
-6. Ask for `fleet merge <your-name>`, reporting anything `fleet_check` flagged.
+6. `fleet validate <your-name>` — record that your commit passes (if the repo
+   configures a validate command).
+7. Ask for `fleet merge <your-name>`, reporting anything `fleet_check` flagged.

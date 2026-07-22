@@ -58,12 +58,12 @@ Point your agent at it:
   cd ~/project/.fleet/worktrees/claude
 
 $ fleet list
-┌────────┬──────────────┬──────┬───────┬───────────────┬───────────────┬──────────────────────────┐
-│ AGENT  │ BRANCH       │ BASE │ +/-   │ CHANGES       │ LAST ACTIVITY │ WORKTREE                 │
-├────────┼──────────────┼──────┼───────┼───────────────┼───────────────┼──────────────────────────┤
-│ claude │ fleet/claude │ main │ +3/-0 │ clean         │ 12m ago       │ .fleet/worktrees/claude  │
-│ codex  │ fleet/codex  │ main │ +1/-2 │ 4 uncommitted │ just now      │ .fleet/worktrees/codex   │
-└────────┴──────────────┴──────┴───────┴───────────────┴───────────────┴──────────────────────────┘
+┌────────┬──────────────┬──────┬───────┬───────────────┬───────────┬───────────────┬──────────────────────────┐
+│ AGENT  │ BRANCH       │ BASE │ +/-   │ CHANGES       │ VALIDATED │ LAST ACTIVITY │ WORKTREE                 │
+├────────┼──────────────┼──────┼───────┼───────────────┼───────────┼───────────────┼──────────────────────────┤
+│ claude │ fleet/claude │ main │ +3/-0 │ clean         │ passed    │ 12m ago       │ .fleet/worktrees/claude  │
+│ codex  │ fleet/codex  │ main │ +1/-2 │ 4 uncommitted │ —         │ just now      │ .fleet/worktrees/codex   │
+└────────┴──────────────┴──────┴───────┴───────────────┴───────────┴───────────────┴──────────────────────────┘
 
 $ fleet check
 1 collision risk detected:
@@ -92,6 +92,8 @@ fleet spawn claude              # isolated worktree on branch fleet/claude
 cd .fleet/worktrees/claude      # point your agent here and let it work
 fleet check                     # any files also touched by other agents?
 fleet sync claude               # base moved on? catch the branch up
+fleet validate claude           # run your test command, record the result
+fleet dashboard                 # agents, validation, collisions — one live pane
 fleet exec claude -- npm test   # run commands in the worktree without cd'ing
 fleet diff claude               # review the branch before merging
 fleet merge claude              # merge into your current branch + clean up the agent
@@ -110,13 +112,15 @@ fleet pr claude                 # …or push it and open a PR via gh instead
 | `fleet check` | Table of files touched by more than one agent. On git ≥ 2.38 each shared file gets a merge-simulation verdict — files whose committed changes merge cleanly are reported but don't block or fail the check. Exits 1 on real collision risks (CI-friendly) | `--lines` only count overlapping line ranges, `--files-only` skip simulation; flag any shared file, `--json` machine-readable output |
 | `fleet diff <agent>` | Full diff of the agent's branch against its base | `--base <branch>` diff against a different branch |
 | `fleet sync <agent>` | Merge the agent's base branch into its branch, catching it up. A conflicting merge is aborted — never left half-done | `--all` sync every registered agent in one sweep, continuing past per-agent failures; exits 1 if any failed |
+| `fleet validate <agent>` | Run the configured `validate` command in the agent's worktree and record the result against the exact commit it certifies. `fleet list` shows the record; `fleet merge` trusts a passing one instead of re-running. Refuses a dirty worktree — a record certifies a commit | `--all` validate every agent, continuing past per-agent failures, `--json` machine-readable output; exits 1 on any failure |
 | `fleet exec <agent> -- <cmd>` | Run a shell command inside the agent's worktree (e.g. `fleet exec claude -- npm test`) | `--all` run in every worktree sequentially; exits 1 if any run fails |
-| `fleet merge <agent>` | Check for collisions, run the `preMerge` hook, merge the agent's branch into the current branch, then remove the worktree and branch. A conflicting merge is aborted — never left half-done. Overlaps that provably merge cleanly no longer block; predicted conflicts and uncommitted overlaps still do | `--no-clean` keep the worktree and branch, `--delete-branch` explicit form of the default cleanup |
+| `fleet merge <agent>` | Check for collisions, require a passing validation record when `validate` is configured (running it if missing or stale), run the `preMerge` hook, merge the agent's branch into the current branch, then remove the worktree and branch. A conflicting merge is aborted — never left half-done. Overlaps that provably merge cleanly no longer block; predicted conflicts and uncommitted overlaps still do | `--no-clean` keep the worktree and branch, `--delete-branch` explicit form of the default cleanup |
 | `fleet undo` | Roll back the last `fleet merge`: reset the target branch, restore the agent's branch, worktree, and state entry. Single-level; refuses if history moved on | — |
 | `fleet pr <agent>` | Push the agent's branch to `origin` and open a pull request with the [GitHub CLI](https://cli.github.com) — the review-based alternative to a local merge | `--title <t>`, `--base <branch>`, `--draft` |
 | `fleet remove <agent>` | Remove the worktree; refuses if there are uncommitted changes | `--force` discard changes, `--delete-branch` also delete the branch |
 | `fleet clean` | Remove agents whose branches are fully merged into their base | `--dry-run` list only, `--stale <days>` also remove long-idle agents (clean worktrees only; their branches are kept) |
 | `fleet watch` | `fleet list`, re-rendered live until Ctrl+C | `--interval <seconds>` refresh rate (default 3) |
+| `fleet dashboard` | One live pane for the whole fleet: the agent table with validation states, per-agent touched-file counts, and the full collision report with merge-simulation verdicts | `--once` print a single frame and exit (scripts, CI logs), `--interval <seconds>` refresh rate (default 3) |
 | `fleet doctor` | Diagnose git version, state file validity, orphaned worktrees, and stale entries. Exits 1 if problems remain | `--fix` repair: rebuild state from `git worktree list`, adopt/remove orphans, prune stale entries; `--json` machine-readable output |
 | `fleet completion <shell>` | Print a completion script for `bash`, `zsh`, or `fish` (agent names are a snapshot from generation time) | — |
 | `fleet mcp` | Serve the read-only fleet tools to an AI agent over MCP (stdio). Not run by hand — see [Use it from an AI agent](#use-it-from-an-ai-agent-mcp) | — |
@@ -131,6 +135,8 @@ All commands work from the main checkout **or** from inside any agent worktree.
 fleet check --json || exit 1                  # exit code alone is enough for CI
 fleet list --json | jq -r '.[].name'          # enumerate active agents
 fleet init --check                            # exits 1 when the agent-facing docs drifted
+fleet validate --all                          # exits 1 unless every agent's tip passes
+fleet dashboard --once                        # one full-fleet frame, for CI logs
 ```
 
 `fleet check --lines` refines collision detection from files to line ranges: two agents editing disjoint parts of one file are reported separately instead of blocking. Ranges are computed against each pair's merge base — exact when both agents share a base, a documented heuristic otherwise (see [docs/architecture.md](docs/architecture.md)).
@@ -274,7 +280,8 @@ An optional `.fleetrc.json` at the repo root sets per-repo defaults. Precedence 
   "autoClean": false,
   "copyOnSpawn": [".env"],
   "postSpawn": "npm ci",
-  "preMerge": "npm test"
+  "preMerge": "npm run lint",
+  "validate": "npm test"
 }
 ```
 
@@ -285,11 +292,12 @@ An optional `.fleetrc.json` at the repo root sets per-repo defaults. Precedence 
 - `copyOnSpawn` — repo-root-relative files/directories copied into every new worktree by `fleet spawn`. Worktrees don't carry gitignored files, so a fresh one has no `.env` or local config — this fixes that. Missing entries are skipped with a note.
 - `postSpawn` — shell command run inside the new worktree after `fleet spawn` (e.g. `npm ci`), so the worktree is ready to work in. A failing hook is reported but the worktree is kept.
 - `preMerge` — shell command run inside the agent's worktree before `fleet merge` starts (e.g. `npm test`). A non-zero exit aborts the merge before anything is touched.
+- `validate` — shell command `fleet validate` runs inside an agent's worktree and records per commit (e.g. `npm test`). When set, `fleet merge` requires the agent's tip to hold a passing record, running the command itself when the record is missing or stale. `preMerge` still runs at merge time regardless — `validate` is the recorded, skippable gate; `preMerge` is the always-run hook.
 
 A malformed config file is a hard error with the offending key named; a missing one is fine.
 
 > [!NOTE]
-> `postSpawn` and `preMerge` run shell commands straight from the repo's `.fleetrc.json` — the same trust you already extend to a repo's npm scripts or git hooks. Review that file before running `fleet spawn` or `fleet merge` in a repository you didn't author (details in [SECURITY.md](SECURITY.md)).
+> `postSpawn`, `preMerge`, and `validate` run shell commands straight from the repo's `.fleetrc.json` — the same trust you already extend to a repo's npm scripts or git hooks. Review that file before running `fleet spawn`, `fleet merge`, or `fleet validate` in a repository you didn't author (details in [SECURITY.md](SECURITY.md)).
 
 ## How it works
 

@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 See [docs/deployment.md](docs/deployment.md) for what patch/minor/major mean for
 this package.
 
+## [Unreleased]
+
+### Added
+
+- `fleet validate` (and `--all`, `--json`): run a repo-configured `validate`
+  command inside an agent's worktree and record the outcome on the agent's
+  state entry, pinned to the exact commit and command. Staleness is derived,
+  never stored — a record only ever means "this commit got this result from
+  this command". Dirty worktrees are refused: a record certifies a commit.
+- `fleet list` now shows a `VALIDATED` column (`passed` / `failed` / `stale` /
+  `—`), and its `--json` output — and therefore the read-only MCP tools —
+  carries `validation` and `validatedAt` per agent, with no change to the MCP
+  tool surface.
+- `fleet merge` enforces the gate when `validate` is configured: a passing
+  record at the agent's tip is trusted (the command is not re-run), a failing
+  record at the tip refuses immediately, and a missing or stale record is run
+  and recorded on the spot. `preMerge` is unchanged and still runs at merge
+  time — `validate` is the recorded, skippable gate; `preMerge` the always-run
+  hook.
+- `fleet dashboard` (and `--once`, `--interval`): one live pane composing the
+  agent table (validation column included), per-agent touched-file counts, a
+  validation tally, and the full collision report with merge-simulation
+  verdicts. `--once` prints a single frame for scripts and CI logs.
+- `fleet check` results (human, `--json`, and MCP) now include `agentFiles`:
+  how many files each agent touched vs its base, computed for any fleet size —
+  including a single agent, which previously short-circuited before gathering
+  anything.
+- New `.fleetrc.json` key `validate`, validated like the other hook commands
+  and covered by the shipped JSON schema.
+
+### Fixed
+
+- Shell completions now list `init` and `undo`, which were missing from the
+  generated scripts.
+
+### Notes
+
+- The state file gains an optional per-agent `validation` object; the schema
+  version stays 1 and files written by older versions load unchanged.
+  `fleet doctor --fix` rebuilds drop the record (it is re-derivable by
+  re-running `fleet validate`), consistent with rebuilds re-deriving
+  `baseBranch` and `createdAt`.
+- The MCP surface is still read-only: validation state flows out through the
+  existing tools; nothing new is invokable by an agent.
+
 ## [0.4.0] - 2026-07-22
 
 ### Added

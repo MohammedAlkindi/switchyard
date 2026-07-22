@@ -48,7 +48,7 @@ prediction sharpens the signal; the safety guarantee never rested on it.
 `--files-only` opts out; git < 2.38 falls back automatically (`fleet doctor`
 reports which mode you get).
 
-`list`, `status`, `check`, and `doctor` accept `--json` and print their result object verbatim — the same data the human output renders, for scripts, CI gates, and the agents themselves.
+`list`, `status`, `check`, and `doctor` accept `--json` and print their result object verbatim — the same data the human output renders, for scripts, CI gates, and the agents themselves. `fleet dashboard` composes those same pure collectors — the listing table, per-agent touched-file counts from `check`, a validation tally, and the collision report — into one frame, re-rendered live like `watch` (chained timeouts, so a slow frame can never overlap the next) or printed once with `--once`.
 
 Switchyard needs git >= 2.31 (`rev-parse --path-format=absolute`, used to resolve the main repo root from inside any worktree); `fleet doctor` verifies this.
 
@@ -83,13 +83,19 @@ Switchyard also writes `.fleet/` into `.git/info/exclude` (not `.gitignore`) on 
 - `branch` — always `fleet/<name>`; the prefix is what makes `fleet clean` safe to scope.
 - `baseBranch` — the branch the agent was spawned from; the default base for `fleet diff`, the merge target checked by `fleet clean`, and the comparison point for ahead/behind counts.
 - `worktreePath` — relative to the repo root, forward slashes, so the state file survives the repo being moved or shared across OSes.
+- `validation` — optional: the last `fleet validate` outcome, as
+  `{ commit, ok, at, command }`. Staleness is deliberately not stored:
+  readers compare `commit` against the live branch tip and `command` against
+  the configured command, so the record can never claim more than "this exact
+  commit got this exact result". Doctor rebuilds drop it — it is re-derivable
+  by re-running `fleet validate`.
 
 Writes go through a write-then-rename (`state.json.tmp` → `state.json`) in `src/lib/state.ts`, so a crash mid-write can't corrupt the file. Commands tolerate drift between state and reality (a manually deleted worktree shows as `worktree missing` in `fleet list`; a manually deleted branch becomes a `fleet clean` candidate) rather than crashing — and `fleet doctor --fix` actively repairs drift: it rebuilds a corrupted `state.json` from real `git worktree list` output, adopts orphaned worktrees back into state, removes leftover non-worktree directories under `.fleet/worktrees/`, and prunes entries whose worktree is gone (branches are never deleted by doctor). Rebuilt entries carry re-derived `baseBranch`/`createdAt` values, not the originals.
 
 ## Mutation lock
 
 Every mutating command (`spawn`, `merge`, `remove`, `clean`, `sync`,
-`doctor --fix`, `undo`) runs under `.fleet/lock` — an atomically created file
+`validate`, `doctor --fix`, `undo`) runs under `.fleet/lock` — an atomically created file
 holding the holder's PID, command, and start time (`src/lib/lock.ts`). This
 serializes read→modify→write cycles on `state.json` across processes, which
 matters because agents themselves run `fleet` commands concurrently. Waiters
@@ -99,6 +105,26 @@ removes dead locks. Read-only commands and `fleet exec` never take the lock
 (exec runs long agent workloads). The lock is same-machine only — consistent
 with state being local by design — and reentrant within one process
 (merge → autoClean → clean). In-process parallel mutation remains unsupported.
+
+## Validation gate
+
+With a `validate` command in `.fleetrc.json`, "the tests pass" becomes
+recorded state instead of a convention. `fleet validate <agent>` runs the
+command inside the worktree and writes the outcome onto the agent's state
+entry, pinned to the branch tip; `--all` sweeps the fleet with the same
+per-agent failure isolation as `sync --all`. Two refusals protect the record's
+meaning: a dirty worktree is never validated (the record certifies a commit,
+and a dirty tree is not the commit), and the tip is re-resolved after the run
+in case the command itself committed.
+
+`fleet merge` consumes the record rather than duplicating the run: a passing
+record at the tip for the currently configured command is trusted and the
+command is not re-run; a failing record at the tip refuses immediately — same
+commit, same command, same answer; a missing or stale record is run and
+recorded on the spot. `preMerge` is unrelated and still runs at merge time:
+`validate` is the recorded, skippable gate, `preMerge` the always-run hook.
+The distinction is what lets an agent (or CI) make the fleet green *before*
+merge time without merge losing any protection.
 
 ## Undo model
 
