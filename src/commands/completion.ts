@@ -11,6 +11,7 @@ export type Shell = (typeof SHELLS)[number];
 
 /** command name -> short description (kept apostrophe-free for shell quoting). */
 const COMMANDS: ReadonlyArray<readonly [string, string]> = [
+  ['init', 'set the repo up for the fleet workflow'],
   ['spawn', 'create an isolated worktree + branch for an agent'],
   ['list', 'show all active agents'],
   ['status', 'detailed view of one agent'],
@@ -19,6 +20,7 @@ const COMMANDS: ReadonlyArray<readonly [string, string]> = [
   ['sync', 'catch an agent branch up with its base'],
   ['exec', 'run a command inside an agent worktree'],
   ['merge', 'merge an agent branch into the current branch and clean up'],
+  ['undo', 'roll back the last fleet merge'],
   ['pr', 'push an agent branch and open a pull request via gh'],
   ['remove', 'remove an agent worktree'],
   ['clean', 'remove fully merged agents'],
