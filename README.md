@@ -16,6 +16,7 @@
 ![coverage](https://img.shields.io/badge/coverage-80%25-green)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/MohammedAlkindi/Switchyard/pulls)
+[![website](https://img.shields.io/badge/website-switchyardhq.vercel.app-45d183)](https://switchyardhq.vercel.app)
 
 <!-- The coverage badge is a static number: re-run `npm run test:coverage` and update it
      when it drifts. Replace with a Codecov (or similar) badge once coverage upload is

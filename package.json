@@ -19,7 +19,7 @@
     "url": "git+https://github.com/MohammedAlkindi/Switchyard.git"
   },
   "bugs": "https://github.com/MohammedAlkindi/Switchyard/issues",
-  "homepage": "https://github.com/MohammedAlkindi/Switchyard#readme",
+  "homepage": "https://switchyardhq.vercel.app",
   "type": "module",
   "bin": {
     "fleet": "dist/cli.js"
