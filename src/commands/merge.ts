@@ -109,6 +109,60 @@ async function mergeLocked(
     }
   }
 
+  // Validation gate: with a `validate` command configured, the agent's tip
+  // must hold a passing record. A missing or stale record is run here (and
+  // recorded, so `fleet list` shows the outcome either way); a failing record
+  // at the tip refuses without re-running — same commit, same command, same
+  // answer. Runs before preMerge so the skippable, recorded gate fails first.
+  if (config.validate) {
+    const hookDir = worktreeAbsPath(repoRoot, record);
+    const tip = await revParseOid(git, record.branch);
+    if (!tip) {
+      throw new FleetError(`Could not resolve the tip of ${record.branch}; refusing to merge.`);
+    }
+    const rec = record.validation;
+    const current = rec && rec.commit === tip && rec.command === config.validate ? rec : undefined;
+    if (current?.ok) {
+      console.log(dim(`validate: ${record.branch} already passed at ${tip.slice(0, 7)} — not re-run`));
+    } else if (current) {
+      throw new FleetError(
+        `Validation failed at the tip of ${record.branch} (recorded ${current.at}).\n` +
+          `Fix the branch and re-run \`fleet validate ${name}\`. The merge was not started — ${into} is unchanged.`,
+      );
+    } else {
+      if (!existsSync(hookDir)) {
+        throw new FleetError(
+          `Cannot validate "${name}": no passing record for the current tip and no worktree to run in (${hookDir}).\n` +
+            'Restore the worktree (`fleet doctor --fix`) and run `fleet validate` first.',
+        );
+      }
+      const dirtyFiles = await uncommittedFiles(hookDir);
+      if (dirtyFiles.length > 0) {
+        throw new FleetError(
+          `Cannot validate "${name}": ${plural(dirtyFiles.length, 'uncommitted change')} in ${hookDir}.\n` +
+            'A validation record certifies a commit; commit the work first, then re-run.',
+        );
+      }
+      console.log(dim(`validate: ${config.validate}`));
+      const exitCode = await runShell(config.validate, hookDir);
+      // Re-resolve in case the command itself committed (e.g. an autofixer).
+      const certified = (await revParseOid(git, record.branch)) ?? tip;
+      record.validation = {
+        commit: certified,
+        ok: exitCode === 0,
+        at: new Date().toISOString(),
+        command: config.validate,
+      };
+      writeState(repoRoot, state);
+      if (exitCode !== 0) {
+        throw new FleetError(
+          `validate failed (exit ${exitCode}): ${config.validate}\n` +
+            `The merge was not started — ${into} is unchanged.`,
+        );
+      }
+    }
+  }
+
   // preMerge hook: e.g. "npm test" in the agent's worktree. Runs after the
   // collision gate and before the merge starts, so a failure aborts cleanly.
   if (config.preMerge) {

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { merge } from '../src/commands/merge.js';
 import { spawn } from '../src/commands/spawn.js';
 import { branchExists, gitAt, revParseOid } from '../src/lib/git.js';
-import { readState } from '../src/lib/state.js';
+import { readState, writeState } from '../src/lib/state.js';
 import { readUndoRecord, UNDO_BRANCH_REF, UNDO_HEAD_REF } from '../src/lib/undo.js';
 import { commitFile, makeTempRepo, worktreePath } from './helpers.js';
 import type { TempRepo } from './helpers.js';
@@ -23,6 +23,18 @@ afterEach(() => {
 
 function readNormalized(file: string): string {
   return readFileSync(path.join(repo.root, file), 'utf8').replace(/\r\n/g, '\n');
+}
+
+/** Seed a validation record directly, bypassing the validate command. */
+function seedValidation(
+  name: string,
+  record: { commit: string; ok: boolean; command: string },
+): void {
+  const state = readState(repo.root);
+  const agent = state.agents[name];
+  if (!agent) throw new Error(`no agent ${name} in state`);
+  agent.validation = { ...record, at: new Date().toISOString() };
+  writeState(repo.root, state);
 }
 
 describe('fleet merge', () => {
@@ -241,5 +253,83 @@ describe('undo recording', () => {
 
     expect(readUndoRecord(repo.root)).toBeNull();
     expect(await revParseOid(gitAt(repo.root), UNDO_HEAD_REF)).toBeNull();
+  });
+});
+
+describe('fleet merge validation gate', () => {
+  const PASS = 'node -e "process.exit(0)"';
+  const FAIL = 'node -e "process.exit(1)"';
+
+  function configureValidate(command: string): void {
+    writeFileSync(
+      path.join(repo.root, '.fleetrc.json'),
+      `${JSON.stringify({ validate: command })}\n`,
+    );
+  }
+
+  it('runs the validate command when the tip has no record, and records the failure', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'feature.txt', 'f\n', 'feat: feature');
+    configureValidate(FAIL);
+
+    await expect(merge('alice', { cwd: repo.root })).rejects.toThrow(/validate failed \(exit 1\)/);
+
+    // Nothing merged, and the failure is now on the record for `fleet list`.
+    expect(existsSync(path.join(repo.root, 'feature.txt'))).toBe(false);
+    const record = readState(repo.root).agents['alice']?.validation;
+    expect(record?.ok).toBe(false);
+  });
+
+  it('trusts a passing record at the tip instead of re-running the command', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'feature.txt', 'f\n', 'feat: feature');
+    // The configured command would fail if it ran; the seeded passing record
+    // for this exact tip and command means it must not run.
+    configureValidate(FAIL);
+    const tip = await revParseOid(gitAt(repo.root), 'fleet/alice');
+    seedValidation('alice', { commit: tip ?? '', ok: true, command: FAIL });
+
+    const result = await merge('alice', { cwd: repo.root });
+
+    expect(result).toMatchObject({ branch: 'fleet/alice', into: 'main' });
+    expect(existsSync(path.join(repo.root, 'feature.txt'))).toBe(true);
+  });
+
+  it('refuses a failing record at the tip without re-running', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'feature.txt', 'f\n', 'feat: feature');
+    // The configured command would pass if it ran; the seeded failing record
+    // must refuse the merge on its own — same commit, same command, same answer.
+    configureValidate(PASS);
+    const tip = await revParseOid(gitAt(repo.root), 'fleet/alice');
+    seedValidation('alice', { commit: tip ?? '', ok: false, command: PASS });
+
+    await expect(merge('alice', { cwd: repo.root })).rejects.toThrow(/Validation failed at the tip/);
+    expect(existsSync(path.join(repo.root, 'feature.txt'))).toBe(false);
+  });
+
+  it('re-runs when the record is stale (tip moved on)', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'feature.txt', 'f\n', 'feat: feature');
+    configureValidate(PASS);
+    // A passing record for an older commit does not count.
+    seedValidation('alice', { commit: '0'.repeat(40), ok: true, command: PASS });
+
+    const result = await merge('alice', { cwd: repo.root });
+
+    expect(result).toMatchObject({ into: 'main' });
+    // The re-run refreshed the record to the real tip before the merge.
+    // (The agent record was cleaned up on merge; the undo record kept a copy.)
+    expect(readUndoRecord(repo.root)?.agent.validation?.ok).toBe(true);
+  });
+
+  it('refuses to certify a dirty worktree when a run is needed', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'feature.txt', 'f\n', 'feat: feature');
+    configureValidate(PASS);
+    writeFileSync(path.join(worktreePath(repo.root, 'alice'), 'wip.txt'), 'w\n');
+
+    await expect(merge('alice', { cwd: repo.root })).rejects.toThrow(/uncommitted change/);
+    expect(existsSync(path.join(repo.root, 'feature.txt'))).toBe(false);
   });
 });
