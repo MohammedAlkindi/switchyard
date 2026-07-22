@@ -2,7 +2,8 @@ import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'node_modules/**', 'coverage/**'] },
+  // public/ is the static website (DOM code with its own tsconfig), not CLI source.
+  { ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'public/**'] },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {

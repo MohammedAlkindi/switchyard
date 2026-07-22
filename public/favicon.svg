@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" rx="38" fill="#0f1713"/>
+  <g transform="translate(30 30) scale(0.7)">
+    <g stroke="#eae3d2" stroke-width="10" fill="none">
+      <line x1="100" y1="12" x2="100" y2="188"/>
+      <line x1="176.21" y1="56" x2="23.79" y2="144"/>
+      <line x1="176.21" y1="144" x2="23.79" y2="56"/>
+      <polygon points="100,48 145.03,74 145.03,126 100,152 54.97,126 54.97,74"/>
+    </g>
+    <g fill="#45d183">
+      <circle cx="100" cy="12" r="14"/><circle cx="176.21" cy="56" r="14"/>
+      <circle cx="176.21" cy="144" r="14"/><circle cx="100" cy="188" r="14"/>
+      <circle cx="23.79" cy="144" r="14"/><circle cx="23.79" cy="56" r="14"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Switchyard — one repo, many AI coding agents, zero collisions</title>
+  <meta name="description" content="Switchyard's fleet CLI gives every AI coding agent an isolated git worktree on its own branch, simulates merges before anyone lands, and cleans up safely. One repo, many agents, zero collisions.">
+  <link rel="canonical" href="https://switchyardhq.vercel.app/">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <meta property="og:title" content="Switchyard — every agent gets its own track">
+  <meta property="og:description" content="A CLI for running multiple AI coding agents on one git repository: isolated worktrees, merge simulation before anyone lands, safe cleanup.">
+  <meta property="og:url" content="https://switchyardhq.vercel.app/">
+  <meta property="og:type" content="website">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="#top" aria-label="Switchyard home">
+    <svg class="brand-mark" viewBox="0 0 200 200" aria-hidden="true">
+      <g stroke="currentColor" stroke-width="9" fill="none">
+        <line x1="100" y1="12" x2="100" y2="188"/>
+        <line x1="176.21" y1="56" x2="23.79" y2="144"/>
+        <line x1="176.21" y1="144" x2="23.79" y2="56"/>
+        <polygon points="100,48 145.03,74 145.03,126 100,152 54.97,126 54.97,74"/>
+      </g>
+      <g fill="currentColor">
+        <circle cx="100" cy="12" r="13"/><circle cx="176.21" cy="56" r="13"/>
+        <circle cx="176.21" cy="144" r="13"/><circle cx="100" cy="188" r="13"/>
+        <circle cx="23.79" cy="144" r="13"/><circle cx="23.79" cy="56" r="13"/>
+      </g>
+    </svg>
+    <span class="brand-name">Switchyard</span>
+    <span class="version-chip" id="version-chip">v0.4</span>
+  </a>
+  <nav class="topnav" aria-label="Primary">
+    <a href="#timetable">Workflow</a>
+    <a href="#signals">Signals</a>
+    <a href="#roster">Commands</a>
+    <a href="#mcp">MCP</a>
+    <a class="ext" href="https://github.com/MohammedAlkindi/Switchyard" rel="noopener">GitHub</a>
+    <a class="ext" href="https://www.npmjs.com/package/@switchyardhq/switchyard" rel="noopener">npm</a>
+  </nav>
+</header>
+
+<main id="top">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <p class="eyebrow">Signal box · multi-agent git operations</p>
+    <h1>Every agent gets<br>its own track.</h1>
+    <p class="lede">
+      Switchyard is a CLI for running several AI coding agents — Claude&nbsp;Code, Codex,
+      Cursor, however many you drive — on <em>one</em> git repository at once. Each agent
+      works in an isolated worktree on its own branch, and <code>fleet&nbsp;check</code>
+      simulates every merge <strong>before</strong> anyone attempts it.
+    </p>
+    <div class="install" role="group" aria-label="Install command">
+      <code id="install-cmd">npm install -g @switchyardhq/switchyard</code>
+      <button class="copy-btn" type="button" data-copy="npm install -g @switchyardhq/switchyard">Copy</button>
+    </div>
+    <p class="install-note">Installs the <code>fleet</code> command · Node ≥ 18.17 · git ≥ 2.31 · MIT</p>
+  </section>
+
+  <!-- ============ SIGNATURE: INTERLOCKING DIAGRAM ============ -->
+  <section class="yard" aria-label="How Switchyard routes agents">
+    <div class="yard-frame">
+      <svg id="yard-svg" viewBox="0 0 1200 400" role="img"
+           aria-label="Interlocking diagram: two agent tracks diverge from main into their own worktrees and rejoin at a signal-guarded junction where fleet check decides whether the merge may proceed.">
+        <!-- main line through the yard (the human's checkout, untouched) -->
+        <path class="track track-idle" d="M 0 200 H 1200" pathLength="100"/>
+        <text class="rail-label" x="18" y="188">main</text>
+        <text class="rail-label" x="1120" y="188">main</text>
+
+        <!-- diverging agent tracks -->
+        <path id="track-claude" class="track track-agent"
+              d="M 210 200 C 300 200 310 112 400 112 L 770 112 C 860 112 870 200 960 200"/>
+        <path id="track-codex" class="track track-agent"
+              d="M 210 200 C 300 200 310 288 400 288 L 770 288 C 860 288 870 200 960 200"/>
+
+        <!-- worktree labels -->
+        <g class="wt-label" transform="translate(400, 66)">
+          <rect x="0" y="0" width="372" height="30" rx="3"/>
+          <text x="12" y="20">fleet/claude · .fleet/worktrees/claude</text>
+        </g>
+        <g class="wt-label" transform="translate(400, 304)">
+          <rect x="0" y="0" width="360" height="30" rx="3"/>
+          <text x="12" y="20">fleet/codex · .fleet/worktrees/codex</text>
+        </g>
+
+        <!-- points markers -->
+        <circle class="points" cx="210" cy="200" r="5"/>
+        <circle class="points" cx="960" cy="200" r="5"/>
+
+        <!-- commit dots (animated by main.ts) -->
+        <circle id="dot-claude" class="dot dot-claude" r="6" cx="-20" cy="-20"/>
+        <circle id="dot-codex" class="dot dot-codex" r="6" cx="-20" cy="-20"/>
+
+        <!-- junction signal: three-aspect mast guarding the merge -->
+        <g class="signal" transform="translate(998, 88)">
+          <rect class="signal-post" x="16" y="72" width="4" height="112"/>
+          <rect class="signal-head" x="0" y="0" width="36" height="86" rx="8"/>
+          <circle id="lamp-red"   class="lamp" cx="18" cy="16" r="9"/>
+          <circle id="lamp-amber" class="lamp" cx="18" cy="43" r="9"/>
+          <circle id="lamp-green" class="lamp" cx="18" cy="70" r="9"/>
+        </g>
+      </svg>
+    </div>
+    <p class="yard-caption" aria-live="polite">
+      <span class="caption-tag" id="caption-tag">CHECK</span>
+      <span id="caption-text">no shared files between agents — junction clear</span>
+    </p>
+  </section>
+
+  <!-- ============ THE INCIDENT ============ -->
+  <section class="incident reveal">
+    <h2 class="section-head"><span>Why this exists</span></h2>
+    <div class="incident-panel">
+      <p>
+        Two AI agents on one checkout ends badly. This project exists because Codex silently
+        ran a <code>git reset</code> on <code>main</code> mid-merge while Claude&nbsp;Code was
+        mid-task on the same files — the merge state vanished and neither agent noticed.
+      </p>
+      <p>
+        The failure mode isn't exotic: <strong>two agents, one working tree, no isolation.</strong>
+        Branches alone don't help; they share one directory and one index. Worktrees give each
+        agent a real, separate directory with its own files, its own index, its own HEAD.
+        A <code>git reset</code> in one physically cannot disturb the others.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ WORKING TIMETABLE ============ -->
+  <section class="timetable reveal" id="timetable">
+    <h2 class="section-head"><span>The working timetable</span></h2>
+    <p class="section-lede">The core loop, in departure order. Every halt is one command.</p>
+
+    <ol class="halts">
+      <li class="halt">
+        <span class="halt-no">01</span>
+        <div class="halt-body">
+          <code class="halt-cmd">fleet init</code>
+          <p>Open the line. Writes the starter config, ignores <code>.fleet/</code>, and installs
+          the docs that teach your agents the convention — a Claude Code skill and an
+          <code>AGENTS.md</code> block. <code>fleet init --check</code> verifies it all in CI
+          without writing a byte.</p>
+        </div>
+      </li>
+      <li class="halt">
+        <span class="halt-no">02</span>
+        <div class="halt-body">
+          <code class="halt-cmd">fleet spawn claude</code>
+          <p>Branch off. A real worktree appears at <code>.fleet/worktrees/claude</code> on branch
+          <code>fleet/claude</code>, provisioned by your <code>copyOnSpawn</code> files and
+          <code>postSpawn</code> hook. Point the agent at it and let it work.</p>
+        </div>
+      </li>
+      <li class="halt">
+        <span class="halt-no">03</span>
+        <div class="halt-body">
+          <code class="halt-cmd">fleet check</code>
+          <p>Read the signal before the junction. Every pair of agents that touched the same file
+          is merged in memory with <code>git merge-tree</code> — a real three-way merge, no
+          worktree touched. Conflicts stop you <em>before</em> the work is doubled, not after.</p>
+        </div>
+      </li>
+      <li class="halt">
+        <span class="halt-no">04</span>
+        <div class="halt-body">
+          <code class="halt-cmd">fleet sync --all</code>
+          <p>Hold the interval. After anything lands, every other agent is behind its base — one
+          sweep catches the whole fleet up. A dirty worktree or a conflicting merge is reported
+          and skipped; it never strands the rest.</p>
+        </div>
+      </li>
+      <li class="halt">
+        <span class="halt-no">05</span>
+        <div class="halt-body">
+          <code class="halt-cmd">fleet merge claude</code>
+          <p>Bring it home. Collision gate first, then your <code>preMerge</code> hook, then the
+          merge — aborted cleanly on conflict, never left half-done. The worktree and branch are
+          cleaned up after. Regret it? <code>fleet undo</code> rolls the whole thing back.</p>
+        </div>
+      </li>
+    </ol>
+
+    <figure class="console-fig">
+      <figcaption>The same flow, live:</figcaption>
+      <pre class="console"><code>$ fleet list
+┌────────┬──────────────┬──────┬───────┬───────────────┬───────────────┐
+│ AGENT  │ BRANCH       │ BASE │ +/-   │ CHANGES       │ LAST ACTIVITY │
+├────────┼──────────────┼──────┼───────┼───────────────┼───────────────┤
+│ claude │ fleet/claude │ main │ +3/-0 │ clean         │ 12m ago       │
+│ codex  │ fleet/codex  │ main │ +1/-2 │ 4 uncommitted │ just now      │
+└────────┴──────────────┴──────┴───────┴───────────────┴───────────────┘
+
+$ fleet check
+1 collision risk detected:
+┌───────────────────┬───────────────┬───────────────┐
+│ FILE              │ AGENTS        │ VERDICT       │
+├───────────────────┼───────────────┼───────────────┤
+│ src/api/routes.ts │ claude, codex │ will conflict │
+└───────────────────┴───────────────┴───────────────┘</code></pre>
+    </figure>
+  </section>
+
+  <!-- ============ SIGNAL ASPECTS ============ -->
+  <section class="signals reveal" id="signals">
+    <h2 class="section-head"><span>Three aspects, straight from the simulation</span></h2>
+    <p class="section-lede">
+      <code>fleet check</code> doesn't guess from filenames. On git ≥ 2.38 it runs a real
+      in-memory merge for every pair of agents sharing a file, and reports one of three verdicts.
+    </p>
+    <div class="aspect-grid">
+      <article class="aspect aspect-red">
+        <span class="aspect-lamp" aria-hidden="true"></span>
+        <h3>will conflict</h3>
+        <p>The simulated merge produced conflict markers. Stop and coordinate — pick a different
+        file, or let the other agent's work land first. Exits 1, so CI stops too.</p>
+      </article>
+      <article class="aspect aspect-amber">
+        <span class="aspect-lamp" aria-hidden="true"></span>
+        <h3>uncommitted</h3>
+        <p>Another agent has unsaved edits there. Simulation can't see work that was never
+        committed, so the signal fails closed rather than guessing it's safe.</p>
+      </article>
+      <article class="aspect aspect-green">
+        <span class="aspect-lamp" aria-hidden="true"></span>
+        <h3>clean</h3>
+        <p>Both agents touched the file and the committed sides merge cleanly. Reported for
+        awareness, but it doesn't block the junction — and a wrong call is still caught by the
+        merge's own abort-on-conflict net.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============ ROSTER ============ -->
+  <section class="roster reveal" id="roster">
+    <h2 class="section-head"><span>The full roster</span></h2>
+    <div class="roster-table-wrap">
+      <table class="roster-table">
+        <tbody>
+          <tr class="roster-group"><th colspan="2">Open the line</th></tr>
+          <tr><td><code>fleet init</code></td><td>Config, ignore entry, and the agent-facing docs. <code>--check</code> verifies without writing; exits 1 on drift.</td></tr>
+          <tr class="roster-group"><th colspan="2">Run the fleet</th></tr>
+          <tr><td><code>fleet spawn &lt;agent&gt;</code></td><td>Isolated worktree + branch <code>fleet/&lt;agent&gt;</code>, provisioned via hooks.</td></tr>
+          <tr><td><code>fleet list</code> / <code>watch</code></td><td>Every agent: branch, ahead/behind, changes, last activity. <code>--json</code> for scripts.</td></tr>
+          <tr><td><code>fleet status &lt;agent&gt;</code></td><td>One agent in detail: uncommitted files, diffstat vs base.</td></tr>
+          <tr><td><code>fleet exec &lt;agent&gt; -- &lt;cmd&gt;</code></td><td>Run a command inside a worktree — or every worktree with <code>--all</code>.</td></tr>
+          <tr class="roster-group"><th colspan="2">Guard the junction</th></tr>
+          <tr><td><code>fleet check</code></td><td>Merge-simulated collision report across all agent pairs. <code>--lines</code> for line-range precision.</td></tr>
+          <tr><td><code>fleet diff &lt;agent&gt;</code></td><td>The branch's full diff against its base, for review before merging.</td></tr>
+          <tr><td><code>fleet sync &lt;agent&gt;</code> / <code>--all</code></td><td>Catch one agent — or the whole fleet — up with its base. Conflicts abort cleanly.</td></tr>
+          <tr class="roster-group"><th colspan="2">Bring it home</th></tr>
+          <tr><td><code>fleet merge &lt;agent&gt;</code></td><td>Gate, hook, merge, clean up. Aborts on conflict, never left half-done.</td></tr>
+          <tr><td><code>fleet undo</code></td><td>Roll back the last merge: branch pointer, agent branch, worktree, state.</td></tr>
+          <tr><td><code>fleet pr &lt;agent&gt;</code></td><td>Push the branch and open a pull request via the GitHub CLI instead.</td></tr>
+          <tr class="roster-group"><th colspan="2">Keep it healthy</th></tr>
+          <tr><td><code>fleet clean</code></td><td>Sweep fully merged agents; <code>--stale &lt;days&gt;</code> retires idle ones.</td></tr>
+          <tr><td><code>fleet doctor</code></td><td>Diagnose state/reality drift; <code>--fix</code> repairs what can be repaired.</td></tr>
+          <tr><td><code>fleet mcp</code></td><td>Serve read-only fleet state to the agents themselves, over MCP.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ MCP ============ -->
+  <section class="mcp reveal" id="mcp">
+    <h2 class="section-head"><span>Let the agents read the signals</span></h2>
+    <div class="mcp-cols">
+      <div class="mcp-copy">
+        <p>
+          <code>fleet mcp</code> serves the fleet to the agents themselves over the
+          Model&nbsp;Context&nbsp;Protocol: <code>fleet_list</code>, <code>fleet_status</code>,
+          <code>fleet_check</code>, <code>fleet_lock_status</code> — read-only by design, so an
+          agent can check for collisions <em>before</em> it starts editing, not discover them at
+          merge time.
+        </p>
+        <p>
+          And <code>fleet init</code> makes the convention reach them: it installs a Claude Code
+          skill and writes a protocol block into <code>AGENTS.md</code> that any agent — Codex,
+          Cursor, anything that reads the file — picks up. Spawning, merging, and cleanup stay
+          human actions.
+        </p>
+      </div>
+      <figure class="console-fig">
+        <figcaption>Point an MCP client at it:</figcaption>
+        <pre class="console"><code>{
+  "mcpServers": {
+    "switchyard": {
+      "command": "fleet",
+      "args": ["mcp"]
+    }
+  }
+}</code></pre>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============ CTA ============ -->
+  <section class="cta reveal">
+    <h2>Clear the junction.</h2>
+    <div class="install" role="group" aria-label="Install command">
+      <code>npm install -g @switchyardhq/switchyard</code>
+      <button class="copy-btn" type="button" data-copy="npm install -g @switchyardhq/switchyard">Copy</button>
+    </div>
+    <p class="install-note">
+      <a href="https://github.com/MohammedAlkindi/Switchyard" rel="noopener">Source on GitHub</a> ·
+      <a href="https://github.com/MohammedAlkindi/Switchyard/blob/main/CHANGELOG.md" rel="noopener">Changelog</a> ·
+      <a href="https://github.com/MohammedAlkindi/Switchyard/blob/main/docs/architecture.md" rel="noopener">Architecture notes</a>
+    </p>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <p>
+    <span class="footer-mark">Switchyard</span> — one repo, many agents, zero collisions.
+  </p>
+  <p class="footer-links">
+    <a href="https://www.npmjs.com/package/@switchyardhq/switchyard" rel="noopener">@switchyardhq/switchyard</a> ·
+    <a href="https://github.com/MohammedAlkindi/Switchyard" rel="noopener">GitHub</a> ·
+    <a href="https://github.com/MohammedAlkindi/Switchyard/blob/main/LICENSE" rel="noopener">MIT license</a>
+  </p>
+</footer>
+
+<script src="main.js" defer></script>
+</body>
+</html>
