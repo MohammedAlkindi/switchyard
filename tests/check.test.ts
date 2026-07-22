@@ -60,7 +60,12 @@ describe('fleet check', () => {
   it('skips the check when fewer than two agents exist', async () => {
     await spawn('alice', { cwd: repo.root });
     const result = await check({ cwd: repo.root });
-    expect(result).toEqual({ collisions: [], prediction: 'merge-tree', agentsChecked: 1 });
+    expect(result).toEqual({
+      collisions: [],
+      prediction: 'merge-tree',
+      agentsChecked: 1,
+      agentFiles: { alice: 0 },
+    });
   });
 
   it('--json prints the result as parseable JSON', async () => {
@@ -293,5 +298,25 @@ describe('buildCheckReport (pure renderer)', () => {
     expect(console.log).not.toHaveBeenCalled();
     expect(report).toContain('src.txt');
     expect(report).toContain('will conflict');
+  });
+});
+
+describe('agentFiles (per-agent touched-file counts)', () => {
+  it('counts committed and uncommitted files for a single agent, before the collision early-return', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'a.txt', 'a\n', 'feat: a');
+    writeFileSync(path.join(worktreePath(repo.root, 'alice'), 'b.txt'), 'b\n');
+
+    const result = await collectCheck({ cwd: repo.root });
+
+    // One agent: no collisions to compute, but the file counts still land.
+    expect(result.agentsChecked).toBe(1);
+    expect(result.collisions).toEqual([]);
+    expect(result.agentFiles).toEqual({ alice: 2 });
+  });
+
+  it('is empty for an empty fleet', async () => {
+    const result = await collectCheck({ cwd: repo.root });
+    expect(result.agentFiles).toEqual({});
   });
 });

@@ -49,6 +49,12 @@ export interface CheckResult {
   /** Which detection semantics ran. */
   prediction: 'merge-tree' | 'files';
   agentsChecked: number;
+  /**
+   * Files each agent touched (committed vs base plus uncommitted), by name —
+   * the raw material the collision cross-reference is computed from. Present
+   * for any fleet size, including a single agent with nothing to collide with.
+   */
+  agentFiles: Record<string, number>;
 }
 
 /**
@@ -66,12 +72,6 @@ export async function collectCheck(options: CheckOptions = {}): Promise<CheckRes
   const useMergeTree = capable && !(options.filesOnly ?? false);
   const prediction: 'merge-tree' | 'files' = useMergeTree ? 'merge-tree' : 'files';
 
-  if (agents.length < 2) {
-    const result: CheckResult = { collisions: [], prediction, agentsChecked: agents.length };
-    if (options.lines) result.disjoint = [];
-    return result;
-  }
-
   const agentsByFile = new Map<string, string[]>();
   // --lines only: file -> agent -> edited ranges (merge-base coordinates).
   const rangesByFile = new Map<string, Map<string, FileRanges>>();
@@ -80,6 +80,10 @@ export async function collectCheck(options: CheckOptions = {}): Promise<CheckRes
   // all when a branch is missing — both fail closed rather than silently clean.
   const uncommittedByAgent = new Map<string, Set<string>>();
   const unsimulatable = new Set<string>();
+  const agentFiles: Record<string, number> = {};
+  // Line ranges exist to intersect agents against each other; with fewer than
+  // two there is nothing to intersect, so skip the diff parsing.
+  const needRanges = (options.lines ?? false) && agents.length >= 2;
 
   for (const record of agents) {
     const files = new Set<string>();
@@ -101,13 +105,14 @@ export async function collectCheck(options: CheckOptions = {}): Promise<CheckRes
         uncommitted.add(f.path);
       }
     }
+    agentFiles[record.name] = files.size;
     uncommittedByAgent.set(record.name, uncommitted);
     for (const file of files) {
       const touchers = agentsByFile.get(file) ?? [];
       touchers.push(record.name);
       agentsByFile.set(file, touchers);
     }
-    if (options.lines) {
+    if (needRanges) {
       const ranges = await collectAgentRanges(git, repoRoot, record, files);
       for (const [file, fileRanges] of ranges) {
         const perAgent = rangesByFile.get(file) ?? new Map<string, FileRanges>();
@@ -115,6 +120,17 @@ export async function collectCheck(options: CheckOptions = {}): Promise<CheckRes
         rangesByFile.set(file, perAgent);
       }
     }
+  }
+
+  if (agents.length < 2) {
+    const result: CheckResult = {
+      collisions: [],
+      prediction,
+      agentsChecked: agents.length,
+      agentFiles,
+    };
+    if (options.lines) result.disjoint = [];
+    return result;
   }
 
   const multiAgent = [...agentsByFile.entries()]
@@ -195,7 +211,7 @@ export async function collectCheck(options: CheckOptions = {}): Promise<CheckRes
     collisions = working;
   }
 
-  const result: CheckResult = { collisions, prediction, agentsChecked: agents.length };
+  const result: CheckResult = { collisions, prediction, agentsChecked: agents.length, agentFiles };
   if (disjoint !== undefined) result.disjoint = disjoint;
   if (cleanMerges !== undefined) result.cleanMerges = cleanMerges;
   return result;
