@@ -26,6 +26,7 @@ const COMMANDS: ReadonlyArray<readonly [string, string]> = [
   ['remove', 'remove an agent worktree'],
   ['clean', 'remove fully merged agents'],
   ['watch', 'live-updating agent table'],
+  ['dashboard', 'live pane of agents, validation, and collisions'],
   ['doctor', 'diagnose and repair state drift'],
   ['completion', 'output a shell completion script'],
 ];

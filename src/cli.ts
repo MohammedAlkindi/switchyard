@@ -5,6 +5,7 @@ import { Command } from 'commander';
 import { check } from './commands/check.js';
 import { clean } from './commands/clean.js';
 import { completion } from './commands/completion.js';
+import { dashboard } from './commands/dashboard.js';
 import { diff } from './commands/diff.js';
 import { doctor } from './commands/doctor.js';
 import { exec } from './commands/exec.js';
@@ -203,6 +204,13 @@ program
   .action((opts: { interval?: number }) => run(() => watch(opts)));
 
 program
+  .command('dashboard')
+  .description('one live pane: agents, validation states, and collision verdicts together')
+  .option('--interval <seconds>', 'refresh interval in seconds (default: 3)', parseFloat)
+  .option('--once', 'print a single frame and exit (for scripts and CI logs)')
+  .action((opts: { interval?: number; once?: boolean }) => run(() => dashboard(opts)));
+
+program
   .command('merge')
   .description("merge an agent's branch into the current branch, then clean up the agent")
   .argument('<agent-name>', 'agent to merge')
@@ -279,6 +287,7 @@ program.addHelpText(
     '  fleet remove codex --force      drop a worktree, discarding its changes\n' +
     '  fleet clean --stale 14          sweep merged agents + 2-week-idle ones\n' +
     '  fleet doctor --fix              repair state drift after manual surgery\n' +
+    '  fleet dashboard                 agents, validation, and collisions, live\n' +
     '  fleet list --json               agent table as JSON, for scripts and CI\n' +
     '  fleet mcp                       serve read-only fleet tools to an agent\n',
 );
