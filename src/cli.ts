@@ -16,7 +16,7 @@ import { pr } from './commands/pr.js';
 import { remove } from './commands/remove.js';
 import { spawn } from './commands/spawn.js';
 import { status } from './commands/status.js';
-import { sync } from './commands/sync.js';
+import { sync, syncAll } from './commands/sync.js';
 import { undo } from './commands/undo.js';
 import { watch } from './commands/watch.js';
 import { FleetError } from './lib/errors.js';
@@ -121,8 +121,24 @@ program
 program
   .command('sync')
   .description("merge an agent's base branch into its branch, catching it up")
-  .argument('<agent-name>', 'agent to sync')
-  .action((name: string) => run(() => sync(name)));
+  .argument('[agent-name]', 'agent to sync (omit with --all)')
+  .option('--all', 'sync every registered agent, continuing past per-agent failures')
+  .action((name: string | undefined, opts: { all?: boolean }) =>
+    run(async () => {
+      if (opts.all) {
+        if (name !== undefined) {
+          throw new FleetError('Pass either an agent name or --all, not both.');
+        }
+        const result = await syncAll();
+        if (result.failed.length > 0) process.exitCode = 1;
+        return;
+      }
+      if (name === undefined) {
+        throw new FleetError('Missing agent name. Pass one, or use --all to sync every agent.');
+      }
+      return sync(name);
+    }),
+  );
 
 program
   .command('exec')
@@ -227,6 +243,7 @@ program.addHelpText(
     '  fleet spawn codex --from main   spawn a second agent off main\n' +
     '  fleet check --lines             any files touched by both, line-precise?\n' +
     '  fleet sync claude               catch fleet/claude up with its base\n' +
+    '  fleet sync --all                catch every agent up after a merge\n' +
     '  fleet exec claude -- npm test   run tests inside the claude worktree\n' +
     '  fleet diff claude               review before merging fleet/claude\n' +
     '  fleet merge claude              merge fleet/claude and clean it up\n' +

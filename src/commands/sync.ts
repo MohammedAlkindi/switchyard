@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { FleetError } from '../lib/errors.js';
-import { ok, plural } from '../lib/format.js';
+import { dim, fail, ok, plural } from '../lib/format.js';
 import { aheadBehind, getMainRepoRoot, gitAt, verifyBranch } from '../lib/git.js';
 import { withLock } from '../lib/lock.js';
 import { getAgent, readState, worktreeAbsPath } from '../lib/state.js';
@@ -19,6 +19,17 @@ export interface SyncResult {
   updated: boolean;
 }
 
+export interface SyncFailure {
+  name: string;
+  /** The FleetError message the single-agent sync would have thrown. */
+  error: string;
+}
+
+export interface SyncAllResult {
+  synced: SyncResult[];
+  failed: SyncFailure[];
+}
+
 /**
  * Catch an agent's branch up with its base by merging the base into the
  * agent's worktree. Same safety contract as `fleet merge`: a conflicted merge
@@ -27,6 +38,47 @@ export interface SyncResult {
 export async function sync(name: string, options: SyncOptions = {}): Promise<SyncResult> {
   const repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());
   return withLock(repoRoot, 'sync', () => syncLocked(name, options, repoRoot));
+}
+
+/**
+ * Catch every registered agent up with its base in one sweep. Each agent gets
+ * the exact single-agent treatment (same dirty checks, same abort-on-conflict
+ * contract), but one agent's failure never stops the rest of the fleet from
+ * catching up — failures are collected and reported instead of thrown.
+ */
+export async function syncAll(options: SyncOptions = {}): Promise<SyncAllResult> {
+  const repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());
+  return withLock(repoRoot, 'sync', async () => {
+    const state = readState(repoRoot);
+    const names = Object.keys(state.agents).sort();
+    const result: SyncAllResult = { synced: [], failed: [] };
+    if (names.length === 0) {
+      console.log('No agents registered. Run `fleet spawn <name>` to create one.');
+      return result;
+    }
+
+    for (const name of names) {
+      console.log(dim(`— ${name}`));
+      try {
+        result.synced.push(await syncLocked(name, options, repoRoot));
+      } catch (err) {
+        // Anything unexpected should still crash loudly; only the failures the
+        // single-agent command reports as its own are collected and continued.
+        if (!(err instanceof FleetError)) throw err;
+        result.failed.push({ name, error: err.message });
+        console.error(fail(`✗ ${name}: ${err.message}`));
+      }
+    }
+
+    const caughtUp = result.synced.filter((s) => s.updated).length;
+    const summary =
+      `${plural(result.synced.length, 'agent')} synced` +
+      ` (${caughtUp} caught up)` +
+      (result.failed.length > 0 ? `, ${result.failed.length} failed` : '');
+    console.log('');
+    console.log(result.failed.length === 0 ? ok(summary) : fail(summary));
+    return result;
+  });
 }
 
 async function syncLocked(
