@@ -87,7 +87,7 @@ When you need one of these, ask for it by name:
 | --- | --- |
 | A worktree of your own | `fleet spawn <your-name>` |
 | Your work merged | `fleet merge <your-name>` |
-| Your base branch caught up | `fleet sync <your-name>` |
+| Your base branch caught up | `fleet sync <your-name>` (or `fleet sync --all` for the whole fleet) |
 | A pull request | `fleet pr <your-name>` |
 | State repaired after manual git surgery | `fleet doctor --fix` |
 

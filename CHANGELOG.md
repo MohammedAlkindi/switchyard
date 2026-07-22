@@ -11,6 +11,16 @@ this package.
 
 ### Added
 
+- `fleet init --check`: verify the four onboarding artifacts without writing
+  anything — read-only, lock-free, exit 1 on drift, `--json` for scripts. Wire
+  it into CI so the agent-facing convention cannot silently rot after an
+  upgrade. Broken `AGENTS.md` markers are reported as `broken` rather than
+  thrown, so one damaged file still yields a full report.
+- `fleet sync --all`: catch every registered agent up with its base in one
+  sweep. Each agent gets the exact single-agent treatment (same dirty checks,
+  same abort-on-conflict contract), but failures are collected and reported
+  instead of thrown, so one dirty worktree or conflicting merge never strands
+  the rest of the fleet. Exits 1 if any agent failed.
 - `fleet init`: brings a repository into the fleet workflow in one command.
   Writes `.fleet/` into `.git/info/exclude`, a starter `.fleetrc.json` wired to
   the config schema, the Claude Code skill into `.claude/skills/switchyard/`,

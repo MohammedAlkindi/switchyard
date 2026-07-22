@@ -25,7 +25,7 @@ graph TD
     C --> O["collision table:<br/>file × agents that touched it"]
 ```
 
-`fleet spawn <name>` runs `git worktree add .fleet/worktrees/<name> -b fleet/<name> <base>`, records the mapping in `state.json`, then provisions the worktree (`copyOnSpawn` files first, `postSpawn` hook second, so the hook can rely on the copied files). `fleet check` walks every recorded agent, collects the files each one changed (`git diff --name-only <base>...<branch>` for committed work, `git status --porcelain` in the worktree for uncommitted work), and reports any file that appears under more than one agent. `fleet merge` runs that same check first, refuses while the target agent collides with another active agent, runs the `preMerge` hook, merges into the main worktree's current branch, and aborts cleanly (`git merge --abort`) on conflict — the repo is never left mid-merge. `fleet sync` is the same abort-on-conflict merge in the other direction: base into agent branch, run inside the agent's worktree.
+`fleet spawn <name>` runs `git worktree add .fleet/worktrees/<name> -b fleet/<name> <base>`, records the mapping in `state.json`, then provisions the worktree (`copyOnSpawn` files first, `postSpawn` hook second, so the hook can rely on the copied files). `fleet check` walks every recorded agent, collects the files each one changed (`git diff --name-only <base>...<branch>` for committed work, `git status --porcelain` in the worktree for uncommitted work), and reports any file that appears under more than one agent. `fleet merge` runs that same check first, refuses while the target agent collides with another active agent, runs the `preMerge` hook, merges into the main worktree's current branch, and aborts cleanly (`git merge --abort`) on conflict — the repo is never left mid-merge. `fleet sync` is the same abort-on-conflict merge in the other direction: base into agent branch, run inside the agent's worktree. `fleet sync --all` runs that catch-up across every registered agent under one lock, isolating per-agent failures — a dirty worktree or conflicting merge is reported and skipped so it never strands the rest of the fleet.
 
 `fleet exec <agent> -- <cmd>` re-joins the argv into one shell command (`src/lib/proc.ts` `shellJoin`, a pragmatic quoting heuristic for sh and cmd.exe) and runs it with the worktree as cwd; `--all` fans out sequentially so output never interleaves. `fleet pr` never bundles GitHub logic: it verifies the `gh` binary exists (before pushing anything), pushes the branch to `origin`, and shells out to `gh pr create`.
 
@@ -203,6 +203,13 @@ written only when the content would actually change, so a second `init` reports
 Init takes the mutation lock even though it never reads or writes
 `state.json` — two concurrent runs would otherwise interleave their
 read-modify-write of `AGENTS.md` and could duplicate the block.
+
+`fleet init --check` verifies the same four artifacts without writing any of
+them — read-only and lock-free, exit 1 on drift — so CI can enforce what init
+installs. `.fleetrc.json` follows the ownership split here too: it is the
+user's file, so only its absence counts as drift, never its content. Broken
+`AGENTS.md` markers, which init refuses to touch, are reported as `broken`
+rather than thrown so the rest of the report still lands.
 
 ## Config file
 

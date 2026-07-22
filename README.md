@@ -102,13 +102,13 @@ fleet pr claude                 # …or push it and open a PR via gh instead
 
 | Command | Description | Key flags |
 | --- | --- | --- |
-| `fleet init` | Set the repo up for the fleet workflow: starter `.fleetrc.json`, `.fleet/` in `.git/info/exclude`, the Claude Code skill in `.claude/skills/`, and a protocol block in `AGENTS.md`. Idempotent — re-run after upgrading to refresh the agent-facing docs | `--force` overwrite an existing `.fleetrc.json`, `--json` machine-readable output |
+| `fleet init` | Set the repo up for the fleet workflow: starter `.fleetrc.json`, `.fleet/` in `.git/info/exclude`, the Claude Code skill in `.claude/skills/`, and a protocol block in `AGENTS.md`. Idempotent — re-run after upgrading to refresh the agent-facing docs | `--check` verify without writing; exits 1 on drift (CI-friendly), `--force` overwrite an existing `.fleetrc.json`, `--json` machine-readable output |
 | `fleet spawn <agent>` | Create a worktree in `.fleet/worktrees/<agent>/` on a new branch `fleet/<agent>`, then provision it (`copyOnSpawn` / `postSpawn` below) | `--from <branch>` base branch (default: current branch) |
 | `fleet list` | All active agents: branch, base, ahead/behind, uncommitted count, last activity | `--json` machine-readable output |
 | `fleet status <agent>` | One agent in detail: uncommitted files, diff stat vs base, ahead/behind | `--json` machine-readable output |
 | `fleet check` | Table of files touched by more than one agent. On git ≥ 2.38 each shared file gets a merge-simulation verdict — files whose committed changes merge cleanly are reported but don't block or fail the check. Exits 1 on real collision risks (CI-friendly) | `--lines` only count overlapping line ranges, `--files-only` skip simulation; flag any shared file, `--json` machine-readable output |
 | `fleet diff <agent>` | Full diff of the agent's branch against its base | `--base <branch>` diff against a different branch |
-| `fleet sync <agent>` | Merge the agent's base branch into its branch, catching it up. A conflicting merge is aborted — never left half-done | — |
+| `fleet sync <agent>` | Merge the agent's base branch into its branch, catching it up. A conflicting merge is aborted — never left half-done | `--all` sync every registered agent in one sweep, continuing past per-agent failures; exits 1 if any failed |
 | `fleet exec <agent> -- <cmd>` | Run a shell command inside the agent's worktree (e.g. `fleet exec claude -- npm test`) | `--all` run in every worktree sequentially; exits 1 if any run fails |
 | `fleet merge <agent>` | Check for collisions, run the `preMerge` hook, merge the agent's branch into the current branch, then remove the worktree and branch. A conflicting merge is aborted — never left half-done. Overlaps that provably merge cleanly no longer block; predicted conflicts and uncommitted overlaps still do | `--no-clean` keep the worktree and branch, `--delete-branch` explicit form of the default cleanup |
 | `fleet undo` | Roll back the last `fleet merge`: reset the target branch, restore the agent's branch, worktree, and state entry. Single-level; refuses if history moved on | — |
@@ -129,6 +129,7 @@ All commands work from the main checkout **or** from inside any agent worktree.
 ```sh
 fleet check --json || exit 1                  # exit code alone is enough for CI
 fleet list --json | jq -r '.[].name'          # enumerate active agents
+fleet init --check                            # exits 1 when the agent-facing docs drifted
 ```
 
 `fleet check --lines` refines collision detection from files to line ranges: two agents editing disjoint parts of one file are reported separately instead of blocking. Ranges are computed against each pair's merge base — exact when both agents share a base, a documented heuristic otherwise (see [docs/architecture.md](docs/architecture.md)).
