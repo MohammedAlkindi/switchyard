@@ -41,6 +41,11 @@
       "type": "string",
       "minLength": 1,
       "description": "Shell command run inside the agent's worktree before `fleet merge` starts (e.g. \"npm test\"). A non-zero exit aborts the merge."
+    },
+    "validate": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Shell command `fleet validate` runs inside an agent's worktree and records per commit (e.g. \"npm test\"). When set, `fleet merge` requires a passing record for the agent's tip, running the command itself if the record is missing or stale."
     }
   }
 }

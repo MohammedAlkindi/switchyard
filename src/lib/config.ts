@@ -25,13 +25,20 @@ export interface FleetConfig {
    * the merge (e.g. "npm test"). A non-zero exit aborts the merge.
    */
   preMerge?: string;
+  /**
+   * Shell command `fleet validate` runs inside an agent's worktree and records
+   * per commit (e.g. "npm test"). When set, `fleet merge` requires the agent's
+   * tip to have a passing record, running the command itself if the record is
+   * missing or stale.
+   */
+  validate?: string;
 }
 
 export const CONFIG_FILE = '.fleetrc.json';
 export const DEFAULT_WATCH_INTERVAL = 3;
 export const DEFAULT_AUTO_CLEAN = false;
 
-const VALID_KEYS = 'defaultBase, watchInterval, autoClean, copyOnSpawn, postSpawn, preMerge';
+const VALID_KEYS = 'defaultBase, watchInterval, autoClean, copyOnSpawn, postSpawn, preMerge, validate';
 
 export function configPath(repoRoot: string): string {
   return path.join(repoRoot, CONFIG_FILE);
@@ -112,6 +119,12 @@ export function readConfig(repoRoot: string): FleetConfig {
           throw new FleetError(`"preMerge" in ${CONFIG_FILE} must be a non-empty command string.`);
         }
         config.preMerge = value;
+        break;
+      case 'validate':
+        if (typeof value !== 'string' || value.trim() === '') {
+          throw new FleetError(`"validate" in ${CONFIG_FILE} must be a non-empty command string.`);
+        }
+        config.validate = value;
         break;
       default:
         throw new FleetError(`Unknown key "${key}" in ${CONFIG_FILE}. Valid keys: ${VALID_KEYS}.`);

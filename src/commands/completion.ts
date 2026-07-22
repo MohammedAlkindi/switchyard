@@ -18,6 +18,7 @@ const COMMANDS: ReadonlyArray<readonly [string, string]> = [
   ['check', 'flag files touched by more than one agent'],
   ['diff', 'diff an agent branch against its base'],
   ['sync', 'catch an agent branch up with its base'],
+  ['validate', 'run the validate command in an agent worktree and record it'],
   ['exec', 'run a command inside an agent worktree'],
   ['merge', 'merge an agent branch into the current branch and clean up'],
   ['undo', 'roll back the last fleet merge'],
@@ -30,7 +31,7 @@ const COMMANDS: ReadonlyArray<readonly [string, string]> = [
 ];
 
 /** Commands whose first argument is an agent name. */
-const AGENT_COMMANDS = ['status', 'diff', 'sync', 'exec', 'merge', 'pr', 'remove'];
+const AGENT_COMMANDS = ['status', 'diff', 'sync', 'validate', 'exec', 'merge', 'pr', 'remove'];
 
 const SNAPSHOT_NOTE =
   'Agent names below are a snapshot of .fleet/state.json at generation time,\n' +

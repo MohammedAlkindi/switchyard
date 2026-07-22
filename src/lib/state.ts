@@ -2,6 +2,22 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import path from 'node:path';
 import { FleetError } from './errors.js';
 
+/**
+ * Result of the last `fleet validate` run for an agent, pinned to a commit.
+ * Staleness is never stored — readers compare `commit` against the live branch
+ * tip (and `command` against the configured one), so the record cannot claim
+ * more than "this exact commit got this exact result".
+ */
+export interface ValidationRecord {
+  /** Branch tip the run certifies. */
+  commit: string;
+  ok: boolean;
+  /** ISO 8601 timestamp of the run. */
+  at: string;
+  /** The command that ran, so changing the configured command invalidates the record. */
+  command: string;
+}
+
 /** One Switchyard-managed agent: a branch plus the worktree it is checked out in. */
 export interface AgentRecord {
   name: string;
@@ -13,6 +29,8 @@ export interface AgentRecord {
   worktreePath: string;
   /** ISO 8601 timestamp of when the agent was spawned. */
   createdAt: string;
+  /** Last `fleet validate` outcome; absent until the agent is first validated. */
+  validation?: ValidationRecord;
 }
 
 /** Shape of `.fleet/state.json` — the source of truth for all Switchyard commands. */

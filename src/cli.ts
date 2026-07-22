@@ -18,6 +18,7 @@ import { spawn } from './commands/spawn.js';
 import { status } from './commands/status.js';
 import { sync, syncAll } from './commands/sync.js';
 import { undo } from './commands/undo.js';
+import { validate, validateAll } from './commands/validate.js';
 import { watch } from './commands/watch.js';
 import { FleetError } from './lib/errors.js';
 
@@ -141,6 +142,32 @@ program
   );
 
 program
+  .command('validate')
+  .description("run the configured validate command in an agent's worktree, recording the result")
+  .argument('[agent-name]', 'agent to validate (omit with --all)')
+  .option('--all', 'validate every registered agent, continuing past per-agent failures')
+  .option('--json', 'print machine-readable JSON instead of the summary')
+  .action((name: string | undefined, opts: { all?: boolean; json?: boolean }) =>
+    run(async () => {
+      if (opts.all) {
+        if (name !== undefined) {
+          throw new FleetError('Pass either an agent name or --all, not both.');
+        }
+        const result = await validateAll({ json: opts.json });
+        if (result.failed.length > 0 || result.validated.some((v) => !v.ok)) {
+          process.exitCode = 1;
+        }
+        return;
+      }
+      if (name === undefined) {
+        throw new FleetError('Missing agent name. Pass one, or use --all to validate every agent.');
+      }
+      const result = await validate(name, { json: opts.json });
+      if (!result.ok) process.exitCode = 1;
+    }),
+  );
+
+program
   .command('exec')
   .description("run a shell command inside an agent's worktree (or all worktrees)")
   .argument('[agent-name]', 'agent whose worktree to run in (omit with --all)')
@@ -244,6 +271,7 @@ program.addHelpText(
     '  fleet check --lines             any files touched by both, line-precise?\n' +
     '  fleet sync claude               catch fleet/claude up with its base\n' +
     '  fleet sync --all                catch every agent up after a merge\n' +
+    '  fleet validate claude           run the validate command, record the result\n' +
     '  fleet exec claude -- npm test   run tests inside the claude worktree\n' +
     '  fleet diff claude               review before merging fleet/claude\n' +
     '  fleet merge claude              merge fleet/claude and clean it up\n' +
