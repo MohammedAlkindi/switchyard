@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 See [docs/deployment.md](docs/deployment.md) for what patch/minor/major mean for
 this package.
 
-## [Unreleased]
+## [0.4.0] - 2026-07-22
 
 ### Added
 
@@ -48,6 +48,8 @@ this package.
 - No new runtime dependencies, and no change to `state.json` (still
   `version: 1`) — `fleet init` adds no persisted fleet state of its own.
 - The MCP surface is unchanged and still read-only.
+- Switchyard has a website: [switchyardhq.vercel.app](https://switchyardhq.vercel.app)
+  (the `public/` directory of this repo; not part of the npm package).
 
 ## [0.3.0] - 2026-07-19
 
