@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { init } from '../src/commands/init.js';
+import { init, initCheck } from '../src/commands/init.js';
 import { readConfig } from '../src/lib/config.js';
 import {
   AGENTS_BLOCK,
@@ -150,6 +150,81 @@ describe('fleet init', () => {
   it('never acquires the mutation lock beyond its own run', async () => {
     await init({ cwd: repo.root });
     expect(existsSync(path.join(repo.root, '.fleet', 'lock'))).toBe(false);
+  });
+});
+
+describe('fleet init --check', () => {
+  function statusFor(
+    checks: { path: string; status: string }[],
+    file: string,
+  ): string | undefined {
+    return checks.find((c) => c.path === file)?.status;
+  }
+
+  it('reports a fresh repo as drifted without writing anything', async () => {
+    const result = await initCheck({ cwd: repo.root });
+
+    expect(result.ok).toBe(false);
+    expect(result.checks.every((c) => c.status === 'missing')).toBe(true);
+    // Read-only: no artifact, no lock, no .fleet/ directory came into being.
+    expect(existsSync(path.join(repo.root, '.fleetrc.json'))).toBe(false);
+    expect(existsSync(path.join(repo.root, '.fleet'))).toBe(false);
+  });
+
+  it('reports ok for every artifact right after init', async () => {
+    await init({ cwd: repo.root });
+
+    const result = await initCheck({ cwd: repo.root });
+
+    expect(result.ok).toBe(true);
+    expect(result.checks).toHaveLength(4);
+    expect(result.checks.every((c) => c.status === 'ok')).toBe(true);
+  });
+
+  it('flags a hand-edited skill as stale and leaves it untouched', async () => {
+    await init({ cwd: repo.root });
+    write(SKILL_INSTALL_PATH, '# stale copy from an older version\n');
+
+    const result = await initCheck({ cwd: repo.root });
+
+    expect(result.ok).toBe(false);
+    expect(statusFor(result.checks, SKILL_INSTALL_PATH)).toBe('stale');
+    // --check never repairs; that is init's job.
+    expect(read(SKILL_INSTALL_PATH)).toBe('# stale copy from an older version\n');
+  });
+
+  it('flags a stale AGENTS.md block without rewriting it', async () => {
+    await init({ cwd: repo.root });
+    write('AGENTS.md', `${BLOCK_BEGIN}\nold and wrong\n${BLOCK_END}\n`);
+
+    const result = await initCheck({ cwd: repo.root });
+
+    expect(result.ok).toBe(false);
+    expect(statusFor(result.checks, 'AGENTS.md')).toBe('stale');
+    expect(read('AGENTS.md')).toContain('old and wrong');
+  });
+
+  it('reports broken markers instead of throwing', async () => {
+    await init({ cwd: repo.root });
+    write('AGENTS.md', `${BLOCK_BEGIN}\nhalf a block, no end marker\n`);
+
+    const result = await initCheck({ cwd: repo.root });
+
+    expect(result.ok).toBe(false);
+    expect(statusFor(result.checks, 'AGENTS.md')).toBe('broken');
+  });
+
+  it('--json prints the result as exactly one parseable payload', async () => {
+    await init({ cwd: repo.root });
+    const logged: string[] = [];
+    vi.mocked(console.log).mockImplementation((...args: unknown[]) => {
+      logged.push(args.map(String).join(' '));
+    });
+
+    const result = await initCheck({ cwd: repo.root, json: true });
+
+    expect(logged).toHaveLength(1);
+    expect(JSON.parse(logged[0] as string)).toEqual(JSON.parse(JSON.stringify(result)));
   });
 });
 

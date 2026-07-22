@@ -8,7 +8,7 @@ import { completion } from './commands/completion.js';
 import { diff } from './commands/diff.js';
 import { doctor } from './commands/doctor.js';
 import { exec } from './commands/exec.js';
-import { init } from './commands/init.js';
+import { init, initCheck } from './commands/init.js';
 import { list } from './commands/list.js';
 import { mcp } from './commands/mcp.js';
 import { merge } from './commands/merge.js';
@@ -65,8 +65,18 @@ program
   .command('init')
   .description('set up this repo for the fleet workflow: config, ignore entry, agent docs')
   .option('--force', 'overwrite an existing .fleetrc.json')
+  .option('--check', 'verify the artifacts without writing anything (exits 1 on drift)')
   .option('--json', 'print machine-readable JSON instead of the summary')
-  .action((opts: { force?: boolean; json?: boolean }) => run(() => init(opts)));
+  .action((opts: { force?: boolean; check?: boolean; json?: boolean }) =>
+    run(async () => {
+      if (!opts.check) return init(opts);
+      if (opts.force) {
+        throw new FleetError('`fleet init --check` is read-only; it cannot be combined with --force.');
+      }
+      const result = await initCheck(opts);
+      if (!result.ok) process.exitCode = 1;
+    }),
+  );
 
 program
   .command('spawn')
@@ -212,6 +222,7 @@ program.addHelpText(
   'after',
   '\nExamples:\n' +
     '  fleet init                      set this repo up for the fleet workflow\n' +
+    '  fleet init --check              verify that setup in CI; exits 1 on drift\n' +
     '  fleet spawn claude              spawn an agent off the current branch\n' +
     '  fleet spawn codex --from main   spawn a second agent off main\n' +
     '  fleet check --lines             any files touched by both, line-precise?\n' +

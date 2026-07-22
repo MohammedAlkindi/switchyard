@@ -239,6 +239,27 @@ export async function supportsMergeTree(git: SimpleGit): Promise<boolean> {
   return v !== null && atLeast(v, MERGE_TREE_MIN);
 }
 
+const FLEET_EXCLUDE_ENTRY = '.fleet/';
+
+async function fleetExcludeFile(repoRoot: string): Promise<string> {
+  const commonDirRaw = await gitAt(repoRoot).raw([
+    'rev-parse',
+    '--path-format=absolute',
+    '--git-common-dir',
+  ]);
+  return path.join(commonDirRaw.trim(), 'info', 'exclude');
+}
+
+function hasFleetEntry(content: string): boolean {
+  return content.split(/\r?\n/).some((line) => line.trim() === FLEET_EXCLUDE_ENTRY);
+}
+
+/** Read-only twin of `ensureFleetExcluded`, for `fleet init --check`. */
+export async function isFleetExcluded(repoRoot: string): Promise<boolean> {
+  const excludeFile = await fleetExcludeFile(repoRoot);
+  return existsSync(excludeFile) && hasFleetEntry(readFileSync(excludeFile, 'utf8'));
+}
+
 /**
  * Ensure `.fleet/` is ignored via `.git/info/exclude` so Switchyard never dirties
  * the repos it manages — even ones whose .gitignore doesn't mention it.
@@ -247,18 +268,11 @@ export async function supportsMergeTree(git: SimpleGit): Promise<boolean> {
  * did (`fleet init`) can tell "already ignored" from "just ignored it".
  */
 export async function ensureFleetExcluded(repoRoot: string): Promise<boolean> {
-  const commonDirRaw = await gitAt(repoRoot).raw([
-    'rev-parse',
-    '--path-format=absolute',
-    '--git-common-dir',
-  ]);
-  const infoDir = path.join(commonDirRaw.trim(), 'info');
-  const excludeFile = path.join(infoDir, 'exclude');
-  const entry = '.fleet/';
+  const excludeFile = await fleetExcludeFile(repoRoot);
   const current = existsSync(excludeFile) ? readFileSync(excludeFile, 'utf8') : '';
-  if (current.split(/\r?\n/).some((line) => line.trim() === entry)) return false;
-  mkdirSync(infoDir, { recursive: true });
+  if (hasFleetEntry(current)) return false;
+  mkdirSync(path.dirname(excludeFile), { recursive: true });
   const prefix = current.length > 0 && !current.endsWith('\n') ? '\n' : '';
-  appendFileSync(excludeFile, `${prefix}# added by fleet\n${entry}\n`, 'utf8');
+  appendFileSync(excludeFile, `${prefix}# added by fleet\n${FLEET_EXCLUDE_ENTRY}\n`, 'utf8');
   return true;
 }

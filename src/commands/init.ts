@@ -1,12 +1,14 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { CONFIG_FILE } from '../lib/config.js';
-import { ensureFleetExcluded, getMainRepoRoot } from '../lib/git.js';
-import { bold, dim, ok } from '../lib/format.js';
+import { ensureFleetExcluded, getMainRepoRoot, isFleetExcluded } from '../lib/git.js';
+import { bold, dim, fail, ok, warn } from '../lib/format.js';
 import { withLock } from '../lib/lock.js';
 import {
   AGENTS_BLOCK,
   AGENTS_MD_FILE,
+  BLOCK_BEGIN,
+  BLOCK_END,
   SKILL_INSTALL_PATH,
   readPackagedSkill,
   upsertMarkedBlock,
@@ -116,6 +118,111 @@ async function initLocked(options: InitOptions, repoRoot: string): Promise<InitR
   console.log(`  fleet check                     ${dim('see what two agents both touched')}`);
   console.log('');
   console.log(dim('Re-run `fleet init` after upgrading to refresh the agent-facing docs.'));
+
+  return result;
+}
+
+export interface InitCheckOptions {
+  json?: boolean;
+  cwd?: string;
+}
+
+/**
+ * `broken` is AGENTS.md-only: the markers exist but cannot be parsed, so init
+ * itself would refuse to touch the file. Everything else is either right
+ * (`ok`), absent (`missing`), or differs from the packaged content (`stale`).
+ */
+export type InitCheckStatus = 'ok' | 'missing' | 'stale' | 'broken';
+
+export interface InitCheckItem {
+  /** Repo-root-relative, forward slashes. */
+  path: string;
+  status: InitCheckStatus;
+  note?: string;
+}
+
+export interface InitCheckResult {
+  repoRoot: string;
+  ok: boolean;
+  checks: InitCheckItem[];
+}
+
+function checkAgentsBlock(agentsFile: string): InitCheckItem {
+  if (!existsSync(agentsFile)) return { path: AGENTS_MD_FILE, status: 'missing' };
+  const existing = readFileSync(agentsFile, 'utf8');
+  const begin = existing.indexOf(BLOCK_BEGIN);
+  const end = existing.indexOf(BLOCK_END);
+  if (begin === -1 && end === -1) {
+    return { path: AGENTS_MD_FILE, status: 'missing', note: 'no switchyard block' };
+  }
+  if (begin === -1 || end === -1 || end < begin) {
+    return {
+      path: AGENTS_MD_FILE,
+      status: 'broken',
+      note: 'fix or delete the markers by hand, then re-run `fleet init`',
+    };
+  }
+  return existing.slice(begin, end + BLOCK_END.length) === AGENTS_BLOCK
+    ? { path: AGENTS_MD_FILE, status: 'ok' }
+    : { path: AGENTS_MD_FILE, status: 'stale' };
+}
+
+/**
+ * Verify the artifacts `fleet init` manages without writing any of them —
+ * for CI, and for "did the last upgrade actually reach this repo".
+ *
+ * Read-only, so unlike init it takes no lock. `.fleetrc.json` is the user's
+ * file: only its absence counts as drift, never its content.
+ */
+export async function initCheck(options: InitCheckOptions = {}): Promise<InitCheckResult> {
+  const repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());
+  const checks: InitCheckItem[] = [];
+
+  checks.push(
+    (await isFleetExcluded(repoRoot))
+      ? { path: '.git/info/exclude', status: 'ok', note: '.fleet/ is ignored' }
+      : { path: '.git/info/exclude', status: 'missing', note: '.fleet/ is not ignored' },
+  );
+
+  const configFile = path.join(repoRoot, CONFIG_FILE);
+  checks.push({ path: CONFIG_FILE, status: existsSync(configFile) ? 'ok' : 'missing' });
+
+  const skillFile = path.join(repoRoot, ...SKILL_INSTALL_PATH.split('/'));
+  if (!existsSync(skillFile)) {
+    checks.push({ path: SKILL_INSTALL_PATH, status: 'missing' });
+  } else if (readFileSync(skillFile, 'utf8') === readPackagedSkill()) {
+    checks.push({ path: SKILL_INSTALL_PATH, status: 'ok' });
+  } else {
+    checks.push({ path: SKILL_INSTALL_PATH, status: 'stale', note: 'differs from the packaged skill' });
+  }
+
+  checks.push(checkAgentsBlock(path.join(repoRoot, AGENTS_MD_FILE)));
+
+  const result: InitCheckResult = {
+    repoRoot,
+    ok: checks.every((c) => c.status === 'ok'),
+    checks,
+  };
+
+  if (options.json) {
+    console.log(JSON.stringify(result, null, 2));
+    return result;
+  }
+
+  console.log(
+    result.ok
+      ? ok(`Switchyard is fully set up in ${bold(repoRoot)}`)
+      : fail(`Switchyard setup has drifted in ${bold(repoRoot)}`),
+  );
+  for (const check of result.checks) {
+    const paint = check.status === 'ok' ? dim : check.status === 'broken' ? fail : warn;
+    const label = paint(check.status.padEnd(9));
+    console.log(`  ${label} ${check.path}${check.note ? ` ${dim(`(${check.note})`)}` : ''}`);
+  }
+  if (!result.ok) {
+    console.log('');
+    console.log(dim('Run `fleet init` to repair (broken AGENTS.md markers need a hand-fix first).'));
+  }
 
   return result;
 }
