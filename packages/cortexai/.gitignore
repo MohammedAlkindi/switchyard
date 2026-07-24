@@ -187,3 +187,7 @@ $RECYCLE.BIN/
 
 # Claude Code
 .claude/settings.local.json
+build/
+dist/
+__pycache__/
+*.pyc
