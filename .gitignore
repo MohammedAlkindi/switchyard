@@ -11,6 +11,7 @@ coverage/
 .claude/settings.local.json
 
 .env
+.npmrc
 .DS_Store
 npm-debug.log*
 .vercel
