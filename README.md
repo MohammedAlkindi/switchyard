@@ -83,6 +83,11 @@ npm install -g @switchyardhq/switchyard
 
 Requires Node.js >= 18.17 and git >= 2.31. The installed command is `fleet`.
 
+> `fleet validate` and `fleet dashboard` are on `main` and ship in the next
+> release — they are not in the published `0.4.0`. Everything else below works
+> on the npm build. To use them today, install from source:
+> `git clone https://github.com/MohammedAlkindi/Switchyard && cd Switchyard && npm install && npm link`.
+
 ## Quickstart
 
 ```sh
@@ -199,7 +204,7 @@ rewritten `src/api/routes.ts`:
 {"jsonrpc":"2.0","id":1,"result":{
   "protocolVersion":"2025-11-25",
   "capabilities":{"tools":{}},
-  "serverInfo":{"name":"switchyard","title":"Switchyard","version":"0.3.0"},
+  "serverInfo":{"name":"switchyard","title":"Switchyard","version":"0.4.0"},
   "instructions":"... These tools are read-only by design. Spawning agents,
                   merging, and removing worktrees are human actions in this
                   release — there are no tools for them. Ask for
