@@ -144,9 +144,7 @@ async function doctorRun(options: DoctorOptions = {}): Promise<DoctorResult> {
 
   const git = gitAt(repoRoot);
   const worktrees = await listGitWorktrees(git);
-  const fleetWorktrees = worktrees.filter(
-    (w) => isUnder(w.path, worktreesDir(repoRoot)) && w.branch !== null && w.branch.startsWith('fleet/'),
-  );
+  const fleetWorktrees = worktrees.filter((w) => isManagedFleetWorktree(repoRoot, w));
 
   // --- state file -----------------------------------------------------------
   let state: FleetState | null = null;
@@ -214,9 +212,9 @@ async function doctorRun(options: DoctorOptions = {}): Promise<DoctorResult> {
     orphanCount += 1;
 
     const registered = worktrees.find((w) => samePath(w.path, abs));
-    if (registered && registered.branch !== null && registered.branch.startsWith('fleet/')) {
+    if (registered && isManagedFleetWorktree(repoRoot, registered)) {
       if (fix) {
-        const record = await adoptRecord(git, repoRoot, abs, registered.branch);
+        const record = await adoptRecord(git, repoRoot, abs, registered.branch as string);
         state.agents[record.name] = record;
         stateModified = true;
         orphansFixed += 1;
@@ -225,9 +223,10 @@ async function doctorRun(options: DoctorOptions = {}): Promise<DoctorResult> {
         orphanDetails.push(`${entry.name}: valid fleet worktree not in state — --fix will adopt it`);
       }
     } else if (registered) {
-      // A real worktree, but not on a fleet/* branch — not Switchyard's to manage.
+      // A real worktree whose path and branch identify different agents is
+      // not safe for Switchyard to adopt or delete.
       orphanDetails.push(
-        `${entry.name}: worktree on branch ${registered.branch ?? '(detached)'} — not a fleet/* branch; remove it yourself with \`git worktree remove\``,
+        `${entry.name}: worktree on branch ${registered.branch ?? '(detached)'} does not match fleet/${entry.name}; repair or remove it with git`,
       );
     } else {
       if (fix) {
@@ -372,7 +371,14 @@ function samePath(a: string, b: string): boolean {
   return process.platform === 'win32' ? ra.toLowerCase() === rb.toLowerCase() : ra === rb;
 }
 
-function isUnder(child: string, parent: string): boolean {
-  const rel = path.relative(path.resolve(parent), path.resolve(child));
-  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+function isManagedFleetWorktree(repoRoot: string, worktree: GitWorktree): boolean {
+  if (worktree.branch === null) return false;
+  const relative = path.relative(worktreesDir(repoRoot), worktree.path);
+  const directChild =
+    relative !== '' &&
+    relative !== '..' &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative) &&
+    !relative.includes(path.sep);
+  return directChild && worktree.branch === `fleet/${relative}`;
 }

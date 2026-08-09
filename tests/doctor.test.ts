@@ -94,6 +94,39 @@ describe('fleet doctor', () => {
     expect(existsSync(worktreePath(repo.root, 'alice'))).toBe(true);
   });
 
+  it('repairs a state record whose branch does not match its agent name', async () => {
+    await spawn('alice', { cwd: repo.root });
+    const state = readState(repo.root);
+    const record = state.agents['alice'];
+    if (!record) throw new Error('alice fixture missing from state');
+    record.branch = 'main';
+    writeState(repo.root, state);
+
+    const broken = await doctor({ cwd: repo.root });
+    expect(broken.healthy).toBe(false);
+    expect(checkByName(broken, 'state-file').ok).toBe(false);
+
+    const fixed = await doctor({ fix: true, cwd: repo.root });
+    expect(checkByName(fixed, 'state-file').fixed).toBe(true);
+    expect(fixed.healthy).toBe(true);
+    expect(readState(repo.root).agents['alice']?.branch).toBe('fleet/alice');
+  });
+
+  it('does not adopt a worktree whose directory and fleet branch disagree', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await gitAt(worktreePath(repo.root, 'alice')).raw(['branch', '-m', 'fleet/bob']);
+    writeFileSync(statePath(repo.root), 'not json {{{');
+
+    const result = await doctor({ fix: true, cwd: repo.root });
+
+    expect(result.healthy).toBe(false);
+    expect(checkByName(result, 'orphaned-worktrees').fixed).toBe(false);
+    expect(checkByName(result, 'orphaned-worktrees').detail).toMatch(/alice/);
+    expect(readState(repo.root).agents).toEqual({});
+    expect(existsSync(worktreePath(repo.root, 'alice'))).toBe(true);
+    expect(await branchExists(gitAt(repo.root), 'fleet/bob')).toBe(true);
+  });
+
   it('detects an orphaned worktree and adopts it with --fix', async () => {
     await spawn('alice', { cwd: repo.root });
     // Drop the entry but leave the worktree: an orphan.

@@ -112,6 +112,19 @@ describe('fleet undo', () => {
     expect(existsSync(path.join(repo.root, '.fleet', 'worktrees-archive', 'alice'))).toBe(false);
   });
 
+  it('validates the recorded agent branch before resetting the target branch', async () => {
+    await mergedAgent();
+    const headAfter = await revParseOid(gitAt(repo.root), 'HEAD');
+    const record = readUndoRecord(repo.root);
+    if (!headAfter || !record) throw new Error('undo fixture was not recorded');
+    record.agent.branch = 'victim';
+    writeUndoRecord(repo.root, record);
+
+    await expect(undo({ cwd: repo.root })).rejects.toThrow(/agent branch/i);
+    expect(await revParseOid(gitAt(repo.root), 'HEAD')).toBe(headAfter);
+    expect(await branchExists(gitAt(repo.root), 'victim')).toBe(false);
+  });
+
   it('refuses when history moved past the merge', async () => {
     await mergedAgent();
     await commitFile(repo.root, 'after.txt', 'x\n', 'feat: newer work');

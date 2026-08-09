@@ -133,6 +133,14 @@ export function getAgent(state: FleetState, name: string): AgentRecord {
 }
 
 export function worktreeAbsPath(repoRoot: string, record: AgentRecord): string {
+  const expectedBranch = `fleet/${record.name}`;
+  if (record.branch !== expectedBranch) {
+    throw new FleetError(
+      `Unsafe agent branch for "${record.name}": "${String(record.branch)}".\n` +
+        `Expected "${expectedBranch}"; refusing to redirect this agent's Git operations.`,
+    );
+  }
+
   const managedRoot = path.resolve(worktreesDir(repoRoot));
   const candidate = path.resolve(repoRoot, record.worktreePath);
   const relative = path.relative(managedRoot, candidate);

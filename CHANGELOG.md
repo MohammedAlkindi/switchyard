@@ -45,6 +45,9 @@ this package.
   outside `.fleet/worktrees/<agent>` (including lookalike paths, symlinks, and
   Windows junctions). Unsafe state is refused before mutation and can be
   rebuilt safely with `fleet doctor --fix`.
+- State and undo records must also keep the documented `fleet/<agent>` branch
+  identity. A corrupted record can no longer redirect merge, validation, or
+  branch-deletion operations to an unrelated branch.
 - Successful merges now persist undo metadata before post-merge cleanup. If
   worktree removal, branch deletion, or the state write is interrupted,
   `fleet undo` recovers from live branch/worktree state instead of losing the

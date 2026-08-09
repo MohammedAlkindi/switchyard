@@ -92,14 +92,16 @@ Switchyard also writes `.fleet/` into `.git/info/exclude` (not `.gitignore`) on 
 
 Writes go through a write-then-rename (`state.json.tmp` → `state.json`) in `src/lib/state.ts`, so a crash mid-write can't corrupt the file. Commands tolerate drift between state and reality (a manually deleted worktree shows as `worktree missing` in `fleet list`; a manually deleted branch becomes a `fleet clean` candidate) rather than crashing — and `fleet doctor --fix` actively repairs drift: it rebuilds a corrupted `state.json` from real `git worktree list` output, adopts orphaned worktrees back into state, removes leftover non-worktree directories under `.fleet/worktrees/`, and prunes entries whose worktree is gone (branches are never deleted by doctor). Rebuilt entries carry re-derived `baseBranch`/`createdAt` values, not the originals.
 
-Persisted worktree paths are treated as a safety boundary, not trusted as
-arbitrary filesystem locations. Every record must resolve to the direct child
-`.fleet/worktrees/<agent>` (including through symlinks and Windows junctions),
-and the state key, record name, and directory name must agree. An escaping or
-lookalike path such as `.fleet/worktrees-old/alice` makes the state corrupted;
-mutating commands refuse before touching Git, and `fleet doctor --fix` rebuilds
-state only from registered `fleet/*` worktrees inside the managed directory.
-The same check is applied to an undo record before `reset --hard` runs.
+Persisted agent identity is treated as a safety boundary, not trusted as an
+arbitrary filesystem location or branch. Every record must resolve to the
+direct child `.fleet/worktrees/<agent>` (including through symlinks and Windows
+junctions), its branch must be exactly `fleet/<agent>`, and the state key,
+record name, directory name, and branch suffix must agree. An escaping or
+lookalike path such as `.fleet/worktrees-old/alice`, or a redirected branch,
+makes the state corrupted; mutating commands refuse before touching Git, and
+`fleet doctor --fix` rebuilds state only from registered `fleet/*` worktrees
+inside the managed directory. The same checks are applied to an undo record
+before `reset --hard` runs.
 
 ## Mutation lock
 

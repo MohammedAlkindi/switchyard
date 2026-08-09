@@ -73,6 +73,26 @@ describe('fleet remove', () => {
     }
   });
 
+  it('refuses a state record that redirects the agent to another branch', async () => {
+    await repo.git.checkoutLocalBranch('victim');
+    await commitFile(repo.root, 'victim.txt', 'keep\n', 'feat: protected branch');
+    await repo.git.checkout('main');
+    await spawn('alice', { cwd: repo.root });
+
+    const state = readState(repo.root);
+    const record = state.agents['alice'];
+    if (!record) throw new Error('alice fixture missing from state');
+    record.branch = 'victim';
+    writeState(repo.root, state);
+
+    await expect(
+      remove('alice', { deleteBranch: true, force: true, cwd: repo.root }),
+    ).rejects.toThrow(/agent branch/i);
+    expect(await branchExists(gitAt(repo.root), 'victim')).toBe(true);
+    expect(await branchExists(gitAt(repo.root), 'fleet/alice')).toBe(true);
+    expect(existsSync(worktreePath(repo.root, 'alice'))).toBe(true);
+  });
+
   it('deletes a merged branch with --delete-branch', async () => {
     await spawn('alice', { cwd: repo.root });
 
