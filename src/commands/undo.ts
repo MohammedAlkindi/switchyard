@@ -45,6 +45,9 @@ async function undoLocked(repoRoot: string): Promise<UndoResult> {
   if (!record) {
     throw new FleetError('Nothing to undo: no fleet merge has been recorded.');
   }
+  // The undo record is persisted input. Resolve and validate its path before
+  // reset --hard or ref restoration touches anything.
+  const abs = worktreeAbsPath(repoRoot, record.agent);
 
   const undoHead = await revParseOid(git, UNDO_HEAD_REF);
   const undoBranch = await revParseOid(git, UNDO_BRANCH_REF);
@@ -89,7 +92,6 @@ async function undoLocked(repoRoot: string): Promise<UndoResult> {
   }
 
   let restoredWorktree = false;
-  const abs = worktreeAbsPath(repoRoot, record.agent);
   if (record.cleaned && !existsSync(abs)) {
     await addWorktreeForBranch(git, abs, record.agent.branch);
     restoredWorktree = true;

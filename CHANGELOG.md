@@ -41,6 +41,10 @@ this package.
 
 - Shell completions now list `init` and `undo`, which were missing from the
   generated scripts.
+- State and undo records can no longer direct Git operations at worktrees
+  outside `.fleet/worktrees/<agent>` (including lookalike paths, symlinks, and
+  Windows junctions). Unsafe state is refused before mutation and can be
+  rebuilt safely with `fleet doctor --fix`.
 
 ### Notes
 

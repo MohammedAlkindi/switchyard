@@ -6,7 +6,7 @@ import { spawn } from '../src/commands/spawn.js';
 import { undo } from '../src/commands/undo.js';
 import { branchExists, gitAt, revParseOid } from '../src/lib/git.js';
 import { readState } from '../src/lib/state.js';
-import { readUndoRecord } from '../src/lib/undo.js';
+import { readUndoRecord, writeUndoRecord } from '../src/lib/undo.js';
 import { commitFile, makeTempRepo, worktreePath } from './helpers.js';
 import type { TempRepo } from './helpers.js';
 
@@ -71,6 +71,19 @@ describe('fleet undo', () => {
     expect(await revParseOid(gitAt(repo.root), 'HEAD')).toBe(headBefore);
     expect(await branchExists(gitAt(repo.root), 'fleet/alice')).toBe(true);
     expect(readState(repo.root).agents['alice']).toBeDefined();
+  });
+
+  it('validates the recorded worktree path before resetting the target branch', async () => {
+    await mergedAgent();
+    const headAfter = await revParseOid(gitAt(repo.root), 'HEAD');
+    const record = readUndoRecord(repo.root);
+    if (!headAfter || !record) throw new Error('undo fixture was not recorded');
+    record.agent.worktreePath = '.fleet/worktrees-archive/alice';
+    writeUndoRecord(repo.root, record);
+
+    await expect(undo({ cwd: repo.root })).rejects.toThrow(/worktree path/i);
+    expect(await revParseOid(gitAt(repo.root), 'HEAD')).toBe(headAfter);
+    expect(existsSync(path.join(repo.root, '.fleet', 'worktrees-archive', 'alice'))).toBe(false);
   });
 
   it('refuses when history moved past the merge', async () => {

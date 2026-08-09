@@ -73,6 +73,27 @@ describe('fleet doctor', () => {
     });
   });
 
+  it('treats a lookalike path outside .fleet/worktrees as corrupted state', async () => {
+    await spawn('alice', { cwd: repo.root });
+    const state = readState(repo.root);
+    const record = state.agents['alice'];
+    if (!record) throw new Error('alice fixture missing from state');
+    record.worktreePath = '.fleet/worktrees-archive/alice';
+    writeState(repo.root, state);
+
+    const broken = await doctor({ cwd: repo.root });
+    expect(broken.healthy).toBe(false);
+    expect(checkByName(broken, 'state-file').ok).toBe(false);
+
+    const fixed = await doctor({ fix: true, cwd: repo.root });
+    expect(checkByName(fixed, 'state-file').fixed).toBe(true);
+    expect(fixed.healthy).toBe(true);
+    expect(readState(repo.root).agents['alice']?.worktreePath).toBe(
+      '.fleet/worktrees/alice',
+    );
+    expect(existsSync(worktreePath(repo.root, 'alice'))).toBe(true);
+  });
+
   it('detects an orphaned worktree and adopts it with --fix', async () => {
     await spawn('alice', { cwd: repo.root });
     // Drop the entry but leave the worktree: an orphan.

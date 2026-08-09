@@ -1,4 +1,11 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import { FleetError } from './errors.js';
 
@@ -51,6 +58,15 @@ export function worktreesDir(repoRoot: string): string {
   return path.join(fleetDir(repoRoot), 'worktrees');
 }
 
+function corruptedState(file: string, detail?: string): FleetError {
+  return new FleetError(
+    `Switchyard state file is corrupted: ${file}` +
+      (detail ? `\n${detail}` : '') +
+      '\nRun `fleet doctor --fix` to rebuild it from registered worktrees. ' +
+      'Your worktrees and branches are not modified by this refusal.',
+  );
+}
+
 export function readState(repoRoot: string): FleetState {
   const file = statePath(repoRoot);
   if (!existsSync(file)) {
@@ -70,11 +86,25 @@ export function readState(repoRoot: string): FleetState {
     typeof (parsed as FleetState).agents !== 'object' ||
     (parsed as FleetState).agents === null
   ) {
-    throw new FleetError(
-      `Switchyard state file is corrupted: ${file}\n` +
-        'Fix or delete it, then re-run. Your worktrees and branches are not affected; ' +
-        'you may need to `fleet spawn` agents again to re-register them.',
-    );
+    throw corruptedState(file);
+  }
+
+  for (const [key, value] of Object.entries((parsed as FleetState).agents)) {
+    if (
+      value === null ||
+      typeof value !== 'object' ||
+      typeof (value as AgentRecord).name !== 'string' ||
+      typeof (value as AgentRecord).worktreePath !== 'string' ||
+      (value as AgentRecord).name !== key
+    ) {
+      throw corruptedState(file, `Agent record "${key}" has an invalid name or worktree path.`);
+    }
+    try {
+      worktreeAbsPath(repoRoot, value as AgentRecord);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw corruptedState(file, detail);
+    }
   }
   return parsed as FleetState;
 }
@@ -103,5 +133,53 @@ export function getAgent(state: FleetState, name: string): AgentRecord {
 }
 
 export function worktreeAbsPath(repoRoot: string, record: AgentRecord): string {
-  return path.resolve(repoRoot, record.worktreePath);
+  const managedRoot = path.resolve(worktreesDir(repoRoot));
+  const candidate = path.resolve(repoRoot, record.worktreePath);
+  const relative = path.relative(managedRoot, candidate);
+  const directChild =
+    relative !== '' &&
+    relative !== '..' &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative) &&
+    !relative.includes(path.sep);
+
+  if (!directChild || relative !== record.name) {
+    const expected = path.join('.fleet', 'worktrees', record.name).split(path.sep).join('/');
+    throw new FleetError(
+      `Unsafe worktree path for agent "${record.name}": "${record.worktreePath}".\n` +
+        `Expected "${expected}"; refusing to access a path outside the agent's managed worktree.`,
+    );
+  }
+
+  // Lexical containment also has to survive filesystem indirection. A symlink
+  // or Windows junction at either the managed root or agent directory must not
+  // redirect a destructive Git command outside the repository.
+  if (existsSync(managedRoot) && existsSync(candidate)) {
+    try {
+      const repoReal = realpathSync.native(repoRoot);
+      const managedReal = realpathSync.native(managedRoot);
+      const candidateReal = realpathSync.native(candidate);
+      const expectedManagedReal = path.join(repoReal, '.fleet', 'worktrees');
+      const expectedCandidateReal = path.join(managedReal, record.name);
+      const samePath = (left: string, right: string): boolean =>
+        process.platform === 'win32'
+          ? path.resolve(left).toLowerCase() === path.resolve(right).toLowerCase()
+          : path.resolve(left) === path.resolve(right);
+      if (
+        !samePath(managedReal, expectedManagedReal) ||
+        !samePath(candidateReal, expectedCandidateReal)
+      ) {
+        throw new FleetError(
+          `Unsafe worktree path for agent "${record.name}": "${record.worktreePath}" resolves outside .fleet/worktrees.`,
+        );
+      }
+    } catch (err) {
+      // A concurrent manual deletion can race this diagnostic. Let the caller
+      // handle the now-missing worktree as it did before; every other failure
+      // (including the explicit containment error above) is safety-relevant.
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    }
+  }
+
+  return candidate;
 }

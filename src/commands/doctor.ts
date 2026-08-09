@@ -177,7 +177,7 @@ async function doctorRun(options: DoctorOptions = {}): Promise<DoctorResult> {
       checks.push({
         name: 'state-file',
         ok: false,
-        detail: '.fleet/state.json is corrupted (not valid JSON / wrong shape) — run `fleet doctor --fix` to rebuild it from `git worktree list`',
+        detail: '.fleet/state.json is corrupted (invalid JSON, record shape, or worktree path) — run `fleet doctor --fix` to rebuild it from `git worktree list`',
         fixed: false,
       });
     }

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { remove } from '../src/commands/remove.js';
 import { spawn } from '../src/commands/spawn.js';
 import { branchExists, gitAt } from '../src/lib/git.js';
-import { readState } from '../src/lib/state.js';
+import { readState, writeState } from '../src/lib/state.js';
 import { commitFile, makeTempRepo, worktreePath } from './helpers.js';
 import type { TempRepo } from './helpers.js';
 
@@ -49,6 +49,28 @@ describe('fleet remove', () => {
     const result = await remove('alice', { force: true, cwd: repo.root });
     expect(result.worktreeRemoved).toBe(true);
     expect(existsSync(worktreePath(repo.root, 'alice'))).toBe(false);
+  });
+
+  it('refuses a state record that points at a worktree outside .fleet/worktrees', async () => {
+    await spawn('alice', { cwd: repo.root });
+    const outside = path.join(path.dirname(repo.root), `${path.basename(repo.root)}-outside`);
+    await repo.git.raw(['worktree', 'move', worktreePath(repo.root, 'alice'), outside]);
+
+    const state = readState(repo.root);
+    const record = state.agents['alice'];
+    if (!record) throw new Error('alice fixture missing from state');
+    record.worktreePath = path.relative(repo.root, outside).split(path.sep).join('/');
+    writeState(repo.root, state);
+
+    try {
+      await expect(remove('alice', { cwd: repo.root })).rejects.toThrow(/worktree path/i);
+      expect(existsSync(outside)).toBe(true);
+      expect(await branchExists(gitAt(repo.root), 'fleet/alice')).toBe(true);
+    } finally {
+      if (existsSync(outside)) {
+        await repo.git.raw(['worktree', 'remove', '--force', outside]);
+      }
+    }
   });
 
   it('deletes a merged branch with --delete-branch', async () => {
