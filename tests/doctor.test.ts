@@ -15,6 +15,7 @@ let repo: TempRepo;
 
 beforeEach(async () => {
   vi.spyOn(console, 'log').mockImplementation(() => {});
+  vi.spyOn(console, 'error').mockImplementation(() => {});
   repo = await makeTempRepo();
 });
 

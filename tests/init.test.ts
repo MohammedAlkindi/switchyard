@@ -1,8 +1,10 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { init, initCheck } from '../src/commands/init.js';
 import { readConfig } from '../src/lib/config.js';
+import { lockPath } from '../src/lib/lock.js';
 import {
   AGENTS_BLOCK,
   BLOCK_BEGIN,
@@ -145,6 +147,30 @@ describe('fleet init', () => {
 
     expect(logged).toHaveLength(1);
     expect(JSON.parse(logged[0] as string)).toEqual(JSON.parse(JSON.stringify(result)));
+  });
+
+  it('--json keeps stale-lock recovery diagnostics off stdout', async () => {
+    const child = spawnSync(process.execPath, ['-e', '']);
+    if (child.pid === undefined) throw new Error('could not spawn a dead-pid probe');
+    mkdirSync(path.join(repo.root, '.fleet'), { recursive: true });
+    writeFileSync(
+      lockPath(repo.root),
+      JSON.stringify({ pid: child.pid, command: 'crashed', startedAt: new Date().toISOString() }),
+    );
+    const logged: string[] = [];
+    const errors: string[] = [];
+    vi.mocked(console.log).mockImplementation((...args: unknown[]) => {
+      logged.push(args.map(String).join(' '));
+    });
+    vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      errors.push(args.map(String).join(' '));
+    });
+
+    const result = await init({ cwd: repo.root, json: true });
+
+    expect(logged).toHaveLength(1);
+    expect(JSON.parse(logged[0] as string)).toEqual(JSON.parse(JSON.stringify(result)));
+    expect(errors.join('\n')).toMatch(/removed stale fleet lock/);
   });
 
   it('never acquires the mutation lock beyond its own run', async () => {

@@ -52,6 +52,8 @@ this package.
   Commands that leave tracked or untracked changes no longer create a record
   or let `fleet merge` proceed, regardless of their exit code; commands that
   commit their changes and finish clean remain supported.
+- Stale-lock recovery diagnostics now go to stderr, preserving the single
+  parseable stdout payload promised by mutating commands with `--json`.
 - Successful merges now persist undo metadata before post-merge cleanup. If
   worktree removal, branch deletion, or the state write is interrupted,
   `fleet undo` recovers from live branch/worktree state instead of losing the

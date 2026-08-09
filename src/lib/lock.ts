@@ -242,7 +242,9 @@ export async function withLock<T>(
       // Genuinely stale (dead pid, or unreadable — lockStatus already
       // applied the grace window before reporting 'stale'). Discard our
       // claimed copy and fall through to a normal `wx` create.
-      console.log(
+      // Diagnostics belong on stderr so a mutating command's --json stdout
+      // remains exactly one parseable payload during crash recovery.
+      console.error(
         dim(
           `removed stale fleet lock (pid ${claimed?.pid ?? 'unknown'}, ` +
             `${claimed?.command ?? 'crashed before recording'})`,
