@@ -140,14 +140,17 @@ merge time without merge losing any protection.
 `fleet merge` records its pre-merge world before touching anything: two refs —
 `refs/fleet/undo-head` (target branch HEAD) and `refs/fleet/undo-branch`
 (agent branch tip) — pin the commits against GC even after the branch is
-deleted, and after success `.fleet/undo.json` stores the agent record, target
-branch, and post-merge HEAD. A failed or aborted merge deletes the refs and
-writes no record, so `fleet undo` can never act on a failed merge. Undo
-refuses unless the current branch, HEAD, and refs all match the record and
-the main worktree has no tracked changes; then it hard-resets the target
-branch, recreates the branch/worktree that cleanup removed, restores the
-state entry, and clears the record. Single-level by design: any new merge
-overwrites the slot. `fleet doctor` reports a pending record.
+deleted. Immediately after Git succeeds — before worktree removal, branch
+deletion, or state writes — `.fleet/undo.json` stores the agent record, target
+branch, and post-merge HEAD. Cleanup finalizes its historical flags, but undo
+inspects live branch/worktree state so even the provisional record recovers an
+interrupted cleanup. A failed or aborted Git merge deletes the refs and writes
+no record, so `fleet undo` can never act on a failed merge. Undo refuses unless
+the current branch, HEAD, and refs all match the record and the main worktree
+has no tracked changes; then it hard-resets the target branch, recreates any
+missing agent branch/worktree, restores the state entry, and clears the record.
+Single-level by design: any new merge overwrites the slot. `fleet doctor`
+reports a pending record.
 
 ## MCP surface
 

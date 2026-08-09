@@ -182,9 +182,8 @@ async function mergeLocked(
   }
 
   // Record the pre-merge world for `fleet undo`: refs now (GC-safe even after
-  // the branch is deleted), the JSON record only after success — undo must
-  // never be able to act on a failed merge. Any merge attempt invalidates a
-  // previous undo record, since these refs are single-slot.
+  // the branch is deleted), the JSON record immediately after Git succeeds.
+  // Any merge attempt invalidates the previous single-slot record.
   const headBefore = await revParseOid(git, 'HEAD');
   const branchTip = await revParseOid(git, record.branch);
   if (!headBefore || !branchTip) {
@@ -215,6 +214,36 @@ async function mergeLocked(
     await deleteRef(git, UNDO_BRANCH_REF);
     const message = err instanceof Error ? err.message : String(err);
     throw new FleetError(`git merge failed before starting: ${message}`);
+  }
+
+  const headAfter = await revParseOid(git, 'HEAD');
+  if (!headAfter) {
+    throw new FleetError(
+      `Merged ${record.branch} into ${into}, but could not resolve the new HEAD; cleanup was not started.\n` +
+        `Undo refs were kept at ${UNDO_HEAD_REF} and ${UNDO_BRANCH_REF} for manual recovery.`,
+    );
+  }
+  const provisionalUndo = {
+    version: 1 as const,
+    agent: record,
+    into,
+    headBefore,
+    branchTip,
+    headAfter,
+    cleaned: false,
+    branchDeleted: false,
+    mergedAt: new Date().toISOString(),
+  };
+  try {
+    // Persist before cleanup: remove-worktree, delete-branch, or state writes
+    // can fail independently after the target branch has already moved.
+    writeUndoRecord(repoRoot, provisionalUndo);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new FleetError(
+      `Merged ${record.branch} into ${into}, but could not save undo metadata; cleanup was not started.\n` +
+        `${message}\nUndo refs were kept for manual recovery.`,
+    );
   }
 
   console.log(ok(`Merged ${record.branch} into ${into}.`));
@@ -252,18 +281,9 @@ async function mergeLocked(
     }
   }
 
-  const headAfter = (await revParseOid(git, 'HEAD')) ?? headBefore;
-  writeUndoRecord(repoRoot, {
-    version: 1,
-    agent: record,
-    into,
-    headBefore,
-    branchTip,
-    headAfter,
-    cleaned,
-    branchDeleted,
-    mergedAt: new Date().toISOString(),
-  });
+  // The flags are useful history, but recovery inspects live state so the
+  // provisional record remains sufficient if this update is interrupted.
+  writeUndoRecord(repoRoot, { ...provisionalUndo, cleaned, branchDeleted });
 
   let autoCleaned: string[] = [];
   if (config.autoClean && doClean) {

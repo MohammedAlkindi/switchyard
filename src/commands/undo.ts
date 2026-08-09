@@ -85,14 +85,16 @@ async function undoLocked(repoRoot: string): Promise<UndoResult> {
 
   await resetHardTo(git, record.headBefore);
 
+  // Cleanup may have been interrupted before its final flags were persisted.
+  // Recover from live branch/worktree state rather than trusting those flags.
   let restoredBranch = false;
-  if (record.branchDeleted && !(await branchExists(git, record.agent.branch))) {
+  if (!(await branchExists(git, record.agent.branch))) {
     await createBranchAt(git, record.agent.branch, record.branchTip);
     restoredBranch = true;
   }
 
   let restoredWorktree = false;
-  if (record.cleaned && !existsSync(abs)) {
+  if (!existsSync(abs)) {
     await addWorktreeForBranch(git, abs, record.agent.branch);
     restoredWorktree = true;
   }

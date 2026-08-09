@@ -1,11 +1,11 @@
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { merge } from '../src/commands/merge.js';
 import { spawn } from '../src/commands/spawn.js';
 import { undo } from '../src/commands/undo.js';
 import { branchExists, gitAt, revParseOid } from '../src/lib/git.js';
-import { readState } from '../src/lib/state.js';
+import { readState, statePath } from '../src/lib/state.js';
 import { readUndoRecord, writeUndoRecord } from '../src/lib/undo.js';
 import { commitFile, makeTempRepo, worktreePath } from './helpers.js';
 import type { TempRepo } from './helpers.js';
@@ -51,6 +51,32 @@ describe('fleet undo', () => {
     expect(existsSync(worktreePath(repo.root, 'alice'))).toBe(true);
     expect(readState(repo.root).agents['alice']).toBeDefined();
     expect(readUndoRecord(repo.root)).toBeNull();
+  });
+
+  it('recovers when cleanup fails after the merge has already succeeded', async () => {
+    await spawn('alice', { cwd: repo.root });
+    const headBefore = await revParseOid(gitAt(repo.root), 'HEAD');
+    await commitFile(worktreePath(repo.root, 'alice'), 'feature.txt', 'f\n', 'feat: feature');
+
+    // A leftover temp directory makes the atomic state write fail only after
+    // Git has merged and cleanup has removed the worktree and branch.
+    const blockedStateTemp = `${statePath(repo.root)}.tmp`;
+    mkdirSync(blockedStateTemp);
+
+    await expect(merge('alice', { cwd: repo.root })).rejects.toThrow();
+    expect(await revParseOid(gitAt(repo.root), 'HEAD')).not.toBe(headBefore);
+    expect(await branchExists(gitAt(repo.root), 'fleet/alice')).toBe(false);
+    expect(existsSync(worktreePath(repo.root, 'alice'))).toBe(false);
+    expect(readUndoRecord(repo.root)).not.toBeNull();
+
+    rmSync(blockedStateTemp, { recursive: true });
+    const result = await undo({ cwd: repo.root });
+
+    expect(result).toMatchObject({ restoredBranch: true, restoredWorktree: true });
+    expect(await revParseOid(gitAt(repo.root), 'HEAD')).toBe(headBefore);
+    expect(await branchExists(gitAt(repo.root), 'fleet/alice')).toBe(true);
+    expect(existsSync(worktreePath(repo.root, 'alice'))).toBe(true);
+    expect(readState(repo.root).agents['alice']).toBeDefined();
   });
 
   it('is single-level: a second undo refuses', async () => {

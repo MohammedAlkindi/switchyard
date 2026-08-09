@@ -45,6 +45,10 @@ this package.
   outside `.fleet/worktrees/<agent>` (including lookalike paths, symlinks, and
   Windows junctions). Unsafe state is refused before mutation and can be
   rebuilt safely with `fleet doctor --fix`.
+- Successful merges now persist undo metadata before post-merge cleanup. If
+  worktree removal, branch deletion, or the state write is interrupted,
+  `fleet undo` recovers from live branch/worktree state instead of losing the
+  rollback path.
 
 ### Notes
 
