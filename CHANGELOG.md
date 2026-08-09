@@ -39,6 +39,9 @@ this package.
 
 ### Fixed
 
+- Website command roster now identifies `fleet validate` and `fleet dashboard`
+  as main-only commands that will ship in the next release instead of implying
+  they are included in npm v0.4.0.
 - Shell completions now list `init` and `undo`, which were missing from the
   generated scripts.
 - State and undo records can no longer direct Git operations at worktrees
