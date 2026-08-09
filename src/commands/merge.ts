@@ -24,6 +24,7 @@ import {
   UNDO_HEAD_REF,
   writeUndoRecord,
 } from '../lib/undo.js';
+import { assertValidationResultClean } from '../lib/validation.js';
 import { check } from './check.js';
 import { clean } from './clean.js';
 
@@ -145,6 +146,7 @@ async function mergeLocked(
       }
       console.log(dim(`validate: ${config.validate}`));
       const exitCode = await runShell(config.validate, hookDir);
+      await assertValidationResultClean(name, hookDir);
       // Re-resolve in case the command itself committed (e.g. an autofixer).
       const certified = (await revParseOid(git, record.branch)) ?? tip;
       record.validation = {

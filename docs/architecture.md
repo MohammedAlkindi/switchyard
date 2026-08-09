@@ -123,10 +123,11 @@ With a `validate` command in `.fleetrc.json`, "the tests pass" becomes
 recorded state instead of a convention. `fleet validate <agent>` runs the
 command inside the worktree and writes the outcome onto the agent's state
 entry, pinned to the branch tip; `--all` sweeps the fleet with the same
-per-agent failure isolation as `sync --all`. Two refusals protect the record's
-meaning: a dirty worktree is never validated (the record certifies a commit,
-and a dirty tree is not the commit), and the tip is re-resolved after the run
-in case the command itself committed.
+per-agent failure isolation as `sync --all`. The worktree must be clean both
+before and after the command: a command that leaves uncommitted content cannot
+certify a commit, regardless of its exit code, so no result is recorded. A
+command that commits its changes and leaves the worktree clean is supported;
+the tip is re-resolved after the run and that new commit is recorded.
 
 `fleet merge` consumes the record rather than duplicating the run: a passing
 record at the tip for the currently configured command is trusted and the

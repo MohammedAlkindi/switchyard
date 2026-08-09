@@ -332,4 +332,16 @@ describe('fleet merge validation gate', () => {
     await expect(merge('alice', { cwd: repo.root })).rejects.toThrow(/uncommitted change/);
     expect(existsSync(path.join(repo.root, 'feature.txt'))).toBe(false);
   });
+
+  it('refuses when the validation command itself leaves the worktree dirty', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'feature.txt', 'f\n', 'feat: feature');
+    configureValidate(`node -e "require('fs').writeFileSync('validate-ran.txt','1')"`);
+
+    await expect(merge('alice', { cwd: repo.root })).rejects.toThrow(/left.*uncommitted/i);
+
+    expect(existsSync(path.join(repo.root, 'feature.txt'))).toBe(false);
+    expect(existsSync(path.join(worktreePath(repo.root, 'alice'), 'validate-ran.txt'))).toBe(true);
+    expect(readState(repo.root).agents['alice']?.validation).toBeUndefined();
+  });
 });

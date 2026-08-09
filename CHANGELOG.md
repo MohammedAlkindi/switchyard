@@ -48,6 +48,10 @@ this package.
 - State and undo records must also keep the documented `fleet/<agent>` branch
   identity. A corrupted record can no longer redirect merge, validation, or
   branch-deletion operations to an unrelated branch.
+- Validation now re-checks worktree cleanliness after the configured command.
+  Commands that leave tracked or untracked changes no longer create a record
+  or let `fleet merge` proceed, regardless of their exit code; commands that
+  commit their changes and finish clean remain supported.
 - Successful merges now persist undo metadata before post-merge cleanup. If
   worktree removal, branch deletion, or the state write is interrupted,
   `fleet undo` recovers from live branch/worktree state instead of losing the

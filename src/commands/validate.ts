@@ -6,6 +6,7 @@ import { getMainRepoRoot, gitAt, revParseOid, uncommittedFiles, verifyBranch } f
 import { withLock } from '../lib/lock.js';
 import { runShell } from '../lib/proc.js';
 import { getAgent, readState, worktreeAbsPath, writeState } from '../lib/state.js';
+import { assertValidationResultClean } from '../lib/validation.js';
 
 export interface ValidateOptions {
   json?: boolean;
@@ -89,6 +90,7 @@ async function validateLocked(
 
   if (!options.json) console.log(dim(`validate ${name}: ${command}`));
   const exitCode = await runShell(command, abs);
+  await assertValidationResultClean(name, abs);
   // Resolve the tip after the run: a validate command that commits (e.g. a
   // formatter with autofix) must be recorded against what it left behind.
   const commit = await revParseOid(git, record.branch);

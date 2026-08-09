@@ -61,12 +61,49 @@ describe('fleet validate', () => {
 
   it('runs the command inside the agent worktree', async () => {
     await spawn('alice', { cwd: repo.root });
+    configureValidate(
+      `node -e "process.exit(require('path').basename(process.cwd()) === 'alice' ? 0 : 1)"`,
+    );
+
+    const result = await validate('alice', { cwd: repo.root });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('records nothing when a passing command leaves the worktree dirty', async () => {
+    await spawn('alice', { cwd: repo.root });
     configureValidate(`node -e "require('fs').writeFileSync('validate-ran.txt','1')"`);
 
-    await validate('alice', { cwd: repo.root });
+    await expect(validate('alice', { cwd: repo.root })).rejects.toThrow(/left.*uncommitted/i);
 
     expect(existsSync(path.join(worktreePath(repo.root, 'alice'), 'validate-ran.txt'))).toBe(true);
-    expect(existsSync(path.join(repo.root, 'validate-ran.txt'))).toBe(false);
+    expect(readState(repo.root).agents['alice']?.validation).toBeUndefined();
+  });
+
+  it('records nothing when a failing command also leaves the worktree dirty', async () => {
+    await spawn('alice', { cwd: repo.root });
+    configureValidate(
+      `node -e "require('fs').writeFileSync('validate-ran.txt','1'); process.exit(1)"`,
+    );
+
+    await expect(validate('alice', { cwd: repo.root })).rejects.toThrow(/left.*uncommitted/i);
+
+    expect(readState(repo.root).agents['alice']?.validation).toBeUndefined();
+  });
+
+  it('records the new tip when the command commits and leaves a clean worktree', async () => {
+    await spawn('alice', { cwd: repo.root });
+    const before = await revParseOid(gitAt(repo.root), 'fleet/alice');
+    configureValidate(
+      `node -e "const fs=require('fs'),cp=require('child_process');fs.writeFileSync('generated.txt','g');cp.execFileSync('git',['add','generated.txt']);cp.execFileSync('git',['commit','-m','chore: generated'],{stdio:'ignore'})"`,
+    );
+
+    const result = await validate('alice', { cwd: repo.root });
+
+    expect(result.ok).toBe(true);
+    expect(result.commit).not.toBe(before);
+    expect(result.commit).toBe(await revParseOid(gitAt(repo.root), 'fleet/alice'));
+    expect(readState(repo.root).agents['alice']?.validation?.commit).toBe(result.commit);
   });
 
   it('refuses a dirty worktree and records nothing', async () => {

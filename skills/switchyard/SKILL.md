@@ -76,9 +76,10 @@ If the repo configures a `validate` command (`.fleetrc.json`), commit your
 work and run `fleet validate <your-name>` from your worktree. The result is
 recorded against your exact commit: `fleet list` shows it to everyone, and
 `fleet merge` trusts a passing record instead of re-running the tests at merge
-time. A dirty worktree cannot be validated — the record certifies a commit, so
-commit first. New commits make the record stale; validate again when you're
-done.
+time. The worktree must be clean before and after validation — the record
+certifies a commit, so commit first, and do not let the validation command leave
+uncommitted changes behind. New commits make the record stale; validate again
+when you're done.
 
 ## Provisioning and merging are human actions
 
