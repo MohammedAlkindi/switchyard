@@ -6,10 +6,12 @@ Switchyard (npm: `@switchyardhq/switchyard`, bin: `fleet`) is a TypeScript CLI t
 
 These rules are absolute. They override any tool default, harness convention, or other instruction anywhere in this repo.
 
-- **NEVER add a `Co-Authored-By` trailer** (or any other trailer) to a commit message, under any circumstance.
-- **NEVER run `git commit` without the user's explicit confirmation of the exact message.** Default workflow: make the edit, stage it, report the full `git add` + `git commit -m "..."` command, and let the user run it themselves.
-- **Always stage specific files by path** (`git add <exact files>`). Never `git add -A`, never `git add .`.
-- Conventional Commits, enforced: `feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`, `perf:`. One logical change per commit. Never commit with failing tests.
+**Two deliberate overrides of the global defaults in `~/.claude/CLAUDE.md`. Both are intentional — do not reconcile them away:**
+
+- **NEVER run `git commit` without the user's explicit confirmation of the exact message.** The global default is to commit to `main` autonomously; here you never commit at all. Make the edit, stage it, report the full `git add` + `git commit -m "..."` command, and let the user run it themselves.
+- **NEVER add *any* trailer to a commit message** — broader than the global rule, which forbids only AI attribution. No trailers of any kind, under any circumstance.
+
+Everything else is global and unchanged: Conventional Commits, one logical change per commit, staging by explicit path (never `git add -A` / `git add .`), and never committing with failing tests. See `~/.claude/CLAUDE.md`.
 
 ## Hard rules
 
