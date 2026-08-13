@@ -48,6 +48,11 @@ the `verdict` on each entry:
 | `conflicts` | The two branches would actually conflict in this file. | **Stop.** Coordinate before touching it — pick a different file, or ask for the other agent's work to land first. |
 | `uncommitted` | Another agent has unsaved work in this file that merge simulation could not see. | Treat as blocked. Their edits are invisible to git until committed, so the simulation is not evidence of safety. |
 
+An entry whose `agents` list contains **`(main)`** is not another agent: it is
+uncommitted work in the main checkout itself. Someone is editing the shared
+working tree directly — the one collision worktrees cannot prevent. Treat it
+exactly like a live agent and coordinate before touching that file.
+
 Other fields worth reading:
 
 - `cleanMerges` — shared files whose committed changes merge cleanly. Awareness,
@@ -56,9 +61,23 @@ Other fields worth reading:
 - `prediction` — `merge-tree` when simulation ran, `files` when it fell back to
   flagging any shared file (git older than 2.38). Under `files`, an entry is a
   weaker signal: it means "both touched this", not "this would conflict".
+- `guardedChanges` — shared files **outside every worktree** (the repo's
+  configured `guardedPaths`: a machine-wide `CLAUDE.md`, a queue file, an
+  editor settings file) that changed since you spawned. Git does not track
+  them, so no worktree isolates them and no other check can see them.
 
 Call `fleet_status` with an agent name when you need the detail behind a
 listing: its uncommitted files and a diffstat of its committed work vs its base.
+
+## 3a. Re-read a guarded path before writing to it
+
+A `guardedChanges` entry naming you means that file moved after you last had a
+reason to read it. Writing from your earlier copy silently drops whoever
+changed it — the lost-update failure, in a file with no git history to recover
+from. Read it again, then keep your edit as narrow as the format allows.
+
+It is a warning, never a block: `fleet check` does not fail on guarded changes,
+because the tool can prove the file changed but cannot prove who changed it.
 
 ## 4. Respect the mutation lock
 

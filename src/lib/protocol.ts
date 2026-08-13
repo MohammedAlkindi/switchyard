@@ -62,17 +62,23 @@ branch (\`fleet/<name>\`).
    Checking only at merge time finds the collision after both agents have
    already done the work. A \`conflicts\` verdict means stop and coordinate;
    \`uncommitted\` means another agent has unsaved work there that merge
-   simulation could not see.
-3. **Do not create a worktree or branch yourself.** If \`fleet list\` has no
+   simulation could not see. An agent named \`(main)\` is not an agent: it is
+   uncommitted work in the main checkout itself, so someone is editing the
+   shared tree directly.
+3. **Re-read a guarded path before you write to it.** If \`fleet check\`
+   reports one under \`guardedChanges\`, that shared file — one no repository
+   tracks, so no worktree isolates it — moved since you spawned. Writing from
+   the copy you read earlier silently drops whoever changed it.
+4. **Do not create a worktree or branch yourself.** If \`fleet list\` has no
    entry for you, ask for \`fleet spawn <your-name>\` instead of running
    \`git worktree add\` — an untracked worktree is invisible to every other
    agent's \`fleet check\`, which is precisely the uncoordinated state
    Switchyard prevents.
-4. **Validate before asking for a merge.** If the repo configures a
+5. **Validate before asking for a merge.** If the repo configures a
    \`validate\` command, commit your work and run \`fleet validate <your-name>\`
    — the recorded result is what \`fleet merge\` trusts, and a dirty worktree
    cannot be validated.
-5. **Provisioning and merging are human actions.** Ask for \`fleet merge\`,
+6. **Provisioning and merging are human actions.** Ask for \`fleet merge\`,
    \`fleet sync\`, or \`fleet pr\` by name. There is no agent-facing tool for
    them, by design.
 
