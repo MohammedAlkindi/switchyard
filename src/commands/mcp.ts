@@ -88,9 +88,11 @@ export function buildTools(cwd: string): McpTool[] {
       name: 'fleet_check',
       title: 'Check for collisions',
       description:
-        'Report files touched by more than one agent. By default each overlap is run ' +
-        'through a merge simulation, so a shared file is only a collision when it would ' +
-        'actually conflict ("conflicts") or when another agent has uncommitted work in it ' +
+        'Report files touched by more than one agent. Uncommitted edits in the main ' +
+        'checkout count as a "(main)" surface — a session editing the shared checkout ' +
+        'collides like any agent. By default each overlap is run through a merge ' +
+        'simulation, so a shared file is only a collision when it would actually ' +
+        'conflict ("conflicts") or when another agent has uncommitted work in it ' +
         '("uncommitted"). Call this before editing a file and again before asking for a merge.',
       inputSchema: {
         type: 'object',

@@ -11,6 +11,16 @@ this package.
 
 ### Added
 
+- `fleet check` — and with it the `fleet merge` gate, `fleet dashboard`, and
+  the `fleet_check` MCP tool — now counts uncommitted edits in the **main
+  checkout** as a collision surface, reported as `(main)`. Sessions editing
+  the shared checkout directly while agents hold worktrees are exactly the
+  collisions worktree isolation cannot see, and until now they were invisible
+  to every fleet command. `fleet merge` refuses when the merging agent's files
+  overlap the main checkout's uncommitted edits (previously that surfaced as
+  a raw git "would be overwritten" error mid-merge), `fleet dashboard` shows
+  a main-checkout activity line, and JSON/MCP results carry a `mainFiles`
+  count.
 - `fleet validate` (and `--all`, `--json`): run a repo-configured `validate`
   command inside an agent's worktree and record the outcome on the agent's
   state entry, pinned to the exact commit and command. Staleness is derived,

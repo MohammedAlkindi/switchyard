@@ -15,6 +15,12 @@ import { predictMergeConflicts } from '../lib/mergetree.js';
 import { readState, worktreeAbsPath } from '../lib/state.js';
 import type { AgentRecord } from '../lib/state.js';
 
+/**
+ * Reserved surface name for the main checkout in collision output. Parentheses
+ * are invalid in agent names, so it can never shadow a real agent.
+ */
+export const MAIN_CHECKOUT = '(main)';
+
 export interface CheckOptions {
   /** Print machine-readable JSON instead of the table. */
   json?: boolean;
@@ -53,8 +59,15 @@ export interface CheckResult {
    * Files each agent touched (committed vs base plus uncommitted), by name —
    * the raw material the collision cross-reference is computed from. Present
    * for any fleet size, including a single agent with nothing to collide with.
+   * Includes a `(main)` entry when the main checkout has uncommitted edits.
    */
   agentFiles: Record<string, number>;
+  /**
+   * Uncommitted files in the main checkout counted as a collision surface —
+   * 0 when the checkout is clean or no agents exist. Sessions editing the
+   * shared checkout directly are the collisions worktrees cannot isolate.
+   */
+  mainFiles: number;
 }
 
 /**
@@ -72,6 +85,21 @@ export async function collectCheck(options: CheckOptions = {}): Promise<CheckRes
   const useMergeTree = capable && !(options.filesOnly ?? false);
   const prediction: 'merge-tree' | 'files' = useMergeTree ? 'merge-tree' : 'files';
 
+  // The main checkout is a checked surface too: a session editing the shared
+  // working tree directly collides with worktree agents in exactly the way
+  // worktree isolation cannot prevent. Only its uncommitted work counts —
+  // committed history is what bases and `fleet sync` already model.
+  const mainUncommitted = new Set<string>();
+  if (agents.length > 0) {
+    for (const f of await uncommittedFiles(repoRoot)) {
+      // .fleet/ is normally covered by .git/info/exclude; filter anyway so a
+      // repo without the exclude entry never reports worktree internals.
+      if (f.path === '.fleet' || f.path.startsWith('.fleet/')) continue;
+      mainUncommitted.add(f.path);
+    }
+  }
+  const surfaces = agents.length + (mainUncommitted.size > 0 ? 1 : 0);
+
   const agentsByFile = new Map<string, string[]>();
   // --lines only: file -> agent -> edited ranges (merge-base coordinates).
   const rangesByFile = new Map<string, Map<string, FileRanges>>();
@@ -81,9 +109,9 @@ export async function collectCheck(options: CheckOptions = {}): Promise<CheckRes
   const uncommittedByAgent = new Map<string, Set<string>>();
   const unsimulatable = new Set<string>();
   const agentFiles: Record<string, number> = {};
-  // Line ranges exist to intersect agents against each other; with fewer than
-  // two there is nothing to intersect, so skip the diff parsing.
-  const needRanges = (options.lines ?? false) && agents.length >= 2;
+  // Line ranges exist to intersect surfaces against each other; with fewer
+  // than two there is nothing to intersect, so skip the diff parsing.
+  const needRanges = (options.lines ?? false) && surfaces >= 2;
 
   for (const record of agents) {
     const files = new Set<string>();
@@ -122,12 +150,32 @@ export async function collectCheck(options: CheckOptions = {}): Promise<CheckRes
     }
   }
 
-  if (agents.length < 2) {
+  if (mainUncommitted.size > 0) {
+    agentFiles[MAIN_CHECKOUT] = mainUncommitted.size;
+    uncommittedByAgent.set(MAIN_CHECKOUT, mainUncommitted);
+    for (const file of mainUncommitted) {
+      const touchers = agentsByFile.get(file) ?? [];
+      touchers.push(MAIN_CHECKOUT);
+      agentsByFile.set(file, touchers);
+    }
+    if (needRanges) {
+      // Uncommitted main-checkout edits have no branch to diff; treat them as
+      // whole-file so a line-refined check still fails closed on them.
+      for (const file of mainUncommitted) {
+        const perAgent = rangesByFile.get(file) ?? new Map<string, FileRanges>();
+        perAgent.set(MAIN_CHECKOUT, 'whole');
+        rangesByFile.set(file, perAgent);
+      }
+    }
+  }
+
+  if (surfaces < 2) {
     const result: CheckResult = {
       collisions: [],
       prediction,
       agentsChecked: agents.length,
       agentFiles,
+      mainFiles: mainUncommitted.size,
     };
     if (options.lines) result.disjoint = [];
     return result;
@@ -155,6 +203,8 @@ export async function collectCheck(options: CheckOptions = {}): Promise<CheckRes
     }
     const conflicted = new Set<string>();
     for (const key of pairKeys) {
+      // Pairs involving the main checkout have no branch to simulate; they
+      // fall through to the uncommitted verdict below.
       const [a, b] = key.split('\n').map((n) => byName.get(n));
       if (!a || !b || unsimulatable.has(a.name) || unsimulatable.has(b.name)) continue;
       const res = await predictMergeConflicts(git, a.branch, b.branch);
@@ -211,7 +261,13 @@ export async function collectCheck(options: CheckOptions = {}): Promise<CheckRes
     collisions = working;
   }
 
-  const result: CheckResult = { collisions, prediction, agentsChecked: agents.length, agentFiles };
+  const result: CheckResult = {
+    collisions,
+    prediction,
+    agentsChecked: agents.length,
+    agentFiles,
+    mainFiles: mainUncommitted.size,
+  };
   if (disjoint !== undefined) result.disjoint = disjoint;
   if (cleanMerges !== undefined) result.cleanMerges = cleanMerges;
   return result;
@@ -226,19 +282,22 @@ export function buildCheckReport(
   result: CheckResult,
   opts: { lines?: boolean; capable: boolean },
 ): string {
-  const { collisions, disjoint, cleanMerges, prediction, agentsChecked } = result;
+  const { collisions, disjoint, cleanMerges, prediction, agentsChecked, mainFiles } = result;
   const useMergeTree = prediction === 'merge-tree';
 
-  if (agentsChecked < 2) {
+  if (agentsChecked < 2 && mainFiles === 0) {
     return (
       `Nothing to check: ${plural(agentsChecked, 'active agent')} ` +
-      '(collisions need at least 2).'
+      '(collisions need at least 2 surfaces).'
     );
   }
 
+  const surfacesLabel =
+    mainFiles > 0 ? `${agentsChecked} agents + the main checkout` : `${agentsChecked} agents`;
+
   const out: string[] = [];
   if (collisions.length === 0) {
-    out.push(ok(`No collisions across ${agentsChecked} agents.`));
+    out.push(ok(`No collisions across ${surfacesLabel}.`));
   } else {
     out.push(fail(`${plural(collisions.length, 'collision risk')} detected:`));
     const headers = ['FILE', 'AGENTS'];
@@ -268,6 +327,14 @@ export function buildCheckReport(
               (opts.capable ? '' : ' (file-level only: git < 2.38 lacks merge-tree)'),
       ),
     );
+    if (collisions.some((c) => c.agents.includes(MAIN_CHECKOUT))) {
+      out.push(
+        dim(
+          `${MAIN_CHECKOUT} is uncommitted work in the main checkout itself — ` +
+            'a session is editing the shared working tree directly.',
+        ),
+      );
+    }
   }
   if (cleanMerges && cleanMerges.length > 0) {
     out.push(
@@ -294,7 +361,9 @@ export function buildCheckReport(
 /**
  * Cross-reference every agent branch's changed files (committed vs base, plus
  * uncommitted edits in the worktree) and flag files touched by more than one
- * agent — the collision risks to resolve before anyone merges.
+ * agent — the collision risks to resolve before anyone merges. Uncommitted
+ * edits in the main checkout count as one more surface: the sessions that
+ * bypass worktrees are the ones that need flagging most.
  */
 export async function check(options: CheckOptions = {}): Promise<CheckResult> {
   const repoRoot = await getMainRepoRoot(options.cwd ?? process.cwd());

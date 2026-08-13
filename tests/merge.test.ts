@@ -345,3 +345,26 @@ describe('fleet merge validation gate', () => {
     expect(readState(repo.root).agents['alice']?.validation).toBeUndefined();
   });
 });
+
+describe('merge vs the main checkout', () => {
+  it('refuses while the main checkout has uncommitted edits in the same files', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'src.txt', 'alice\n', 'feat: alice edit');
+    writeFileSync(path.join(repo.root, 'src.txt'), 'session edit in the shared checkout\n');
+
+    await expect(merge('alice', { cwd: repo.root })).rejects.toThrow(/\(main\)/);
+    // The merge was never started: the session's in-flight edit survived.
+    expect(readNormalized('src.txt')).toBe('session edit in the shared checkout\n');
+  });
+
+  it('still merges when the main-checkout dirt is in unrelated files', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'feature.txt', 'f\n', 'feat: feature');
+    writeFileSync(path.join(repo.root, 'notes.txt'), 'unrelated main edit\n');
+
+    const result = await merge('alice', { cwd: repo.root });
+
+    expect(result).toMatchObject({ into: 'main', cleaned: true });
+    expect(existsSync(path.join(repo.root, 'feature.txt'))).toBe(true);
+  });
+});

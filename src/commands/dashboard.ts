@@ -1,7 +1,7 @@
 import { readConfig } from '../lib/config.js';
-import { CLEAR_SCREEN, dim, fail, ok, warn } from '../lib/format.js';
+import { CLEAR_SCREEN, dim, fail, ok, plural, warn } from '../lib/format.js';
 import { getMainRepoRoot, gitAt, supportsMergeTree } from '../lib/git.js';
-import { buildCheckReport, collectCheck } from './check.js';
+import { buildCheckReport, collectCheck, MAIN_CHECKOUT } from './check.js';
 import type { CheckResult } from './check.js';
 import { buildListTable, collectListings } from './list.js';
 import type { AgentListing } from './list.js';
@@ -54,6 +54,15 @@ export function buildDashboard(data: DashboardData, now: Date = new Date()): str
     .map((l) => `${l.name} ${check.agentFiles[l.name] ?? 0}`)
     .join(' · ');
   out.push(dim(`files touched vs base: ${touched}`));
+
+  const mainCount = check.agentFiles[MAIN_CHECKOUT] ?? 0;
+  if (mainCount > 0) {
+    out.push(
+      warn(
+        `main checkout: ${plural(mainCount, 'uncommitted file')} — a session is editing the shared checkout directly`,
+      ),
+    );
+  }
 
   const tally = { passed: 0, failed: 0, stale: 0, none: 0 };
   for (const l of listings) tally[l.validation] += 1;

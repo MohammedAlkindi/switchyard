@@ -57,7 +57,7 @@ describe('fleet check', () => {
     expect(result.collisions).toEqual([]);
   });
 
-  it('skips the check when fewer than two agents exist', async () => {
+  it('skips the check when fewer than two surfaces exist', async () => {
     await spawn('alice', { cwd: repo.root });
     const result = await check({ cwd: repo.root });
     expect(result).toEqual({
@@ -65,6 +65,7 @@ describe('fleet check', () => {
       prediction: 'merge-tree',
       agentsChecked: 1,
       agentFiles: { alice: 0 },
+      mainFiles: 0,
     });
   });
 
@@ -318,5 +319,71 @@ describe('agentFiles (per-agent touched-file counts)', () => {
   it('is empty for an empty fleet', async () => {
     const result = await collectCheck({ cwd: repo.root });
     expect(result.agentFiles).toEqual({});
+  });
+});
+
+// Every real collision incident behind this feature happened in the main
+// checkout: sessions editing the shared working tree directly while agents
+// held worktrees off it. Worktree isolation cannot see those edits unless the
+// main checkout itself is a checked surface.
+describe('main checkout as a collision surface', () => {
+  it('flags a file edited in the main checkout and in an agent worktree', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+    writeFileSync(path.join(worktreePath(repo.root, 'alice'), 'src.txt'), 'alice wip\n');
+    writeFileSync(path.join(repo.root, 'src.txt'), 'a session edited the shared checkout\n');
+
+    const result = await check({ cwd: repo.root });
+
+    expect(result.mainFiles).toBe(1);
+    expect(result.collisions).toEqual([
+      { file: 'src.txt', agents: ['(main)', 'alice'], verdict: 'uncommitted' },
+    ]);
+  });
+
+  it('sees the overlap even with a single agent', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await commitFile(worktreePath(repo.root, 'alice'), 'src.txt', 'alice\n', 'feat: alice edit');
+    writeFileSync(path.join(repo.root, 'src.txt'), 'main checkout edit\n');
+
+    const result = await check({ cwd: repo.root });
+
+    expect(result.agentsChecked).toBe(1);
+    expect(result.collisions).toEqual([
+      { file: 'src.txt', agents: ['(main)', 'alice'], verdict: 'uncommitted' },
+    ]);
+  });
+
+  it('reports main-checkout dirt without overlap as activity, not collision', async () => {
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+    writeFileSync(path.join(repo.root, 'README.md'), 'main-only edit\n');
+
+    const result = await check({ cwd: repo.root });
+
+    expect(result.collisions).toEqual([]);
+    expect(result.mainFiles).toBe(1);
+    expect(result.agentFiles['(main)']).toBe(1);
+  });
+
+  it('flags main-vs-agent overlap in files-only mode too', async () => {
+    await spawn('alice', { cwd: repo.root });
+    writeFileSync(path.join(worktreePath(repo.root, 'alice'), 'src.txt'), 'alice wip\n');
+    writeFileSync(path.join(repo.root, 'src.txt'), 'main wip\n');
+
+    const result = await check({ filesOnly: true, cwd: repo.root });
+
+    expect(result.prediction).toBe('files');
+    expect(result.collisions).toEqual([{ file: 'src.txt', agents: ['(main)', 'alice'] }]);
+  });
+
+  it('stays out of the report when no agents exist at all', async () => {
+    writeFileSync(path.join(repo.root, 'src.txt'), 'main wip\n');
+
+    const result = await collectCheck({ cwd: repo.root });
+
+    expect(result.agentFiles).toEqual({});
+    expect(result.mainFiles).toBe(0);
+    expect(result.collisions).toEqual([]);
   });
 });

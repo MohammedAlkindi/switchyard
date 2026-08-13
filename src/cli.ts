@@ -102,7 +102,9 @@ program
 
 program
   .command('check')
-  .description('flag files touched by more than one agent (exits 1 if any are found)')
+  .description(
+    'flag files touched by more than one agent, counting uncommitted main-checkout edits as a surface (exits 1 if any are found)',
+  )
   .option('--lines', 'only count files whose edited line ranges actually overlap')
   .option('--files-only', 'skip merge simulation; flag any shared file (v0.1 behavior)')
   .option('--json', 'print machine-readable JSON instead of a table')

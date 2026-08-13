@@ -25,7 +25,7 @@ import {
   writeUndoRecord,
 } from '../lib/undo.js';
 import { assertValidationResultClean } from '../lib/validation.js';
-import { check } from './check.js';
+import { check, MAIN_CHECKOUT } from './check.js';
 import { clean } from './clean.js';
 
 export interface MergeOptions {
@@ -92,19 +92,23 @@ async function mergeLocked(
     );
   }
 
-  // Collision gate: refuse while another still-active agent touches the same
-  // files. Reuses `fleet check` (which prints its table) rather than a second
+  // Collision gate: refuse while another still-active agent — or a session
+  // editing the main checkout directly — touches the same files. Reuses
+  // `fleet check` (which prints its table) rather than a second
   // implementation of the cross-reference.
-  if (Object.keys(state.agents).length >= 2) {
+  {
     const { collisions } = await check({ cwd: repoRoot });
     const blocking = collisions.filter((c) => c.agents.includes(name));
     if (blocking.length > 0) {
       const lines = blocking
         .map((c) => `  ${c.file} (${c.agents.filter((a) => a !== name).join(', ')})`)
         .join('\n');
+      const mainHint = blocking.some((c) => c.agents.includes(MAIN_CHECKOUT))
+        ? `\n${MAIN_CHECKOUT} is uncommitted work in the main checkout itself — commit or stash it there first.`
+        : '';
       throw new FleetError(
         `Refusing to merge "${name}": ${plural(blocking.length, 'file is', 'files are')} also touched by other active agents:\n` +
-          `${lines}\n` +
+          `${lines}${mainHint}\n` +
           'Merge or remove those agents first (or resolve the overlap), then re-run.',
       );
     }

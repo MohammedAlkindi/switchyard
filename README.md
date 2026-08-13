@@ -113,7 +113,7 @@ fleet pr claude                 # …or push it and open a PR via gh instead
 | `fleet spawn <agent>` | Create a worktree in `.fleet/worktrees/<agent>/` on a new branch `fleet/<agent>`, then provision it (`copyOnSpawn` / `postSpawn` below) | `--from <branch>` base branch (default: current branch) |
 | `fleet list` | All active agents: branch, base, ahead/behind, uncommitted count, last activity | `--json` machine-readable output |
 | `fleet status <agent>` | One agent in detail: uncommitted files, diff stat vs base, ahead/behind | `--json` machine-readable output |
-| `fleet check` | Table of files touched by more than one agent. On git ≥ 2.38 each shared file gets a merge-simulation verdict — files whose committed changes merge cleanly are reported but don't block or fail the check. Exits 1 on real collision risks (CI-friendly) | `--lines` only count overlapping line ranges, `--files-only` skip simulation; flag any shared file, `--json` machine-readable output |
+| `fleet check` | Table of files touched by more than one agent. Uncommitted edits in the **main checkout** count as a `(main)` surface — a session editing the shared checkout collides like any agent. On git ≥ 2.38 each shared file gets a merge-simulation verdict — files whose committed changes merge cleanly are reported but don't block or fail the check. Exits 1 on real collision risks (CI-friendly) | `--lines` only count overlapping line ranges, `--files-only` skip simulation; flag any shared file, `--json` machine-readable output |
 | `fleet diff <agent>` | Full diff of the agent's branch against its base | `--base <branch>` diff against a different branch |
 | `fleet sync <agent>` | Merge the agent's base branch into its branch, catching it up. A conflicting merge is aborted — never left half-done | `--all` sync every registered agent in one sweep, continuing past per-agent failures; exits 1 if any failed |
 | `fleet validate <agent>` | Run the configured `validate` command in the agent's worktree and record the result against the exact commit it certifies. `fleet list` shows the record; `fleet merge` trusts a passing one instead of re-running. Refuses a worktree that is dirty before or after the command — a record certifies a commit | `--all` validate every agent, continuing past per-agent failures, `--json` machine-readable output; exits 1 on any failure |
@@ -181,7 +181,7 @@ Without a global install, use `"command": "npx", "args": ["-y", "@switchyardhq/s
 | --- | --- | --- |
 | `fleet_list` | — | Every active agent: branch, base, worktree path, ahead/behind, uncommitted count, last activity |
 | `fleet_status` | `agent` | One agent in detail: record, ahead/behind, uncommitted files, diffstat vs base |
-| `fleet_check` | `lines?`, `filesOnly?` | Files touched by more than one agent, with merge-simulation verdicts |
+| `fleet_check` | `lines?`, `filesOnly?` | Files touched by more than one agent, with merge-simulation verdicts; uncommitted main-checkout edits count as a `(main)` surface |
 | `fleet_lock_status` | — | Whether a `fleet` command is currently mutating the repo |
 
 Each returns the same object the matching `--json` flag prints, so the CLI and
