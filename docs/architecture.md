@@ -89,6 +89,10 @@ Switchyard also writes `.fleet/` into `.git/info/exclude` (not `.gitignore`) on 
   the configured command, so the record can never claim more than "this exact
   commit got this exact result". Doctor rebuilds drop it — it is re-derivable
   by re-running `fleet validate`.
+- `prBranch` — optional: the public branch name `fleet pr` last published this
+  agent as. The head ref is visible in the PR header, so it is task-derived
+  rather than `fleet/<agent>`; recording it keeps re-runs updating the same
+  remote ref instead of minting a new one per run.
 
 Writes go through a write-then-rename (`state.json.tmp` → `state.json`) in `src/lib/state.ts`, so a crash mid-write can't corrupt the file. Commands tolerate drift between state and reality (a manually deleted worktree shows as `worktree missing` in `fleet list`; a manually deleted branch becomes a `fleet clean` candidate) rather than crashing — and `fleet doctor --fix` actively repairs drift: it rebuilds a corrupted `state.json` from real `git worktree list` output, adopts orphaned worktrees back into state, removes leftover non-worktree directories under `.fleet/worktrees/`, and prunes entries whose worktree is gone (branches are never deleted by doctor). Rebuilt entries carry re-derived `baseBranch`/`createdAt` values, not the originals.
 

@@ -188,12 +188,15 @@ program
 
 program
   .command('pr')
-  .description("push an agent's branch to origin and open a pull request via gh")
+  .description(
+    "push an agent's branch to origin under a task-derived name and open a pull request via gh",
+  )
   .argument('<agent-name>', 'agent to open a PR for')
   .option('--title <title>', 'PR title (default: gh --fill from the last commit)')
   .option('--base <branch>', "PR base branch (default: the agent's recorded base)")
+  .option('--head <name>', 'branch name to publish as (default: derived from the first commit subject)')
   .option('--draft', 'open the PR as a draft')
-  .action((name: string, opts: { title?: string; base?: string; draft?: boolean }) =>
+  .action((name: string, opts: { title?: string; base?: string; head?: string; draft?: boolean }) =>
     run(() => pr(name, opts)),
   );
 

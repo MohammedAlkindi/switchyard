@@ -38,6 +38,8 @@ export interface AgentRecord {
   createdAt: string;
   /** Last `fleet validate` outcome; absent until the agent is first validated. */
   validation?: ValidationRecord;
+  /** Branch name `fleet pr` published as; recorded so re-runs update the same ref. */
+  prBranch?: string;
 }
 
 /** Shape of `.fleet/state.json` — the source of truth for all Switchyard commands. */

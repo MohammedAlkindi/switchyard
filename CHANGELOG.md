@@ -39,6 +39,18 @@ this package.
 
 ### Fixed
 
+- **`fleet pr` no longer publishes the agent's identity in the PR head ref.**
+  It used to push the branch under its local name (`fleet/<agent>`, e.g.
+  `fleet/claude`) and open the PR from it — and GitHub renders the head ref in
+  every PR header as `owner:branch`, so each PR publicly announced which AI
+  tool wrote the change, including fork PRs to other people's repositories.
+  `fleet pr` now publishes under a task-derived name taken from the branch's
+  first commit subject (`fix(rate-limit): scope anonymous quota …` becomes
+  `fix/rate-limit-scope-anonymous-quota-…`), records the choice on the agent,
+  and reuses it on re-runs; `--head <name>` overrides it. If you already
+  opened a PR from a `fleet/<agent>` branch, that name is in the PR's header:
+  open a fresh PR from a neutrally named branch instead of renaming — GitHub's
+  branch rename deletes the old head ref, which auto-closes the open PR.
 - Website command roster now identifies `fleet validate` and `fleet dashboard`
   as main-only commands that will ship in the next release instead of implying
   they are included in npm v0.4.0.
