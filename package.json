@@ -1,7 +1,7 @@
 {
   "name": "@switchyardhq/switchyard",
   "version": "0.4.0",
-  "description": "Manage multiple AI coding agents working on the same git repository: isolated worktrees per agent, collision detection before merge, safe cleanup.",
+  "description": "Two AI coding agents in one checkout share a working tree and overwrite each other. Switchyard gives each its own git worktree and names the files they are about to collide on.",
   "keywords": [
     "git",
     "worktree",

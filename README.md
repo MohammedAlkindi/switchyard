@@ -7,15 +7,17 @@
 
 # Switchyard
 
-> One repo, many AI coding agents, zero collisions — Switchyard's `fleet` CLI gives every agent an isolated git worktree, with collision detection before you merge.
+**Two AI agents in one checkout share a working tree, and that is the whole
+problem.** One runs `git reset` while the other is mid-edit. Both rewrite
+`routes.ts` and nobody finds out until merge time. A third session edits the
+file you are holding open. Switchyard takes the shared working tree away:
+every agent gets its own git worktree and branch, and `fleet check` names the
+files two of them are about to fight over — while they are still typing, not
+at merge time.
 
 [![npm version](https://img.shields.io/npm/v/@switchyardhq/switchyard)](https://www.npmjs.com/package/@switchyardhq/switchyard)
-[![npm downloads](https://img.shields.io/npm/dm/@switchyardhq/switchyard)](https://www.npmjs.com/package/@switchyardhq/switchyard)
-[![license](https://img.shields.io/github/license/MohammedAlkindi/Switchyard)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/MohammedAlkindi/Switchyard/ci.yml?branch=main&label=CI)](https://github.com/MohammedAlkindi/Switchyard/actions/workflows/ci.yml)
-[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/MohammedAlkindi/Switchyard/pulls)
-[![website](https://img.shields.io/badge/website-switchyardhq.vercel.app-45d183)](https://switchyardhq.vercel.app)
+[![license](https://img.shields.io/github/license/MohammedAlkindi/Switchyard)](LICENSE)
 
 <!-- The coverage badge is a static number: re-run `npm run test:coverage` and update it
      when it drifts. Replace with a Codecov (or similar) badge once coverage upload is
@@ -41,7 +43,7 @@
      (GitHub only inline-plays mp4s uploaded via its web editor, not committed files —
      a committed GIF is the reliable way to get a moving demo on the README.) -->
 
-Two AI coding agents on one checkout ends badly. This project exists because Codex silently ran a `git reset` on `main` mid-merge while Claude Code was mid-task on the same files — the merge state vanished and neither agent noticed. The failure mode isn't exotic: two agents, one working tree, no isolation. Switchyard (published as `@switchyardhq/switchyard`; the installed command is `fleet`) gives each agent its own git worktree and branch, tracks them centrally, and flags collisions between agents before anyone merges.
+This project exists because Codex silently ran a `git reset` on `main` mid-merge while Claude Code was mid-task on the same files — the merge state vanished and neither agent noticed. Switchyard is published as `@switchyardhq/switchyard`; the installed command is `fleet`.
 
 ## What it looks like
 
