@@ -46,6 +46,14 @@
       "type": "string",
       "minLength": 1,
       "description": "Shell command `fleet validate` runs inside an agent's worktree and records per commit (e.g. \"npm test\"). When set, `fleet merge` requires a passing record for the agent's tip, running the command itself if the record is missing or stale."
+    },
+    "guardedPaths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Shared files outside the repository that several agents write (e.g. \"~/Github/CLAUDE.md\"). Worktrees isolate the repo and nothing else, so `fleet spawn` digests each entry and `fleet check` reports the ones that changed since an agent spawned. `~` and repo-relative paths are accepted."
     }
   }
 }

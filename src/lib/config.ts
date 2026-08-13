@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { FleetError } from './errors.js';
 
@@ -32,13 +33,35 @@ export interface FleetConfig {
    * missing or stale.
    */
   validate?: string;
+  /**
+   * Shared files that belong to no repository but that several agents write —
+   * a machine-wide `CLAUDE.md`, an OSS queue, an editor settings file.
+   * Worktrees isolate the repo and nothing else, so these are the overlaps
+   * `fleet check` cannot otherwise see. `~` and repo-relative paths are
+   * accepted; each entry is digested at spawn and compared at check time.
+   */
+  guardedPaths?: string[];
+}
+
+/**
+ * Absolute location of a guarded-path entry: `~` expands to the home
+ * directory, a relative entry resolves against the repo root, and an absolute
+ * one is normalized. Pure, so the rules are testable without a filesystem.
+ */
+export function resolveGuardedPath(entry: string, repoRoot: string): string {
+  if (entry === '~') return os.homedir();
+  if (entry.startsWith('~/') || entry.startsWith('~\\')) {
+    return path.resolve(path.join(os.homedir(), entry.slice(2)));
+  }
+  return path.resolve(repoRoot, entry);
 }
 
 export const CONFIG_FILE = '.fleetrc.json';
 export const DEFAULT_WATCH_INTERVAL = 3;
 export const DEFAULT_AUTO_CLEAN = false;
 
-const VALID_KEYS = 'defaultBase, watchInterval, autoClean, copyOnSpawn, postSpawn, preMerge, validate';
+const VALID_KEYS =
+  'defaultBase, watchInterval, autoClean, copyOnSpawn, postSpawn, preMerge, validate, guardedPaths';
 
 export function configPath(repoRoot: string): string {
   return path.join(repoRoot, CONFIG_FILE);
@@ -125,6 +148,14 @@ export function readConfig(repoRoot: string): FleetConfig {
           throw new FleetError(`"validate" in ${CONFIG_FILE} must be a non-empty command string.`);
         }
         config.validate = value;
+        break;
+      case 'guardedPaths':
+        if (!Array.isArray(value) || value.some((v) => typeof v !== 'string' || v.trim() === '')) {
+          throw new FleetError(
+            `"guardedPaths" in ${CONFIG_FILE} must be an array of non-empty path strings.`,
+          );
+        }
+        config.guardedPaths = value as string[];
         break;
       default:
         throw new FleetError(`Unknown key "${key}" in ${CONFIG_FILE}. Valid keys: ${VALID_KEYS}.`);

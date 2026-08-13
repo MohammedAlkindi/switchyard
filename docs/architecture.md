@@ -89,6 +89,13 @@ Switchyard also writes `.fleet/` into `.git/info/exclude` (not `.gitignore`) on 
   the configured command, so the record can never claim more than "this exact
   commit got this exact result". Doctor rebuilds drop it — it is re-derivable
   by re-running `fleet validate`.
+- `guarded` — optional: a digest of every configured `guardedPaths` entry as it
+  stood when the agent spawned. Guarded paths are shared files outside the
+  repository, so git has no view of them and a digest is the only available
+  evidence that one moved mid-session. `fleet check` compares live digests
+  against each agent's baseline; an agent that spawned before a path was
+  configured has no baseline and is never reported, since inventing one would
+  claim a change nobody observed.
 - `prBranch` — optional: the public branch name `fleet pr` last published this
   agent as. The head ref is visible in the PR header, so it is task-derived
   rather than `fleet/<agent>`; recording it keeps re-runs updating the same

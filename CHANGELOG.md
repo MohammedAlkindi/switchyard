@@ -21,6 +21,14 @@ this package.
   a raw git "would be overwritten" error mid-merge), `fleet dashboard` shows
   a main-checkout activity line, and JSON/MCP results carry a `mainFiles`
   count.
+- New `.fleetrc.json` key `guardedPaths`: shared files outside the repository
+  that several agents write (`~/Github/CLAUDE.md`, a queue file, an editor
+  settings file). Worktrees isolate a repo and nothing else, so overlaps on
+  these files were invisible to every fleet command. `fleet spawn` now digests
+  each entry, and `fleet check` reports which ones changed since each agent
+  spawned — the cue to re-read before writing rather than clobbering another
+  agent's edit. Reported, never blocking: the exit code is unchanged, and
+  `fleet check` still writes nothing.
 - Line-ending preflight: `fleet doctor` gains a `line-endings` check and
   `fleet spawn` prints a one-time note when the repo pins no `text` attribute
   (neither `.gitattributes` nor `.git/info/attributes`). Agents committing

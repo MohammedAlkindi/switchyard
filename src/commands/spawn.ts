@@ -14,6 +14,7 @@ import {
   normalizesLineEndings,
   verifyBranch,
 } from '../lib/git.js';
+import { snapshotGuarded } from '../lib/guards.js';
 import { withLock } from '../lib/lock.js';
 import { readState, worktreesDir, writeState } from '../lib/state.js';
 import type { AgentRecord } from '../lib/state.js';
@@ -128,6 +129,10 @@ async function spawnLocked(
     worktreePath: path.relative(repoRoot, worktreeAbs).split(path.sep).join('/'),
     createdAt: new Date().toISOString(),
   };
+  // Digest the shared files this agent is about to work alongside, so a later
+  // `fleet check` can tell it which ones moved under it.
+  const guarded = snapshotGuarded(config.guardedPaths, repoRoot);
+  if (guarded) record.guarded = guarded;
   state.agents[name] = record;
   writeState(repoRoot, state);
 

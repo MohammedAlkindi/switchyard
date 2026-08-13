@@ -93,7 +93,9 @@ export function buildTools(cwd: string): McpTool[] {
         'collides like any agent. By default each overlap is run through a merge ' +
         'simulation, so a shared file is only a collision when it would actually ' +
         'conflict ("conflicts") or when another agent has uncommitted work in it ' +
-        '("uncommitted"). Call this before editing a file and again before asking for a merge.',
+        '("uncommitted"). guardedChanges lists shared files outside every worktree ' +
+        '(configured guardedPaths) that changed since you spawned — re-read one before ' +
+        'writing to it. Call this before editing a file and again before asking for a merge.',
       inputSchema: {
         type: 'object',
         properties: {

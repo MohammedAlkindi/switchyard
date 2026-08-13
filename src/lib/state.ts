@@ -40,6 +40,12 @@ export interface AgentRecord {
   validation?: ValidationRecord;
   /** Branch name `fleet pr` published as; recorded so re-runs update the same ref. */
   prBranch?: string;
+  /**
+   * Digest of each configured guarded path as it stood when this agent
+   * spawned, keyed by the entry as written in `.fleetrc.json`. `fleet check`
+   * compares against it to report shared files that moved mid-session.
+   */
+  guarded?: Record<string, string>;
 }
 
 /** Shape of `.fleet/state.json` — the source of truth for all Switchyard commands. */

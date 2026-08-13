@@ -1,6 +1,8 @@
 import { existsSync } from 'node:fs';
 import type { SimpleGit } from 'simple-git';
-import { dim, fail, ok, plural, table } from '../lib/format.js';
+import { readConfig, resolveGuardedPath } from '../lib/config.js';
+import { dim, fail, ok, plural, table, warn } from '../lib/format.js';
+import { hashGuardedPath } from '../lib/guards.js';
 import {
   branchExists,
   changedFilesVsBase,
@@ -46,6 +48,14 @@ export interface Collision {
   verdict?: 'conflicts' | 'uncommitted';
 }
 
+/** A shared file outside any worktree that moved under one or more agents. */
+export interface GuardedChange {
+  /** The entry exactly as written in `.fleetrc.json`. */
+  path: string;
+  /** Agents whose spawn-time digest no longer matches the file on disk. */
+  agents: string[];
+}
+
 export interface CheckResult {
   collisions: Collision[];
   /** --lines only: multi-agent files whose edits touch disjoint lines. */
@@ -68,6 +78,12 @@ export interface CheckResult {
    * shared checkout directly are the collisions worktrees cannot isolate.
    */
   mainFiles: number;
+  /**
+   * Guarded paths (`.fleetrc.json` `guardedPaths`) that changed since the
+   * listed agents spawned — shared files no repository tracks, so no worktree
+   * isolates them. Absent when none are configured; `[]` when all are current.
+   */
+  guardedChanges?: GuardedChange[];
 }
 
 /**
@@ -99,6 +115,11 @@ export async function collectCheck(options: CheckOptions = {}): Promise<CheckRes
     }
   }
   const surfaces = agents.length + (mainUncommitted.size > 0 ? 1 : 0);
+
+  // Guarded paths are checked independently of the collision cross-reference:
+  // they live outside every worktree, so git has no view of them at all and a
+  // single agent can still be stale on one.
+  const guardedChanges = collectGuardedChanges(repoRoot, agents);
 
   const agentsByFile = new Map<string, string[]>();
   // --lines only: file -> agent -> edited ranges (merge-base coordinates).
@@ -178,6 +199,7 @@ export async function collectCheck(options: CheckOptions = {}): Promise<CheckRes
       mainFiles: mainUncommitted.size,
     };
     if (options.lines) result.disjoint = [];
+    if (guardedChanges) result.guardedChanges = guardedChanges;
     return result;
   }
 
@@ -270,7 +292,35 @@ export async function collectCheck(options: CheckOptions = {}): Promise<CheckRes
   };
   if (disjoint !== undefined) result.disjoint = disjoint;
   if (cleanMerges !== undefined) result.cleanMerges = cleanMerges;
+  if (guardedChanges) result.guardedChanges = guardedChanges;
   return result;
+}
+
+/**
+ * Compare every configured guarded path against the digest each agent
+ * recorded when it spawned. Returns undefined when the repo configures none,
+ * so the field stays absent rather than an empty promise of coverage.
+ *
+ * Only agents that recorded a digest are considered: one spawned before the
+ * path was configured has no baseline, and inventing one would report a
+ * change that was never observed.
+ */
+function collectGuardedChanges(
+  repoRoot: string,
+  agents: AgentRecord[],
+): GuardedChange[] | undefined {
+  const entries = readConfig(repoRoot).guardedPaths;
+  if (!entries || entries.length === 0) return undefined;
+
+  const changes: GuardedChange[] = [];
+  for (const entry of entries) {
+    const current = hashGuardedPath(resolveGuardedPath(entry, repoRoot));
+    const stale = agents
+      .filter((a) => a.guarded?.[entry] !== undefined && a.guarded[entry] !== current)
+      .map((a) => a.name);
+    if (stale.length > 0) changes.push({ path: entry, agents: stale });
+  }
+  return changes;
 }
 
 /**
@@ -284,12 +334,28 @@ export function buildCheckReport(
 ): string {
   const { collisions, disjoint, cleanMerges, prediction, agentsChecked, mainFiles } = result;
   const useMergeTree = prediction === 'merge-tree';
+  const guarded = result.guardedChanges ?? [];
+
+  const guardedReport = (): string[] => {
+    if (guarded.length === 0) return [];
+    const lines = [
+      warn(
+        `${plural(guarded.length, 'guarded path')} changed outside any worktree since these agents spawned:`,
+      ),
+    ];
+    for (const g of guarded) lines.push(`  ${g.path} (${g.agents.join(', ')})`);
+    lines.push(
+      dim('Shared files no repository tracks — re-read one before writing to it.'),
+    );
+    return lines;
+  };
 
   if (agentsChecked < 2 && mainFiles === 0) {
-    return (
+    return [
       `Nothing to check: ${plural(agentsChecked, 'active agent')} ` +
-      '(collisions need at least 2 surfaces).'
-    );
+        '(collisions need at least 2 surfaces).',
+      ...guardedReport(),
+    ].join('\n');
   }
 
   const surfacesLabel =
@@ -354,6 +420,7 @@ export function buildCheckReport(
       out.push(dim(`  ${d.file} (${d.agents.join(', ')})`));
     }
   }
+  out.push(...guardedReport());
 
   return out.join('\n');
 }

@@ -285,7 +285,8 @@ An optional `.fleetrc.json` at the repo root sets per-repo defaults. Precedence 
   "copyOnSpawn": [".env"],
   "postSpawn": "npm ci",
   "preMerge": "npm run lint",
-  "validate": "npm test"
+  "validate": "npm test",
+  "guardedPaths": ["~/Github/CLAUDE.md", "~/notes/queue.md"]
 }
 ```
 
@@ -297,6 +298,7 @@ An optional `.fleetrc.json` at the repo root sets per-repo defaults. Precedence 
 - `postSpawn` — shell command run inside the new worktree after `fleet spawn` (e.g. `npm ci`), so the worktree is ready to work in. A failing hook is reported but the worktree is kept.
 - `preMerge` — shell command run inside the agent's worktree before `fleet merge` starts (e.g. `npm test`). A non-zero exit aborts the merge before anything is touched.
 - `validate` — shell command `fleet validate` runs inside an agent's worktree and records per commit (e.g. `npm test`). When set, `fleet merge` requires the agent's tip to hold a passing record, running the command itself when the record is missing or stale. `preMerge` still runs at merge time regardless — `validate` is the recorded, skippable gate; `preMerge` is the always-run hook.
+- `guardedPaths` — **shared files that belong to no repository** but that several agents write: a machine-wide `CLAUDE.md`, a queue file, an editor settings file. A worktree isolates the repo and nothing else, so these overlaps are invisible to every other check. `fleet spawn` digests each entry, and `fleet check` reports the ones that changed since an agent spawned — the cue to re-read a file before writing to it rather than clobbering another agent's edit. `~` and repo-relative paths both work. Reported, never blocking: it does not affect `fleet check`'s exit code.
 
 A malformed config file is a hard error with the offending key named; a missing one is fine.
 
