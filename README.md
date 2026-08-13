@@ -125,7 +125,7 @@ fleet pr claude                 # …or push it and open a PR via gh instead
 | `fleet clean` | Remove agents whose branches are fully merged into their base | `--dry-run` list only, `--stale <days>` also remove long-idle agents (clean worktrees only; their branches are kept) |
 | `fleet watch` | `fleet list`, re-rendered live until Ctrl+C | `--interval <seconds>` refresh rate (default 3) |
 | `fleet dashboard` | One live pane for the whole fleet: the agent table with validation states, per-agent touched-file counts, and the full collision report with merge-simulation verdicts | `--once` print a single frame and exit (scripts, CI logs), `--interval <seconds>` refresh rate (default 3) |
-| `fleet doctor` | Diagnose git version, state file validity, orphaned worktrees, and stale entries. Exits 1 if problems remain | `--fix` repair: rebuild state from `git worktree list`, adopt/remove orphans, prune stale entries; `--json` machine-readable output |
+| `fleet doctor` | Diagnose git version, state file validity, orphaned worktrees, stale entries, and whether the repo pins line endings (agents committing from different shells otherwise produce whole-file CRLF diffs — `fleet spawn` warns about it too). Exits 1 if problems remain | `--fix` repair: rebuild state from `git worktree list`, adopt/remove orphans, prune stale entries; `--json` machine-readable output |
 | `fleet completion <shell>` | Print a completion script for `bash`, `zsh`, or `fish` (agent names are a snapshot from generation time) | — |
 | `fleet mcp` | Serve the read-only fleet tools to an AI agent over MCP (stdio). Not run by hand — see [Use it from an AI agent](#use-it-from-an-ai-agent-mcp) | — |
 

@@ -241,13 +241,53 @@ export async function supportsMergeTree(git: SimpleGit): Promise<boolean> {
 
 const FLEET_EXCLUDE_ENTRY = '.fleet/';
 
-async function fleetExcludeFile(repoRoot: string): Promise<string> {
+async function gitCommonDir(repoRoot: string): Promise<string> {
   const commonDirRaw = await gitAt(repoRoot).raw([
     'rev-parse',
     '--path-format=absolute',
     '--git-common-dir',
   ]);
-  return path.join(commonDirRaw.trim(), 'info', 'exclude');
+  return commonDirRaw.trim();
+}
+
+async function fleetExcludeFile(repoRoot: string): Promise<string> {
+  return path.join(await gitCommonDir(repoRoot), 'info', 'exclude');
+}
+
+/**
+ * True when a line in an attributes file sets a line-ending attribute for some
+ * path. Each line is `<pattern> <attr>…`, so the pattern itself is skipped;
+ * comments and blanks never count. `text`, `text=auto`, `-text` and `eol=` all
+ * qualify — any of them means the repo made a deliberate decision, which is
+ * what distinguishes it from a repo that simply never considered the question.
+ */
+function hasTextAttribute(content: string): boolean {
+  return content.split(/\r?\n/).some((line) => {
+    const trimmed = line.trim();
+    if (trimmed === '' || trimmed.startsWith('#')) return false;
+    return trimmed
+      .split(/\s+/)
+      .slice(1)
+      .some((attr) => /^-?text(=|$)/.test(attr) || attr.startsWith('eol='));
+  });
+}
+
+/**
+ * Whether the repository pins line endings for any path, via `.gitattributes`
+ * at the root or `.git/info/attributes`.
+ *
+ * Without one, each agent's shell decides for itself what lands in a commit:
+ * two agents on one repo from different shells produce whole-file CRLF diffs
+ * that bury the real change. Switchyard reports it rather than fixing it —
+ * adding `* text=auto` renormalizes existing blobs, which is the user's call
+ * and belongs in its own commit.
+ */
+export async function normalizesLineEndings(repoRoot: string): Promise<boolean> {
+  const files = [
+    path.join(repoRoot, '.gitattributes'),
+    path.join(await gitCommonDir(repoRoot), 'info', 'attributes'),
+  ];
+  return files.some((file) => existsSync(file) && hasTextAttribute(readFileSync(file, 'utf8')));
 }
 
 function hasFleetEntry(content: string): boolean {

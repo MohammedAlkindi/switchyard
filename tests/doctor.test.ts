@@ -248,3 +248,44 @@ describe('undo record check', () => {
     expect(check?.detail).toMatch(/fleet undo available: merge of fleet\/alice into main/);
   });
 });
+
+// Agents editing one repo from different shells commit different line endings
+// unless the repo pins them. That is how a real 4,500-line CRLF diff buried 60
+// genuine lines — so doctor names the risk instead of leaving it to be found.
+describe('line-ending normalization check', () => {
+  it('reports a repo with no text attribute, without failing the run', async () => {
+    const result = await doctor({ cwd: repo.root });
+
+    const check = checkByName(result, 'line-endings');
+    expect(check.detail).toMatch(/text=auto/);
+    // Informational, like conflict-prediction: it must not make doctor exit 1.
+    expect(check.ok).toBe(true);
+    expect(result.healthy).toBe(true);
+  });
+
+  it('reports a repo that pins line endings as normalized', async () => {
+    await commitFile(repo.root, '.gitattributes', '* text=auto\n', 'chore: normalize');
+
+    const check = checkByName(await doctor({ cwd: repo.root }), 'line-endings');
+
+    expect(check.detail).toMatch(/normalized/);
+  });
+
+  it('honors .git/info/attributes as well as .gitattributes', async () => {
+    mkdirSync(path.join(repo.root, '.git', 'info'), { recursive: true });
+    writeFileSync(path.join(repo.root, '.git', 'info', 'attributes'), '* text=auto\n');
+
+    const check = checkByName(await doctor({ cwd: repo.root }), 'line-endings');
+
+    expect(check.detail).toMatch(/normalized/);
+  });
+
+  it('ignores a commented-out rule', async () => {
+    await commitFile(repo.root, '.gitattributes', '# * text=auto\n', 'chore: not really');
+
+    const check = checkByName(await doctor({ cwd: repo.root }), 'line-endings');
+
+    expect(check.detail).toMatch(/text=auto/);
+    expect(check.detail).not.toMatch(/normalized/);
+  });
+});

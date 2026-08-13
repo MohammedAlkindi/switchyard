@@ -137,3 +137,29 @@ describe('fleet spawn provisioning (.fleetrc.json)', () => {
     expect(readState(repo.root).agents['alice']).toBeDefined();
   });
 });
+
+// Spawning is the moment a second shell starts writing this repo, so it is the
+// last useful moment to say that its line endings are not pinned.
+describe('fleet spawn line-ending preflight', () => {
+  function loggedOutput(): string {
+    return vi
+      .mocked(console.log)
+      .mock.calls.map((c) => String(c[0] ?? ''))
+      .join('\n');
+  }
+
+  it('warns when the repo pins no line endings', async () => {
+    await spawn('alice', { cwd: repo.root });
+
+    expect(loggedOutput()).toMatch(/\.gitattributes/);
+    expect(loggedOutput()).toMatch(/text=auto/);
+  });
+
+  it('stays quiet when the repo already normalizes line endings', async () => {
+    await commitFile(repo.root, '.gitattributes', '* text=auto\n', 'chore: normalize');
+
+    await spawn('alice', { cwd: repo.root });
+
+    expect(loggedOutput()).not.toMatch(/\.gitattributes/);
+  });
+});

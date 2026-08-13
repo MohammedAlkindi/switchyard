@@ -21,6 +21,13 @@ this package.
   a raw git "would be overwritten" error mid-merge), `fleet dashboard` shows
   a main-checkout activity line, and JSON/MCP results carry a `mainFiles`
   count.
+- Line-ending preflight: `fleet doctor` gains a `line-endings` check and
+  `fleet spawn` prints a one-time note when the repo pins no `text` attribute
+  (neither `.gitattributes` nor `.git/info/attributes`). Agents committing
+  from different shells otherwise produce whole-file CRLF diffs that bury the
+  real change. Both are informational — `doctor` stays exit 0 and nothing is
+  written, because adding `* text=auto` renormalizes every text blob and
+  belongs in a commit of the user's own.
 - `fleet validate` (and `--all`, `--json`): run a repo-configured `validate`
   command inside an agent's worktree and record the outcome on the agent's
   state entry, pinned to the exact commit and command. Staleness is derived,

@@ -11,6 +11,7 @@ import {
   gitAt,
   gitVersion,
   MERGE_TREE_MIN,
+  normalizesLineEndings,
   pruneWorktrees,
 } from '../lib/git.js';
 import { holdingLock, lockPath, lockStatus, withLock } from '../lib/lock.js';
@@ -35,6 +36,7 @@ export interface DoctorCheck {
     | 'conflict-prediction'
     | 'repository'
     | 'lock'
+    | 'line-endings'
     | 'undo-record'
     | 'state-file'
     | 'orphaned-worktrees'
@@ -130,6 +132,21 @@ async function doctorRun(options: DoctorOptions = {}): Promise<DoctorResult> {
       fixed: false,
     });
   }
+
+  // --- line-ending normalization ---------------------------------------------
+  // Informational like conflict-prediction: a repo without it still works, but
+  // agents committing from different shells produce whole-file CRLF diffs that
+  // bury the real change. Doctor names the risk; it never renormalizes, since
+  // that rewrites every text blob and belongs in the user's own commit.
+  checks.push({
+    name: 'line-endings',
+    ok: true,
+    detail: (await normalizesLineEndings(repoRoot))
+      ? 'normalized by a text attribute (.gitattributes or .git/info/attributes)'
+      : 'no text attribute — agents committing from different shells can produce ' +
+        'whole-file CRLF diffs; consider `* text=auto` in .gitattributes as its own commit',
+    fixed: false,
+  });
 
   // --- pending undo ----------------------------------------------------------
   const undoRec = readUndoRecord(repoRoot);

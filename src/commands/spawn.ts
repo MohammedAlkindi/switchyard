@@ -11,6 +11,7 @@ import {
   ensureFleetExcluded,
   getMainRepoRoot,
   gitAt,
+  normalizesLineEndings,
   verifyBranch,
 } from '../lib/git.js';
 import { withLock } from '../lib/lock.js';
@@ -133,6 +134,20 @@ async function spawnLocked(
   console.log(ok(`Spawned agent ${bold(name)}`));
   console.log(`  branch:   ${branch} ${dim(`(from ${base})`)}`);
   console.log(`  worktree: ${worktreeAbs}`);
+
+  // A spawn adds one more shell writing this repo, which is the last useful
+  // moment to say its line endings are unpinned — before that shell commits.
+  if (!(await normalizesLineEndings(repoRoot))) {
+    console.log(
+      warn('  note:     this repo pins no line endings (no `text` attribute).'),
+    );
+    console.log(
+      dim('            Agents committing from different shells can produce whole-file'),
+    );
+    console.log(
+      dim('            CRLF diffs. `* text=auto` in .gitattributes, as its own commit, fixes it.'),
+    );
+  }
 
   // Provision the worktree: gitignored essentials first, then the hook, so
   // e.g. `postSpawn: "npm ci"` can rely on a copied .npmrc or .env.
