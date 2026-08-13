@@ -14,7 +14,7 @@ import {
   normalizesLineEndings,
   verifyBranch,
 } from '../lib/git.js';
-import { snapshotGuarded } from '../lib/guards.js';
+import { ABSENT, snapshotGuarded } from '../lib/guards.js';
 import { withLock } from '../lib/lock.js';
 import { readState, worktreesDir, writeState } from '../lib/state.js';
 import type { AgentRecord } from '../lib/state.js';
@@ -133,12 +133,24 @@ async function spawnLocked(
   // `fleet check` can tell it which ones moved under it.
   const guarded = snapshotGuarded(config.guardedPaths, repoRoot);
   if (guarded) record.guarded = guarded;
+  // An entry that is absent now and absent later never produces a signal, so a
+  // typo — or a "/c/Users/…" shell path, which Node resolves elsewhere on
+  // Windows — would look exactly like a healthy config. Say so once, here.
+  const missingGuarded = Object.entries(guarded ?? {})
+    .filter(([, digest]) => digest === ABSENT)
+    .map(([entry]) => entry);
   state.agents[name] = record;
   writeState(repoRoot, state);
 
   console.log(ok(`Spawned agent ${bold(name)}`));
   console.log(`  branch:   ${branch} ${dim(`(from ${base})`)}`);
   console.log(`  worktree: ${worktreeAbs}`);
+
+  for (const entry of missingGuarded) {
+    console.log(
+      warn(`  guarded:  ${entry} not found — watched, but nothing to compare against yet`),
+    );
+  }
 
   // A spawn adds one more shell writing this repo, which is the last useful
   // moment to say its line endings are unpinned — before that shell commits.

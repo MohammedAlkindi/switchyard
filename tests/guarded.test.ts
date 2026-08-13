@@ -130,6 +130,31 @@ describe('guarded paths outside any worktree', () => {
     expect(printed).toMatch(/outside any worktree|guarded/i);
   });
 
+  // A path that is absent at spawn and still absent at check produces no
+  // signal at all, so a typo — or a Git-Bash-style "/c/Users/…" entry, which
+  // Node resolves to a different, nonexistent path on Windows — looks exactly
+  // like a healthy configuration. Spawn is where that has to be said.
+  it('notes a guarded path that does not resolve to an existing file', async () => {
+    configureGuarded([sharedFile('typo.md'), '/c/Users/someone/notes.md']);
+
+    await spawn('alice', { cwd: repo.root });
+
+    const printed = vi.mocked(console.log).mock.calls.map((c) => String(c[0] ?? '')).join('\n');
+    expect(printed).toMatch(/typo\.md/);
+    expect(printed).toMatch(/not found|does not exist/i);
+  });
+
+  it('says nothing about guarded paths when they all exist', async () => {
+    const notes = sharedFile('CLAUDE.md');
+    writeFileSync(notes, 'v1\n');
+    configureGuarded([notes]);
+
+    await spawn('alice', { cwd: repo.root });
+
+    const printed = vi.mocked(console.log).mock.calls.map((c) => String(c[0] ?? '')).join('\n');
+    expect(printed).not.toMatch(/not found/i);
+  });
+
   it('survives a guarded path that is a directory rather than a file', async () => {
     const dir = sharedFile('a-directory');
     mkdirSync(dir);

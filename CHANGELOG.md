@@ -35,7 +35,8 @@ this package.
   from different shells otherwise produce whole-file CRLF diffs that bury the
   real change. Both are informational — `doctor` stays exit 0 and nothing is
   written, because adding `* text=auto` renormalizes every text blob and
-  belongs in a commit of the user's own.
+  belongs in a commit of the user's own. The check reads the main checkout,
+  so a `.gitattributes` living only on an unmerged branch does not count.
 - `fleet validate` (and `--all`, `--json`): run a repo-configured `validate`
   command inside an agent's worktree and record the outcome on the agent's
   state entry, pinned to the exact commit and command. Staleness is derived,
