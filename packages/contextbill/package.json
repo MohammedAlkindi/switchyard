@@ -30,7 +30,8 @@
     "loadline": "./dist/cli.js"
   },
   "files": [
-    "dist",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
     "prices.json",
     "README.md",
     "LICENSE"

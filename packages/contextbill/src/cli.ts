@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { aggregate, monthlyProjection } from './aggregate.js';
 import { cacheWriteMultiplier, usd } from './cost.js';
@@ -56,6 +56,8 @@ interface Options {
   showPaths: boolean;
   help: boolean;
   version: boolean;
+  /** Flags we did not recognise. Surfaced so a typo is not silently ignored. */
+  unknown: string[];
 }
 
 export function parseArgs(argv: readonly string[], home: string): Options {
@@ -68,6 +70,7 @@ export function parseArgs(argv: readonly string[], home: string): Options {
     showPaths: false,
     help: false,
     version: false,
+    unknown: [],
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -113,6 +116,8 @@ export function parseArgs(argv: readonly string[], home: string): Options {
         opts.version = true;
         break;
       default:
+        // Anything flag-shaped we do not know is a typo, not a no-op.
+        if (flag !== undefined && flag.startsWith('-')) opts.unknown.push(flag);
         break;
     }
   }
@@ -166,6 +171,13 @@ function main(): void {
     return;
   }
 
+  if (opts.unknown.length > 0) {
+    process.stderr.write(
+      `loadline: ignoring unrecognised flag(s): ${opts.unknown.join(', ')}\n` +
+        'Run "loadline --help" for the supported options.\n\n',
+    );
+  }
+
   if (!fs.existsSync(opts.root)) {
     process.stderr.write(
       `loadline: no transcripts at ${opts.root}\n` +
@@ -200,6 +212,20 @@ function main(): void {
     return;
   }
 
+  // Transcripts were present but nothing billable parsed out of them. Printing
+  // "$0.00" here would read as a real answer when it is a parse failure — the
+  // exact confident-wrong-number this tool exists to prevent.
+  if (report.turns === 0) {
+    process.stderr.write(
+      `loadline: read ${stats.length} transcript file(s) under ${opts.root}, ` +
+        'but found no usage data in any of them.\n' +
+        'That usually means this is not a Claude Code transcript root, or the ' +
+        'files are in a format this version does not understand.\n' +
+        'No report written.\n',
+    );
+    return;
+  }
+
   writeAtomic(opts.out, renderReport(report));
 
   const f = report.findings;
@@ -224,10 +250,29 @@ function main(): void {
   process.stdout.write(`${lines.join('\n')}\n`);
 }
 
-try {
-  main();
-} catch (err) {
-  const message = err instanceof Error ? err.message : String(err);
-  process.stderr.write(`loadline failed (non-fatal): ${message}\n`);
+/**
+ * Only run when invoked as the binary, never on import.
+ *
+ * Without this guard, importing anything from this module executes the whole
+ * CLI and then calls process.exit — which makes `parseArgs` untestable and
+ * would surprise any consumer that imported it.
+ */
+function isEntryPoint(): boolean {
+  const invoked = process.argv[1];
+  if (invoked === undefined) return false;
+  try {
+    return pathToFileURL(path.resolve(invoked)).href === import.meta.url;
+  } catch {
+    return false;
+  }
 }
-process.exit(0);
+
+if (isEntryPoint()) {
+  try {
+    main();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`loadline failed (non-fatal): ${message}\n`);
+  }
+  process.exit(0);
+}
