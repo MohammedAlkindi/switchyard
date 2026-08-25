@@ -10,8 +10,8 @@ dist/
 # Dependencies
 node_modules/
 
-# Generated reports — these describe a real machine, never commit one
-contextbill-report.html
+# Generated reports describe a real machine and must never be committed.
+*-report.html
 *.report.html
 
 # OS / editor
