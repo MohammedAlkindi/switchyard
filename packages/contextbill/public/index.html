@@ -12,360 +12,653 @@
 <title>loadline</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
 
 <style>
 :root {
-  --canvas:   #FBFBFA;
-  --surface:  #FFFFFF;
-  --sunken:   #F7F6F3;
-  --line:     #EAEAEA;
-  --line-soft:#F0EFED;
-  --ink:      #1A1A18;
-  --ink-2:    #55534E;
-  --ink-3:    #787774;
+  --bg:      #FAFAF9;
+  --panel:   #FFFFFF;
+  --sink:    #F4F3F1;
+  --hair:    #E6E4E0;
+  --ink:     #16150F;
+  --ink-2:   #5A574E;
+  --ink-3:   #8C887E;
+  --spot:    #B4531B;
+  --spot-bg: #FBF0E7;
+  --ok:      #2F6B3F;
+  --frame:   #14130F;
+  --shadow:  0 1px 2px rgba(20,19,15,.04), 0 12px 40px -12px rgba(20,19,15,.10);
 
-  --amber-bg: #FBF3DB;  --amber-fg: #956400;
-  --green-bg: #EDF3EC;  --green-fg: #346538;
-  --blue-bg:  #E1F3FE;  --blue-fg:  #1F6C9F;
-
-  --serif: "Newsreader", "Lyon Text", Georgia, serif;
-  --sans:  "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
-  --mono:  "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
-
-  --gut: clamp(1.25rem, 4vw, 2.5rem);
-  --bay: clamp(4rem, 10vw, 7.5rem);
+  --serif: "Instrument Serif", "Lyon Text", Georgia, serif;
+  --sans:  ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+  --mono:  "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  --pad:   clamp(1.25rem, 4vw, 2rem);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --canvas:   #131311;
-    --surface:  #1A1A18;
-    --sunken:   #201F1C;
-    --line:     #2C2B28;
-    --line-soft:#242320;
-    --ink:      #EDECE8;
-    --ink-2:    #A9A69F;
-    --ink-3:    #85827B;
-    --amber-bg: #2E2610; --amber-fg: #D9A94A;
-    --green-bg: #17231A; --green-fg: #7FB183;
-    --blue-bg:  #12252F; --blue-fg:  #6FB2D8;
+    --bg: #100F0C; --panel: #171612; --sink: #1E1D18; --hair: #2B2924;
+    --ink: #F2F0EA; --ink-2: #ADA89C; --ink-3: #837E73;
+    --spot: #E08A4E; --spot-bg: #2C1D11; --ok: #6FAE7E;
+    --frame: #0A0907;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 16px 48px -16px rgba(0,0,0,.6);
   }
 }
 :root[data-theme="dark"] {
-  --canvas: #131311; --surface: #1A1A18; --sunken: #201F1C;
-  --line: #2C2B28; --line-soft: #242320;
-  --ink: #EDECE8; --ink-2: #A9A69F; --ink-3: #85827B;
-  --amber-bg: #2E2610; --amber-fg: #D9A94A;
-  --green-bg: #17231A; --green-fg: #7FB183;
-  --blue-bg: #12252F; --blue-fg: #6FB2D8;
+  --bg: #100F0C; --panel: #171612; --sink: #1E1D18; --hair: #2B2924;
+  --ink: #F2F0EA; --ink-2: #ADA89C; --ink-3: #837E73;
+  --spot: #E08A4E; --spot-bg: #2C1D11; --ok: #6FAE7E;
+  --frame: #0A0907;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 16px 48px -16px rgba(0,0,0,.6);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 body {
-  margin: 0; background: var(--canvas); color: var(--ink);
-  font-family: var(--sans); font-size: 16px; line-height: 1.6;
-  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--sans); line-height: 1.55; font-size: 15.5px;
+  -webkit-font-smoothing: antialiased;
 }
-:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
-.shell { max-width: 60rem; margin: 0 auto; padding: 0 var(--gut); }
-.narrow { max-width: 40rem; }
+:focus-visible { outline: 2px solid var(--spot); outline-offset: 3px; border-radius: 3px; }
+.wrap { max-width: 68rem; margin: 0 auto; padding: 0 var(--pad); }
+a { color: inherit; }
 
-/* motion */
-.rise { opacity: 0; transform: translateY(12px); transition: opacity .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1); }
-.rise.in { opacity: 1; transform: none; }
-@media (prefers-reduced-motion: reduce) { .rise { opacity: 1; transform: none; transition: none; } }
+/* ---------- nav ---------- */
+nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.1rem 0; gap: 1rem;
+}
+.logo { display: flex; align-items: center; gap: .5rem; font-weight: 600; font-size: .95rem; letter-spacing: -.01em; }
+nav .links { display: flex; gap: 1.4rem; font-size: .82rem; }
+nav .links a { color: var(--ink-3); text-decoration: none; }
+nav .links a:hover { color: var(--ink); }
 
-/* masthead */
-header.mast { border-bottom: 1px solid var(--line); }
-.mast .shell { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 1.15rem; padding-bottom: 1.15rem; }
-.mark { display: flex; align-items: center; gap: .55rem; font-weight: 500; letter-spacing: -.01em; }
-.mast nav { display: flex; gap: 1.5rem; }
-.mast nav a { font-size: .8125rem; color: var(--ink-3); text-decoration: none; }
-.mast nav a:hover { color: var(--ink); }
-
-/* hero */
-.hero { padding: var(--bay) 0 0; }
+/* ---------- hero ---------- */
+.hero { padding: clamp(3rem, 8vw, 6rem) 0 clamp(2rem, 5vw, 3rem); max-width: 46rem; }
 h1 {
   font-family: var(--serif); font-weight: 400;
-  font-size: clamp(2.25rem, 1.5rem + 3.2vw, 3.5rem);
-  line-height: 1.08; letter-spacing: -.028em; margin: 0 0 1.1rem;
-  text-wrap: balance; max-width: 18ch;
+  font-size: clamp(2.8rem, 1.6rem + 5.2vw, 5rem);
+  line-height: .96; letter-spacing: -.025em; margin: 0 0 1.25rem;
+  text-wrap: balance;
 }
-.sub { font-size: 1.0625rem; color: var(--ink-2); margin: 0 0 2rem; max-width: 42ch; }
+h1 i { font-style: italic; color: var(--spot); }
+.dek { font-size: clamp(1.05rem, 1rem + .4vw, 1.2rem); color: var(--ink-2); margin: 0 0 2rem; max-width: 36rem; }
 
-.cmd {
-  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
-  padding: .95rem 1.15rem; font-family: var(--mono); font-size: .9375rem;
-  max-width: 26rem;
+.run { display: flex; gap: .7rem; flex-wrap: wrap; align-items: stretch; }
+.term {
+  display: flex; align-items: center; gap: .8rem;
+  background: var(--frame); color: #F2F0EA; border-radius: 7px;
+  padding: .8rem 1rem; font-family: var(--mono); font-size: .9rem;
 }
-.cmd .prompt { color: var(--ink-3); margin-right: .55rem; }
-.cmd .copy { font-family: var(--sans); font-size: .75rem; color: var(--ink-3); border: 1px solid var(--line); background: var(--sunken); border-radius: 4px; padding: .2rem .5rem; cursor: pointer; }
-.cmd .copy:hover { color: var(--ink); }
+.term .d { color: #7C8A80; }
+.term button {
+  margin-left: .4rem; font-family: var(--sans); font-size: .72rem;
+  background: rgba(255,255,255,.09); color: #C9C5BB; border: 0;
+  border-radius: 4px; padding: .25rem .55rem; cursor: pointer;
+}
+.term button:hover { background: rgba(255,255,255,.16); color: #fff; }
+.ghost {
+  display: inline-flex; align-items: center; padding: .8rem 1.1rem;
+  border: 1px solid var(--hair); border-radius: 7px; background: var(--panel);
+  font-size: .875rem; text-decoration: none; font-weight: 500;
+}
+.ghost:hover { border-color: var(--ink-3); }
+.badges { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1.4rem; font-size: .8rem; color: var(--ink-3); font-family: var(--mono); }
 
-.acts { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1.4rem; }
-.btn { font-size: .875rem; padding: .58rem 1.05rem; border-radius: 5px; text-decoration: none; border: 1px solid var(--ink); background: var(--ink); color: var(--canvas); transition: transform .15s ease; }
-.btn:active { transform: scale(.98); }
-.btn.q { background: transparent; color: var(--ink); border-color: var(--line); }
-.btn.q:hover { border-color: var(--ink-3); }
+/* ---------- product frame ---------- */
+.stage { padding-bottom: clamp(3rem, 7vw, 5rem); }
+.frame {
+  background: var(--frame); border-radius: 14px; padding: 10px;
+  box-shadow: var(--shadow);
+}
+.bar { display: flex; align-items: center; gap: .4rem; padding: .35rem .5rem .6rem; }
+.bar i { width: 9px; height: 9px; border-radius: 50%; background: #3A3730; display: block; }
+.bar .file { margin-left: .5rem; font-family: var(--mono); font-size: .7rem; color: #7C776C; }
+.bar .live { margin-left: auto; font-family: var(--mono); font-size: .65rem; color: var(--ok); letter-spacing: .04em; }
+iframe { display: block; width: 100%; height: clamp(30rem, 62vh, 42rem); border: 0; border-radius: 8px; background: #fff; }
+.cap { margin: .9rem .2rem 0; font-size: .8rem; color: var(--ink-3); display: flex; gap: .5rem; flex-wrap: wrap; }
+.cap b { color: var(--ink-2); font-weight: 500; }
 
-.meta { display: flex; gap: 1.25rem; flex-wrap: wrap; margin-top: 1.5rem; font-size: .8125rem; color: var(--ink-3); }
-.meta span::before { content: "—"; margin-right: .45rem; color: var(--line); }
+/* ---------- numbers ---------- */
+.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: clamp(1.5rem, 4vw, 3rem); padding: clamp(3rem, 7vw, 4.5rem) 0; border-top: 1px solid var(--hair); }
+.fig .n { font-family: var(--serif); font-size: clamp(2.4rem, 1.8rem + 2.4vw, 3.4rem); line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.fig .n.spot { color: var(--spot); }
+.fig .l { font-size: .84rem; color: var(--ink-2); margin-top: .6rem; max-width: 17rem; }
+.fig .l em { font-style: normal; color: var(--ink-3); display: block; font-size: .78rem; margin-top: .2rem; }
 
-/* section scaffolding */
-section { padding: var(--bay) 0; }
-section + section { border-top: 1px solid var(--line); }
-.eyebrow { font-family: var(--mono); font-size: .6875rem; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 1rem; }
-h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(1.5rem, 1.2rem + 1.3vw, 2rem); letter-spacing: -.022em; line-height: 1.18; margin: 0 0 1rem; text-wrap: balance; max-width: 24ch; }
-p { margin: 0 0 1.1rem; color: var(--ink-2); }
-p:last-child { margin-bottom: 0; }
-p strong { color: var(--ink); font-weight: 500; }
+/* ---------- rows ---------- */
+.row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.35fr); gap: clamp(1.5rem, 5vw, 4rem); padding: clamp(3rem, 7vw, 4.5rem) 0; border-top: 1px solid var(--hair); align-items: start; }
+@media (max-width: 46rem) { .row { grid-template-columns: 1fr; gap: 1.25rem; } }
+.row h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(1.7rem, 1.4rem + 1.6vw, 2.4rem); line-height: 1.1; letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+.row .lede { font-size: .95rem; color: var(--ink-2); margin: .8rem 0 0; }
 
-/* faux-OS window holding the report */
-.window { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
-.chrome { display: flex; align-items: center; gap: .45rem; padding: .7rem .9rem; border-bottom: 1px solid var(--line); background: var(--sunken); }
-.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); flex: none; }
-.chrome .name { margin-left: .5rem; font-family: var(--mono); font-size: .75rem; color: var(--ink-3); }
-.pane { padding: clamp(1.25rem, 3vw, 2rem); }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.steps li { display: grid; grid-template-columns: 1.6rem 1fr; gap: .9rem; padding: .85rem 0; border-bottom: 1px solid var(--hair); font-size: .92rem; }
+.steps li:first-child { padding-top: 0; }
+.steps li:last-child { border-bottom: 0; }
+.steps s { text-decoration: none; font-family: var(--mono); font-size: .72rem; color: var(--ink-3); padding-top: .18rem; }
+.steps b { font-weight: 600; }
+.steps span { color: var(--ink-2); }
 
-.rep-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: .9rem; margin-bottom: 1.4rem; }
-.rep-head h3 { font-family: var(--serif); font-size: 1.15rem; font-weight: 500; margin: 0; letter-spacing: -.015em; }
-.rep-head .when { font-family: var(--mono); font-size: .7rem; color: var(--ink-3); }
+.guarantees { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem,1fr)); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; }
+.guarantees div { background: var(--panel); padding: 1.1rem 1.2rem; }
+.guarantees dt { font-size: .875rem; font-weight: 600; margin-bottom: .25rem; }
+.guarantees dd { margin: 0; font-size: .82rem; color: var(--ink-2); }
+code { font-family: var(--mono); font-size: .87em; background: var(--sink); border: 1px solid var(--hair); border-radius: 4px; padding: .08em .32em; }
 
-.figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-bottom: 1.5rem; }
-.figs > div { background: var(--surface); padding: .95rem 1.05rem; }
-.figs .v { font-family: var(--mono); font-size: 1.375rem; font-weight: 500; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.figs .v.hi { color: var(--amber-fg); }
-.figs .k { font-size: .7rem; color: var(--ink-3); margin-top: .2rem; line-height: 1.4; }
+/* ---------- close ---------- */
+.close { padding: clamp(4rem, 9vw, 6rem) 0; border-top: 1px solid var(--hair); text-align: center; }
+.close h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(2rem, 1.6rem + 2vw, 3rem); letter-spacing: -.022em; margin: 0 0 1.6rem; line-height: 1.05; }
+.close .run { justify-content: center; }
+footer { border-top: 1px solid var(--hair); padding: 1.75rem 0 3rem; font-size: .8rem; color: var(--ink-3); display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 
-table { width: 100%; border-collapse: collapse; font-size: .8125rem; }
-th { text-align: left; font-family: var(--mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 400; padding: 0 0 .5rem; border-bottom: 1px solid var(--line); }
-td { padding: .5rem 0; border-bottom: 1px solid var(--line-soft); color: var(--ink-2); }
-td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
-tr:last-child td { border-bottom: none; }
-.bar { height: 4px; background: var(--sunken); border-radius: 2px; overflow: hidden; min-width: 3rem; }
-.bar i { display: block; height: 100%; background: var(--ink-3); border-radius: 2px; }
-.bar i.hl { background: var(--amber-fg); }
-.tag { display: inline-block; font-family: var(--mono); font-size: .65rem; letter-spacing: .05em; text-transform: uppercase; padding: .15rem .5rem; border-radius: 9999px; }
-.tag.a { background: var(--amber-bg); color: var(--amber-fg); }
-.tag.g { background: var(--green-bg); color: var(--green-fg); }
-.scroll { overflow-x: auto; }
-
-/* measured vs read */
-.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-top: 1.75rem; }
-.split > div { background: var(--surface); padding: 1.5rem; }
-.split h4 { margin: 0 0 .7rem; font-size: .8125rem; font-weight: 500; display: flex; align-items: center; gap: .5rem; }
-.split p { font-size: .875rem; margin: 0; }
-.split .num { font-family: var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
-
-/* steps */
-ol.steps { list-style: none; counter-reset: s; padding: 0; margin: 0; border-top: 1px solid var(--line); }
-ol.steps li { counter-increment: s; display: grid; grid-template-columns: 2rem 1fr; gap: 1rem; padding: 1.15rem 0; border-bottom: 1px solid var(--line); align-items: start; }
-ol.steps li::before { content: counter(s, decimal-leading-zero); font-family: var(--mono); font-size: .75rem; color: var(--ink-3); padding-top: .15rem; }
-ol.steps b { font-weight: 500; display: block; margin-bottom: .15rem; }
-ol.steps span { font-size: .875rem; color: var(--ink-2); }
-code { font-family: var(--mono); font-size: .875em; background: var(--sunken); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
-
-dl.facts { margin: 1.5rem 0 0; border-top: 1px solid var(--line); }
-dl.facts > div { padding: 1rem 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(11rem, 15rem) 1fr; gap: 1.25rem; }
-dl.facts dt { font-size: .875rem; font-weight: 500; }
-dl.facts dd { margin: 0; font-size: .875rem; color: var(--ink-2); }
-@media (max-width: 34rem) { dl.facts > div { grid-template-columns: 1fr; gap: .3rem; } }
-
-.close { text-align: center; padding: var(--bay) 0; border-top: 1px solid var(--line); }
-.close h2 { margin-inline: auto; }
-.close .cmd { margin: 1.5rem auto 0; }
-footer { border-top: 1px solid var(--line); padding: 2rem 0 3rem; font-size: .8125rem; color: var(--ink-3); }
-footer a { color: var(--ink-2); }
-footer p { margin: 0 0 .35rem; color: var(--ink-3); }
 </style>
 </head>
 <body>
-<header class="mast">
-  <div class="shell">
-    <div class="mark">
-      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/>
-        <line x1="1.5" y1="12" x2="22.5" y2="12" stroke="currentColor" stroke-width="1.8"/>
+<div class="wrap">
+
+  <nav>
+    <span class="logo">
+      <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="7.6" fill="none" stroke="currentColor" stroke-width="2"/>
+        <line x1="1.5" y1="12" x2="22.5" y2="12" stroke="currentColor" stroke-width="2"/>
       </svg>
       loadline
-    </div>
-    <nav>
-      <a href="#report">Report</a>
+    </span>
+    <span class="links">
       <a href="#how">How it works</a>
-      <a href="#privacy">Privacy</a>
+      <a href="#local">Local</a>
       <a href="https://github.com/MohammedAlkindi/loadline">GitHub</a>
-    </nav>
-  </div>
+    </span>
+  </nav>
+
+  <section class="hero">
+    <h1>Know what your AI agents <i>actually</i> cost.</h1>
+    <p class="dek">
+      Analyze Claude Code usage locally and see where your tokens and dollars go.
+    </p>
+    <div class="run">
+      <div class="term">
+        <span><span class="d">$</span> npx loadline</span>
+        <button type="button" data-copy="npx loadline">Copy</button>
+      </div>
+      <a class="ghost" href="https://github.com/MohammedAlkindi/loadline">GitHub</a>
+    </div>
+    <div class="badges"><span>no signup</span><span>no account</span><span>no network calls</span><span>0 dependencies</span></div>
+  </section>
+
+  <section class="stage">
+    <div class="frame">
+      <div class="bar">
+        <i></i><i></i><i></i>
+        <span class="file">loadline-report.html</span>
+        <span class="live">LIVE — SCROLL IT</span>
+      </div>
+      <iframe id="report" title="Example loadline report" loading="lazy" srcdoc="<!doctype html>
+<html lang=&quot;en&quot;>
+<head>
+<meta charset=&quot;utf-8&quot;>
+<meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;>
+<title>loadline report</title>
+<style>
+:root {
+  --bg: #fbfaf8;
+  --surface: #ffffff;
+  --border: #e6e2db;
+  --ink: #1a1917;
+  --ink-soft: #6b6660;
+  --accent: #b4541f;
+  --accent-soft: #f0e2d8;
+  --good: #2f6b45;
+  --warn: #8a6410;
+  --radius: 10px;
+  --mono: ui-monospace, &quot;SF Mono&quot;, &quot;Cascadia Mono&quot;, Menlo, Consolas, monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, &quot;Segoe UI&quot;, Inter, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme=&quot;light&quot;]) {
+    --bg: #161513;
+    --surface: #1f1e1b;
+    --border: #33312d;
+    --ink: #f0ede8;
+    --ink-soft: #9c968d;
+    --accent: #e08a55;
+    --accent-soft: #3a2a1f;
+    --good: #7cc094;
+    --warn: #d9ae4e;
+  }
+}
+:root[data-theme=&quot;dark&quot;] {
+  --bg: #161513;
+  --surface: #1f1e1b;
+  --border: #33312d;
+  --ink: #f0ede8;
+  --ink-soft: #9c968d;
+  --accent: #e08a55;
+  --accent-soft: #3a2a1f;
+  --good: #7cc094;
+  --warn: #d9ae4e;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 2.5rem 1.25rem 5rem;
+  background: var(--bg); color: var(--ink);
+  font-family: var(--sans); line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 60rem; margin: 0 auto; }
+header { border-bottom: 2px solid var(--ink); padding-bottom: 1.25rem; margin-bottom: 2rem; }
+h1 { font-size: 1.6rem; margin: 0 0 .3rem; letter-spacing: -.02em; }
+h1 .mark { color: var(--accent); }
+.sub { color: var(--ink-soft); font-size: .875rem; margin: 0; }
+h2 {
+  font-size: .78rem; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--ink-soft); margin: 2.75rem 0 .85rem; font-weight: 600;
+}
+.headline {
+  display: flex; flex-wrap: wrap; gap: 1px;
+  background: var(--border); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; margin-bottom: .75rem;
+}
+.stat { background: var(--surface); padding: 1.1rem 1.25rem; flex: 1 1 12rem; }
+.stat .v { font-size: 1.75rem; font-weight: 650; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.stat .v.accent { color: var(--accent); }
+.stat .k { font-size: .75rem; color: var(--ink-soft); margin-top: .15rem; }
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; font-size: .875rem; min-width: 32rem; }
+th, td { text-align: left; padding: .5rem .7rem; border-bottom: 1px solid var(--border); }
+th {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--ink-soft); font-weight: 600; border-bottom: 1px solid var(--ink);
+}
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: .82rem; }
+tbody tr:last-child td { border-bottom: none; }
+.bar { background: var(--border); border-radius: 3px; height: 6px; width: 100%; min-width: 4rem; overflow: hidden; }
+.bar-fill { background: var(--accent); height: 100%; border-radius: 3px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.1rem 1.25rem;
+}
+.note {
+  border-left: 3px solid var(--accent); background: var(--accent-soft);
+  padding: .8rem 1rem; border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: .85rem; margin: .75rem 0;
+}
+.note strong { display: block; margin-bottom: .2rem; }
+.empty { color: var(--ink-soft); font-size: .875rem; font-style: italic; }
+code { font-family: var(--mono); font-size: .85em; background: var(--border); padding: .1em .35em; border-radius: 4px; }
+footer {
+  margin-top: 3.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border);
+  font-size: .78rem; color: var(--ink-soft);
+}
+footer p { margin: .3rem 0; }
+.pill {
+  display: inline-block; font-size: .7rem; font-family: var(--mono);
+  padding: .1rem .45rem; border-radius: 4px; background: var(--border); color: var(--ink-soft);
+}
+</style>
+</head>
+<body>
+<div class=&quot;wrap&quot;>
+
+<header>
+  <h1>load<span class=&quot;mark&quot;>line</span></h1>
+  <p class=&quot;sub&quot;>913 transcripts · 378 sessions · 83,151 turns · 29 days</p>
 </header>
 
-<div class="shell">
+<div class=&quot;note&quot;><strong>Unpriced models excluded from the total</strong>
+       <code>&amp;lt;synthetic&amp;gt;</code> —
+       these appear in your transcripts but carry no rate in the price table, so their
+       tokens are counted and their cost is not. The total below is an understatement
+       by whatever they were worth.</div>
 
-  <div class="hero">
-    <h1>Know what your AI agents actually cost.</h1>
-    <p class="sub">
-      Analyze Claude Code usage locally and see where your tokens and dollars
-      are going.
-    </p>
-
-    <div class="cmd">
-      <div><span class="prompt">$</span>npx loadline</div>
-      <button class="copy" type="button" data-copy="npx loadline">Copy</button>
-    </div>
-
-    <div class="acts">
-      <a class="btn" href="#report">View example report</a>
-      <a class="btn q" href="https://github.com/MohammedAlkindi/loadline">GitHub</a>
-    </div>
-
-    <div class="meta">
-      <span>No signup</span>
-      <span>No account</span>
-      <span>No network calls</span>
-      <span>Zero dependencies</span>
-    </div>
-  </div>
-
-  <section id="report" class="rise">
-    <p class="eyebrow">The output</p>
-    <h2>One command produces one self-contained HTML file.</h2>
-    <p class="narrow">
-      Everything below is generated locally from transcripts already on disk.
-      Project names are redacted by default.
-    </p>
-
-    <div class="window" style="margin-top:2rem">
-      <div class="chrome">
-        <i class="dot"></i><i class="dot"></i><i class="dot"></i>
-        <span class="name">loadline-report.html</span>
-      </div>
-      <div class="pane">
-        <div class="rep-head">
-          <h3>loadline</h3>
-          <span class="when">376 sessions &middot; 82,767 turns &middot; 61 days</span>
-        </div>
-
-        <div class="figs">
-          <div><div class="v">$22,297</div><div class="k">total, all transcripts</div></div>
-          <div><div class="v">$22,759</div><div class="k">projected per 30 days</div></div>
-          <div><div class="v hi">81,586</div><div class="k">median tokens loaded before you type</div></div>
-        </div>
-
-        <div class="scroll">
-        <table>
-          <thead>
-            <tr><th>Category</th><th class="n">Cost</th><th class="n">Share</th><th style="width:22%"></th></tr>
-          </thead>
-          <tbody>
-            <tr><td>shell</td><td class="n">$7,024</td><td class="n">31.5%</td><td><div class="bar"><i style="width:31.5%"></i></div></td></tr>
-            <tr><td>files</td><td class="n">$4,749</td><td class="n">21.3%</td><td><div class="bar"><i style="width:21.3%"></i></div></td></tr>
-            <tr><td>startup prefix <span class="tag a">fixed</span></td><td class="n">$4,062</td><td class="n">18.2%</td><td><div class="bar"><i class="hl" style="width:18.2%"></i></div></td></tr>
-            <tr><td>browser</td><td class="n">$2,943</td><td class="n">13.2%</td><td><div class="bar"><i style="width:13.2%"></i></div></td></tr>
-            <tr><td>model output</td><td class="n">$2,743</td><td class="n">12.3%</td><td><div class="bar"><i style="width:12.3%"></i></div></td></tr>
-            <tr><td>connectors</td><td class="n">$379</td><td class="n">1.7%</td><td><div class="bar"><i style="width:1.7%"></i></div></td></tr>
-          </tbody>
-        </table>
-        </div>
-
-        <p style="margin:1.4rem 0 0;font-size:.8125rem;color:var(--ink-3)">
-          Report also lists sessions that wrote no file, runs that died on startup,
-          per-model spend, and the price-table date every figure derives from.
-          <span class="tag g" style="margin-left:.35rem">no external requests</span>
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <section id="insight" class="rise">
-    <p class="eyebrow">What the data showed</p>
-    <h2>A fifth of the bill was context nobody typed.</h2>
-    <p class="narrow">
-      Running loadline against a single developer machine with 376 sessions
-      returned the figures below. Every session loads a system prompt, tool
-      catalog, connector definitions and instruction files before doing any
-      work — then re-reads that block on every subsequent turn.
-    </p>
-
-    <div class="split">
-      <div>
-        <h4><span class="tag g">Measured</span></h4>
-        <p>
-          <span class="num">$22,297</span> total across
-          <span class="num">82,767</span> turns in
-          <span class="num">376</span> sessions. Of that,
-          <span class="num">$4,062</span> is attributable to a median
-          <span class="num">81,586</span>-token block loaded before any
-          input — 18.2% of spend on that machine.
-        </p>
-      </div>
-      <div>
-        <h4><span class="tag a">Interpretation</span></h4>
-        <p>
-          This is one machine, not a benchmark. The startup figure is a model
-          — prefix tokens priced across observed turns, capped at non-output
-          spend — not a billed line item. Whether it generalizes is untested.
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <section id="how" class="rise">
-    <p class="eyebrow">How it works</p>
-    <h2>Four steps, all of them local.</h2>
-    <ol class="steps">
-      <li><b>Run <code>npx loadline</code></b><span>No install, no configuration, no API key.</span></li>
-      <li><b>It reads Claude Code transcripts from disk</b><span>Default <code>~/.claude/projects</code>. Opened read-only; nothing is written back.</span></li>
-      <li><b>Costs are calculated locally</b><span>Against a dated price table shipped with the package, including per-model and fast-mode rates.</span></li>
-      <li><b>A self-contained HTML report is written</b><span>One file, no external references. Open it, or send it to someone.</span></li>
-    </ol>
-  </section>
-
-  <section id="privacy" class="rise">
-    <p class="eyebrow">Privacy model</p>
-    <h2>Your transcripts never leave the machine.</h2>
-    <dl class="facts">
-      <div>
-        <dt>No network calls</dt>
-        <dd>The shipped build imports only <code>fs</code>, <code>os</code>, <code>path</code> and <code>url</code>. No HTTP client, no socket, no telemetry. A test asserts the generated report contains no external reference.</dd>
-      </div>
-      <div>
-        <dt>No external API required</dt>
-        <dd>Pricing ships in the package as a dated table. Nothing is fetched at runtime.</dd>
-      </div>
-      <div>
-        <dt>Paths redacted by default</dt>
-        <dd>Transcript folders are named after the working directory, so the raw label encodes your OS account name and directory tree. That is stripped before rendering; <code>--show-paths</code> is an explicit opt-in.</dd>
-      </div>
-      <div>
-        <dt>Zero runtime dependencies</dt>
-        <dd>Node built-ins only. No transitive tree to audit.</dd>
-      </div>
-      <div>
-        <dt>Report content</dt>
-        <dd>Aggregates, session identifiers and token counts. No conversation content is read into the report.</dd>
-      </div>
-    </dl>
-  </section>
-
+<div class=&quot;headline&quot;>
+  <div class=&quot;stat&quot;><div class=&quot;v accent&quot;>$22,363</div><div class=&quot;k&quot;>total, all transcripts on this machine</div></div>
+  <div class=&quot;stat&quot;><div class=&quot;v&quot;>$22,813</div><div class=&quot;k&quot;>projected per 30 days at this rate</div></div>
+  <div class=&quot;stat&quot;><div class=&quot;v&quot;>81,592</div><div class=&quot;k&quot;>median tokens loaded before you type</div></div>
 </div>
 
-<div class="close">
-  <div class="shell">
-    <h2>Find out in about ten seconds.</h2>
-    <div class="cmd">
-      <div><span class="prompt">$</span>npx loadline</div>
-      <button class="copy" type="button" data-copy="npx loadline">Copy</button>
-    </div>
-  </div>
+<h2>Where the money goes</h2>
+<div class=&quot;card scroll&quot;>
+<table>
+  <thead><tr><th>Category</th><th class=&quot;n&quot;>Cost</th><th class=&quot;n&quot;>Share</th><th></th></tr></thead>
+  <tbody><tr>
+        <td>shell</td>
+        <td class=&quot;n&quot;>$7,074</td>
+        <td class=&quot;n&quot;>31.6%</td>
+        <td style=&quot;width:28%&quot;><div class=&quot;bar&quot;><div class=&quot;bar-fill&quot; style=&quot;width:31.63%&quot;></div></div></td>
+      </tr>
+<tr>
+        <td>files</td>
+        <td class=&quot;n&quot;>$4,755</td>
+        <td class=&quot;n&quot;>21.3%</td>
+        <td style=&quot;width:28%&quot;><div class=&quot;bar&quot;><div class=&quot;bar-fill&quot; style=&quot;width:21.26%&quot;></div></div></td>
+      </tr>
+<tr>
+        <td>startup prefix (fixed, every turn)</td>
+        <td class=&quot;n&quot;>$4,073</td>
+        <td class=&quot;n&quot;>18.2%</td>
+        <td style=&quot;width:28%&quot;><div class=&quot;bar&quot;><div class=&quot;bar-fill&quot; style=&quot;width:18.21%&quot;></div></div></td>
+      </tr>
+<tr>
+        <td>browser</td>
+        <td class=&quot;n&quot;>$2,928</td>
+        <td class=&quot;n&quot;>13.1%</td>
+        <td style=&quot;width:28%&quot;><div class=&quot;bar&quot;><div class=&quot;bar-fill&quot; style=&quot;width:13.09%&quot;></div></div></td>
+      </tr>
+<tr>
+        <td>model output</td>
+        <td class=&quot;n&quot;>$2,748</td>
+        <td class=&quot;n&quot;>12.3%</td>
+        <td style=&quot;width:28%&quot;><div class=&quot;bar&quot;><div class=&quot;bar-fill&quot; style=&quot;width:12.29%&quot;></div></div></td>
+      </tr>
+<tr>
+        <td>connectors</td>
+        <td class=&quot;n&quot;>$368.61</td>
+        <td class=&quot;n&quot;>1.6%</td>
+        <td style=&quot;width:28%&quot;><div class=&quot;bar&quot;><div class=&quot;bar-fill&quot; style=&quot;width:1.65%&quot;></div></div></td>
+      </tr>
+<tr>
+        <td>web</td>
+        <td class=&quot;n&quot;>$252.83</td>
+        <td class=&quot;n&quot;>1.1%</td>
+        <td style=&quot;width:28%&quot;><div class=&quot;bar&quot;><div class=&quot;bar-fill&quot; style=&quot;width:1.13%&quot;></div></div></td>
+      </tr>
+<tr>
+        <td>other</td>
+        <td class=&quot;n&quot;>$101.43</td>
+        <td class=&quot;n&quot;>0.5%</td>
+        <td style=&quot;width:28%&quot;><div class=&quot;bar&quot;><div class=&quot;bar-fill&quot; style=&quot;width:0.45%&quot;></div></div></td>
+      </tr>
+<tr>
+        <td>subagents</td>
+        <td class=&quot;n&quot;>$62.54</td>
+        <td class=&quot;n&quot;>0.3%</td>
+        <td style=&quot;width:28%&quot;><div class=&quot;bar&quot;><div class=&quot;bar-fill&quot; style=&quot;width:0.28%&quot;></div></div></td>
+      </tr></tbody>
+</table>
+</div>
+
+<h2>The fixed tax</h2>
+<div class=&quot;note&quot;>
+  <strong>You paid $4,073 for context you never typed.</strong>
+  Every session loads a system prompt, tool catalog, connector definitions and
+  instruction files before it does any work — a median of <strong>81,592 tokens</strong> here.
+  That block is written to cache once and then re-read on <em>every subsequent turn</em>,
+  so a 500-turn session pays for it 500 times. It is the one line item that shrinks
+  by deleting things rather than by working differently.
+</div>
+
+<h2>Cost by session length</h2>
+<div class=&quot;card scroll&quot;>
+<table>
+  <thead><tr><th>Bucket</th><th class=&quot;n&quot;>Sessions</th><th class=&quot;n&quot;>Cost</th><th class=&quot;n&quot;>Share</th><th></th></tr></thead>
+  <tbody><tr>
+        <td>1-50 turns</td>
+        <td class=&quot;n&quot;>220</td>
+        <td class=&quot;n&quot;>$547.32</td>
+        <td class=&quot;n&quot;>2.9%</td>
+        <td style=&quot;width:24%&quot;><div class=&quot;bar&quot;><div class=&quot;bar-fill&quot; style=&quot;width:2.95%&quot;></div></div></td>
+      </tr>
+<tr>
+        <td>51-200 turns</td>
+        <td class=&quot;n&quot;>66</td>
+        <td class=&quot;n&quot;>$1,725</td>
+        <td class=&quot;n&quot;>9.3%</td>
+        <td style=&quot;width:24%&quot;><div class=&quot;bar&quot;><div class=&quot;bar-fill&quot; style=&quot;width:9.29%&quot;></div></div></td>
+      </tr>
+<tr>
+        <td>201-500 turns</td>
+        <td class=&quot;n&quot;>61</td>
+        <td class=&quot;n&quot;>$5,019</td>
+        <td class=&quot;n&quot;>27.0%</td>
+        <td style=&quot;width:24%&quot;><div class=&quot;bar&quot;><div class=&quot;bar-fill&quot; style=&quot;width:27.01%&quot;></div></div></td>
+      </tr>
+<tr>
+        <td>501-1000 turns</td>
+        <td class=&quot;n&quot;>22</td>
+        <td class=&quot;n&quot;>$5,227</td>
+        <td class=&quot;n&quot;>28.1%</td>
+        <td style=&quot;width:24%&quot;><div class=&quot;bar&quot;><div class=&quot;bar-fill&quot; style=&quot;width:28.13%&quot;></div></div></td>
+      </tr>
+<tr>
+        <td>1000+ turns</td>
+        <td class=&quot;n&quot;>9</td>
+        <td class=&quot;n&quot;>$6,062</td>
+        <td class=&quot;n&quot;>32.6%</td>
+        <td style=&quot;width:24%&quot;><div class=&quot;bar&quot;><div class=&quot;bar-fill&quot; style=&quot;width:32.62%&quot;></div></div></td>
+      </tr></tbody>
+</table>
+</div>
+
+<h2>Sessions with no file written</h2>
+<div class=&quot;note&quot;>
+  <strong>This is a prompt, not a verdict.</strong>
+  These sessions ran 200+ turns without a single Write or Edit call.
+  Some will be legitimate research or debugging; others will be a loop that went
+  nowhere. loadline cannot tell which, and does not guess — it surfaces them so
+  you can look. Note a <code>Bash</code> command that writes a file does not count here.
+</div>
+<div class=&quot;card scroll&quot;><table>
+  <thead><tr><th>Session</th><th>Project</th><th class=&quot;n&quot;>Turns</th><th class=&quot;n&quot;>Cost</th><th class=&quot;n&quot;>Started</th></tr></thead>
+  <tbody><tr>
+        <td><code>0d2be435</code></td>
+        <td>Github-DashboardX</td>
+        <td class=&quot;n&quot;>318</td>
+        <td class=&quot;n&quot;>$56.30</td>
+        <td class=&quot;n&quot;>2026-08-05</td>
+      </tr>
+<tr>
+        <td><code>2e36b81d</code></td>
+        <td>(drive root)</td>
+        <td class=&quot;n&quot;>201</td>
+        <td class=&quot;n&quot;>$38.62</td>
+        <td class=&quot;n&quot;>2026-08-24</td>
+      </tr></tbody>
+</table></div>
+
+<h2>Runs that died on startup</h2>
+<div class=&quot;note&quot;>
+  <strong>A scheduled agent that exits before working looks identical to one that never fired.</strong>
+  The task reports success either way. Transcript size is the only signal that
+  separates them after the fact: a real run is kilobytes, a corpse is a few hundred bytes.
+</div>
+<p class=&quot;empty&quot;>None — no transcripts look like dead starts.</p>
+
+<h2>Most expensive sessions</h2>
+<div class=&quot;card scroll&quot;>
+<table>
+  <thead><tr><th>Session</th><th>Project</th><th class=&quot;n&quot;>Turns</th><th class=&quot;n&quot;>Cost</th><th class=&quot;n&quot;>Per turn</th><th>Output</th></tr></thead>
+  <tbody><tr>
+        <td><code>b990918c</code></td>
+        <td>(drive root)</td>
+        <td class=&quot;n&quot;>2,238</td>
+        <td class=&quot;n&quot;>$1,596</td>
+        <td class=&quot;n&quot;>$0.71</td>
+        <td><span class=&quot;pill&quot;>wrote files</span></td>
+      </tr>
+<tr>
+        <td><code>c9e5fd62</code></td>
+        <td>(drive root)</td>
+        <td class=&quot;n&quot;>1,655</td>
+        <td class=&quot;n&quot;>$815.78</td>
+        <td class=&quot;n&quot;>$0.49</td>
+        <td><span class=&quot;pill&quot;>wrote files</span></td>
+      </tr>
+<tr>
+        <td><code>e49dd0e8</code></td>
+        <td>Github</td>
+        <td class=&quot;n&quot;>1,693</td>
+        <td class=&quot;n&quot;>$783.84</td>
+        <td class=&quot;n&quot;>$0.46</td>
+        <td><span class=&quot;pill&quot;>wrote files</span></td>
+      </tr>
+<tr>
+        <td><code>44eff6ab</code></td>
+        <td>Github-DashboardX</td>
+        <td class=&quot;n&quot;>1,099</td>
+        <td class=&quot;n&quot;>$680.63</td>
+        <td class=&quot;n&quot;>$0.62</td>
+        <td><span class=&quot;pill&quot;>wrote files</span></td>
+      </tr>
+<tr>
+        <td><code>0adfe10c</code></td>
+        <td>(drive root)</td>
+        <td class=&quot;n&quot;>1,727</td>
+        <td class=&quot;n&quot;>$581.19</td>
+        <td class=&quot;n&quot;>$0.34</td>
+        <td><span class=&quot;pill&quot;>wrote files</span></td>
+      </tr>
+<tr>
+        <td><code>592d56a1</code></td>
+        <td>(drive root)</td>
+        <td class=&quot;n&quot;>1,234</td>
+        <td class=&quot;n&quot;>$456.26</td>
+        <td class=&quot;n&quot;>$0.37</td>
+        <td><span class=&quot;pill&quot;>wrote files</span></td>
+      </tr></tbody>
+</table>
+</div>
+
+<h2>By model</h2>
+<div class=&quot;card scroll&quot;>
+<table>
+  <thead><tr><th>Model</th><th class=&quot;n&quot;>Cost</th><th class=&quot;n&quot;>Share</th><th class=&quot;n&quot;>Turns</th></tr></thead>
+  <tbody><tr>
+        <td><code>claude-opus-5</code></td>
+        <td class=&quot;n&quot;>$12,678</td>
+        <td class=&quot;n&quot;>56.7%</td>
+        <td class=&quot;n&quot;>59,999</td>
+      </tr>
+<tr>
+        <td><code>claude-fable-5</code></td>
+        <td class=&quot;n&quot;>$9,034</td>
+        <td class=&quot;n&quot;>40.4%</td>
+        <td class=&quot;n&quot;>17,371</td>
+      </tr>
+<tr>
+        <td><code>claude-sonnet-5</code></td>
+        <td class=&quot;n&quot;>$345.33</td>
+        <td class=&quot;n&quot;>1.5%</td>
+        <td class=&quot;n&quot;>3,668</td>
+      </tr>
+<tr>
+        <td><code>claude-opus-4-8</code></td>
+        <td class=&quot;n&quot;>$207.17</td>
+        <td class=&quot;n&quot;>0.9%</td>
+        <td class=&quot;n&quot;>796</td>
+      </tr>
+<tr>
+        <td><code>claude-opus-4-7</code></td>
+        <td class=&quot;n&quot;>$95.73</td>
+        <td class=&quot;n&quot;>0.4%</td>
+        <td class=&quot;n&quot;>1,048</td>
+      </tr>
+<tr>
+        <td><code>claude-haiku-4-5</code></td>
+        <td class=&quot;n&quot;>$2.80</td>
+        <td class=&quot;n&quot;>0.0%</td>
+        <td class=&quot;n&quot;>74</td>
+      </tr>
+<tr>
+        <td><code>&amp;lt;synthetic&amp;gt;</code></td>
+        <td class=&quot;n&quot;>$0.00</td>
+        <td class=&quot;n&quot;>0.0%</td>
+        <td class=&quot;n&quot;>195</td>
+      </tr></tbody>
+</table>
+</div>
+
+<h2>Token classes</h2>
+<div class=&quot;card scroll&quot;>
+<table>
+  <thead><tr><th>Class</th><th class=&quot;n&quot;>Tokens</th><th class=&quot;n&quot;>Cost</th></tr></thead>
+  <tbody>
+    <tr><td>Input (uncached)</td><td class=&quot;n&quot;>914,729</td><td class=&quot;n&quot;>$7.05</td></tr>
+    <tr><td>Cache writes</td><td class=&quot;n&quot;>779,467,926</td><td class=&quot;n&quot;>$6,134</td></tr>
+    <tr><td>Cache reads</td><td class=&quot;n&quot;>22,155,413,692</td><td class=&quot;n&quot;>$13,474</td></tr>
+    <tr><td>Output</td><td class=&quot;n&quot;>85,330,703</td><td class=&quot;n&quot;>$2,748</td></tr>
+  </tbody>
+</table>
 </div>
 
 <footer>
-  <div class="shell">
-    <p><strong style="color:var(--ink-2)">loadline</strong> — MIT licensed. Built by <a href="https://github.com/MohammedAlkindi">Mohammed Alkindi</a>.</p>
-    <p>The load line is the mark on a hull showing how heavily a ship may safely be loaded.</p>
-  </div>
+  <p>Generated 2026-08-25T17:18:58.014Z by loadline.</p>
+  <p>Prices from the bundled table dated <strong>2026-06-24</strong>. Anthropic
+     first-party API rates; Bedrock and Vertex are priced separately and are not modelled.</p>
+  <p>Cache writes billed at the <strong>5m</strong> TTL rate. Transcripts do not
+     record which TTL was used, so this is an assumption, not a measurement — if your client
+     used 1-hour caching and this says <code>5m</code>, the real figure is higher. Re-run with
+     <code>--cache-ttl=1h</code> to see that number.</p>
+  <p>Nothing in this report left your machine.</p>
 </footer>
 
-<script src="/app.js"></script>
+</div>
+</body>
+</html>
+"></iframe>
+    </div>
+    <p class="cap">
+      <b>Real output, not a mockup.</b>
+      Generated from 378 sessions on one developer machine. Project names redacted by default.
+    </p>
+  </section>
+
+  <section class="figures">
+    <div class="fig">
+      <div class="n">$22,363</div>
+      <div class="l">Total spend across 83,151 turns<em>Measured on one machine</em></div>
+    </div>
+    <div class="fig">
+      <div class="n spot">18.2%</div>
+      <div class="l">Of the bill was context nobody typed<em>$4,073 of fixed startup overhead</em></div>
+    </div>
+    <div class="fig">
+      <div class="n">81,592</div>
+      <div class="l">Median tokens loaded before your first keystroke<em>Re-read on every turn after</em></div>
+    </div>
+  </section>
+
+  <section class="row" id="how">
+    <h2>Four steps, all of them local.</h2>
+    <div>
+      <ol class="steps">
+        <li><s>01</s><span><b>Run <code>npx loadline</code></b> — no install, no config, no API key.</span></li>
+        <li><s>02</s><span><b>It reads transcripts from disk</b> — <code>~/.claude/projects</code>, opened read-only.</span></li>
+        <li><s>03</s><span><b>Costs are computed locally</b> — against a dated price table shipped in the package.</span></li>
+        <li><s>04</s><span><b>One HTML file is written</b> — self-contained, no external references.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="row" id="local">
+    <div>
+      <h2>Nothing leaves the machine.</h2>
+      <p class="lede">Which is why it installs without a security review.</p>
+    </div>
+    <dl class="guarantees">
+      <div><dt>No network</dt><dd>Ships importing <code>fs</code>, <code>os</code>, <code>path</code>, <code>url</code>. No HTTP client, no telemetry.</dd></div>
+      <div><dt>No dependencies</dt><dd>Node built-ins only. No transitive tree to audit.</dd></div>
+      <div><dt>Paths redacted</dt><dd>Folder names encode your username. Stripped by default; <code>--show-paths</code> opts in.</dd></div>
+      <div><dt>No conversation data</dt><dd>Token counts, model ids and timestamps. Never message content.</dd></div>
+    </dl>
+  </section>
+
+  <section class="close">
+    <h2>Find out in about ten seconds.</h2>
+    <div class="run">
+      <div class="term">
+        <span><span class="d">$</span> npx loadline</span>
+        <button type="button" data-copy="npx loadline">Copy</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>loadline — MIT. Built by <a href="https://github.com/MohammedAlkindi">Mohammed Alkindi</a>.</span>
+    <span>The mark on a hull showing how heavily it may safely be loaded.</span>
+  </footer>
+
+</div>
+
+<script src="/app.js" defer></script>
 </body>
 </html>
