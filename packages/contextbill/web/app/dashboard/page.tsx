@@ -1,0 +1,134 @@
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/server';
+import { num, pct, usd, when } from '@/lib/format';
+
+interface ReportRow {
+  id: string;
+  created_at: string;
+  label: string | null;
+  turns: number;
+  session_count: number;
+  total_usd: string | number;
+  startup_prefix_usd: string | number;
+  median_startup_prefix: number;
+  price_table_date: string;
+  cache_ttl: string;
+}
+
+/** Postgres numeric arrives as a string over the wire; never trust it as a number. */
+function n(v: string | number | null | undefined): number {
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string') return Number.parseFloat(v);
+  return 0;
+}
+
+export default async function DashboardPage() {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('reports')
+    .select(
+      'id, created_at, label, turns, session_count, total_usd, startup_prefix_usd, median_startup_prefix, price_table_date, cache_ttl',
+    )
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) {
+    return (
+      <div className="notice err">
+        Could not load reports: {error.message}
+      </div>
+    );
+  }
+
+  const reports = (data ?? []) as ReportRow[];
+
+  if (reports.length === 0) {
+    return (
+      <div className="card empty">
+        <h3>No reports yet</h3>
+        <p style={{ maxWidth: '30rem', margin: '0 auto 1.5rem' }}>
+          Point contextbill at your Claude Code transcripts and it will work out what
+          they cost. Parsing happens in this browser — only the totals are saved.
+        </p>
+        <Link className="btn" href="/dashboard/new">
+          Create your first report
+        </Link>
+      </div>
+    );
+  }
+
+  const latest = reports[0]!;
+  const prefixShare =
+    n(latest.total_usd) > 0 ? (100 * n(latest.startup_prefix_usd)) / n(latest.total_usd) : 0;
+
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <p className="eyebrow">Latest report</p>
+          <h2>{when(latest.created_at)}</h2>
+        </div>
+        <Link className="btn" href="/dashboard/new">
+          New report
+        </Link>
+      </div>
+
+      <div className="grid cols-3" style={{ marginBottom: '2rem' }}>
+        <div className="stat">
+          <div className="v">{usd(n(latest.total_usd))}</div>
+          <div className="k">
+            total across {num(latest.turns)} turns in {num(latest.session_count)} sessions
+          </div>
+        </div>
+        <div className="stat">
+          <div className="v spot">{pct(prefixShare)}</div>
+          <div className="k">
+            of spend was context loaded before you typed — {usd(n(latest.startup_prefix_usd))}
+          </div>
+        </div>
+        <div className="stat">
+          <div className="v">{num(latest.median_startup_prefix)}</div>
+          <div className="k">median tokens loaded before your first keystroke</div>
+        </div>
+      </div>
+
+      <div className="card">
+        <h3 style={{ marginBottom: '1rem' }}>All reports</h3>
+        <div className="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Created</th>
+                <th>Label</th>
+                <th className="n">Sessions</th>
+                <th className="n">Turns</th>
+                <th className="n">Total</th>
+                <th className="n">Fixed context</th>
+                <th>Prices</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reports.map((r) => (
+                <tr key={r.id}>
+                  <td>
+                    <Link href={`/dashboard/${r.id}`}>{when(r.created_at)}</Link>
+                  </td>
+                  <td>{r.label ?? <span className="muted">—</span>}</td>
+                  <td className="n">{num(r.session_count)}</td>
+                  <td className="n">{num(r.turns)}</td>
+                  <td className="n">{usd(n(r.total_usd))}</td>
+                  <td className="n">{usd(n(r.startup_prefix_usd))}</td>
+                  <td>
+                    <span className="tag">{r.price_table_date}</span>{' '}
+                    <span className="tag">{r.cache_ttl}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
