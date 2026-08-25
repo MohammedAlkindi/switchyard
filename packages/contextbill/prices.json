@@ -1,12 +1,12 @@
 {
   "$comment": [
-    "Per-million-token prices in USD. EVERY dollar figure loadline reports derives from",
+    "Per-million-token prices in USD. EVERY dollar figure contextbill reports derives from",
     "this file, so it is versioned, dated, and cited in the report footer.",
     "",
     "Source: Anthropic first-party API rates, as published in the bundled `claude-api`",
     "skill reference (cache stamped 2026-06-24). These are Claude API / Microsoft Foundry",
     "rates. Amazon Bedrock and Google Vertex AI are partner-operated and priced",
-    "separately -- loadline does not model them.",
+    "separately -- contextbill does not model them.",
     "",
     "If you are reading a report and the numbers look wrong, check `dated` below first."
   ],
@@ -21,7 +21,7 @@
       "5-minute TTL writes at 1.25x; 1-hour TTL writes at 2x.",
       "",
       "TRANSCRIPTS DO NOT RECORD WHICH TTL WAS USED. `cache_creation_input_tokens` is a",
-      "single number with no TTL field, so loadline cannot infer it and does not guess.",
+      "single number with no TTL field, so contextbill cannot infer it and does not guess.",
       "Default is the 5-minute rate, which is the conservative choice: if your client",
       "actually used 1-hour caching, the reported cost is an UNDERSTATEMENT, never an",
       "overstatement. Override with --cache-ttl=1h. The report always names which was used."

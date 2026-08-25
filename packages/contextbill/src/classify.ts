@@ -6,7 +6,7 @@ import type { ToolCategory } from './types.js';
  * Ported verbatim from the reference implementation this project grew out of
  * (`usage-audit.js`). The buckets are deliberately unchanged: keeping them
  * identical is what makes the differential check in the README meaningful —
- * loadline's category shares must agree with the reference engine's, and any
+ * contextbill's category shares must agree with the reference engine's, and any
  * divergence means the port dropped something.
  *
  * Order matters. `browser` is tested before the generic `mcp__` prefix because

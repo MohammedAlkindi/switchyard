@@ -1,5 +1,5 @@
 {
-  "name": "loadline",
+  "name": "contextbill",
   "version": "0.1.0",
   "description": "Local-first usage and cost report for coding-agent transcripts. Never sends your data anywhere.",
   "main": "index.js",
@@ -27,7 +27,7 @@
     "vitest": "^4.1.11"
   },
   "bin": {
-    "loadline": "./dist/cli.js"
+    "contextbill": "./dist/cli.js"
   },
   "files": [
     "dist/**/*.js",
@@ -41,6 +41,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MohammedAlkindi/loadline.git"
+    "url": "git+https://github.com/MohammedAlkindi/contextbill.git"
   }
 }

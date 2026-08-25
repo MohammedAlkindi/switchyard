@@ -24,14 +24,14 @@ import type { CacheTtl, PriceTable } from './types.js';
  *     because a measurement did not work is worse than printing nothing.
  */
 
-const HELP = `loadline — what your coding agents actually cost
+const HELP = `contextbill — what your coding agents actually cost
 
 USAGE
-  loadline [options]
+  contextbill [options]
 
 OPTIONS
   --root <dir>       Transcript root. Default: ~/.claude/projects
-  --out <file>       Report path. Default: ./loadline-report.html
+  --out <file>       Report path. Default: ./contextbill-report.html
   --cache-ttl <ttl>  Cache-write billing rate: 5m (default) or 1h.
                      Transcripts don't record this. 5m is the conservative
                      choice — if your client used 1h caching, the real cost
@@ -44,7 +44,7 @@ OPTIONS
   --version          Print version.
   --help             This text.
 
-loadline reads transcripts and writes one HTML file. It opens no sockets.
+contextbill reads transcripts and writes one HTML file. It opens no sockets.
 `;
 
 interface Options {
@@ -63,7 +63,7 @@ interface Options {
 export function parseArgs(argv: readonly string[], home: string): Options {
   const opts: Options = {
     root: path.join(home, '.claude', 'projects'),
-    out: path.resolve('loadline-report.html'),
+    out: path.resolve('contextbill-report.html'),
     ttl: '5m',
     json: false,
     top: 20,
@@ -138,7 +138,7 @@ function loadPriceTable(): PriceTable {
       continue;
     }
   }
-  throw new Error('prices.json not found next to the loadline package');
+  throw new Error('prices.json not found next to the contextbill package');
 }
 
 function readVersion(): string {
@@ -173,14 +173,14 @@ function main(): void {
 
   if (opts.unknown.length > 0) {
     process.stderr.write(
-      `loadline: ignoring unrecognised flag(s): ${opts.unknown.join(', ')}\n` +
-        'Run "loadline --help" for the supported options.\n\n',
+      `contextbill: ignoring unrecognised flag(s): ${opts.unknown.join(', ')}\n` +
+        'Run "contextbill --help" for the supported options.\n\n',
     );
   }
 
   if (!fs.existsSync(opts.root)) {
     process.stderr.write(
-      `loadline: no transcripts at ${opts.root}\n` +
+      `contextbill: no transcripts at ${opts.root}\n` +
         `Point --root at a directory of .jsonl transcripts.\n`,
     );
     return;
@@ -196,7 +196,7 @@ function main(): void {
     : scanned.map((s) => ({ ...s, project: redactProject(s.project, home) }));
 
   if (stats.length === 0) {
-    process.stderr.write(`loadline: found no .jsonl transcripts under ${opts.root}\n`);
+    process.stderr.write(`contextbill: found no .jsonl transcripts under ${opts.root}\n`);
     return;
   }
 
@@ -217,7 +217,7 @@ function main(): void {
   // exact confident-wrong-number this tool exists to prevent.
   if (report.turns === 0) {
     process.stderr.write(
-      `loadline: read ${stats.length} transcript file(s) under ${opts.root}, ` +
+      `contextbill: read ${stats.length} transcript file(s) under ${opts.root}, ` +
         'but found no usage data in any of them.\n' +
         'That usually means this is not a Claude Code transcript root, or the ' +
         'files are in a format this version does not understand.\n' +
@@ -272,7 +272,7 @@ if (isEntryPoint()) {
     main();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`loadline failed (non-fatal): ${message}\n`);
+    process.stderr.write(`contextbill failed (non-fatal): ${message}\n`);
   }
   process.exit(0);
 }

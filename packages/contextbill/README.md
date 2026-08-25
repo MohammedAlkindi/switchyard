@@ -1,10 +1,10 @@
-# loadline
+# contextbill
 
 Know what your AI agents actually cost. Analyze Claude Code usage locally and see
 where your tokens and dollars are going.
 
 ```console
-$ npx loadline
+$ npx contextbill
 
   $22,297 across 82,767 turns in 376 sessions
   $22,759 projected per 30 days
@@ -12,7 +12,7 @@ $ npx loadline
 
   2 long session(s) wrote no file — see the report
 
-  report -> ./loadline-report.html
+  report -> ./contextbill-report.html
 ```
 
 Those are real figures from one developer machine, not a projection. The third line
@@ -31,26 +31,26 @@ were expensive, which produced nothing, which scheduled runs died before doing a
 work, or how much of the bill is fixed overhead you could delete rather than
 optimize.
 
-That information is already on your disk, in the transcripts. loadline reads it.
+That information is already on your disk, in the transcripts. contextbill reads it.
 
 ## Run it
 
 ```bash
-npx loadline
+npx contextbill
 ```
 
 Or from source:
 
 ```bash
-git clone https://github.com/MohammedAlkindi/loadline.git
-cd loadline && npm install && npm run build
+git clone https://github.com/MohammedAlkindi/contextbill.git
+cd contextbill && npm install && npm run build
 node dist/cli.js
 ```
 
 | Flag | Default | Meaning |
 | ---- | ------- | ------- |
 | `--root <dir>` | `~/.claude/projects` | Transcript root |
-| `--out <file>` | `./loadline-report.html` | Report path |
+| `--out <file>` | `./contextbill-report.html` | Report path |
 | `--cache-ttl <5m\|1h>` | `5m` | Cache-write billing rate |
 | `--top <n>` | `20` | Rows in the most-expensive-sessions table |
 | `--show-paths` | off | Show full project directory slugs |
@@ -104,7 +104,7 @@ compiled and is cited in every report footer. Anthropic first-party API rates on
 Amazon Bedrock and Google Vertex AI are partner-operated, priced separately, and not
 modelled.
 
-Three details that are easy to get wrong, and how loadline handles them:
+Three details that are easy to get wrong, and how contextbill handles them:
 
 - **Dated model ids.** Transcripts record the id actually sent, including snapshots
   like `claude-haiku-4-5-20251001`. A direct table lookup misses those and prices a
@@ -113,7 +113,7 @@ Three details that are easy to get wrong, and how loadline handles them:
   understates every fast session.
 - **Cache-write TTL is not recorded in transcripts.** Writes bill at 1.25× at the
   5-minute TTL and 2× at one hour, and the transcript carries a single number with no
-  TTL field. loadline cannot infer it and does not guess: it defaults to the cheaper
+  TTL field. contextbill cannot infer it and does not guess: it defaults to the cheaper
   rate — so it understates rather than overstates — names the assumption in the report
   footer, and offers `--cache-ttl=1h` to see the other figure.
 
@@ -163,7 +163,7 @@ one.
 
 ## Environment variables
 
-None. loadline needs no API key, no account and no configuration, because it never
+None. contextbill needs no API key, no account and no configuration, because it never
 calls an API. If a future version ever requires a credential, that will be a breaking
 change announced in the changelog.
 
@@ -173,7 +173,7 @@ Issues and pull requests welcome. Before opening one:
 
 1. `npm test`, `npm run lint` and `npm run build` all pass.
 2. New behaviour comes with a test. Do not weaken an existing test to make a suite green.
-3. **Do not add a runtime dependency** without a stated reason — `npx loadline` staying
+3. **Do not add a runtime dependency** without a stated reason — `npx contextbill` staying
    instant and auditable is a product property, not an implementation detail.
 4. **Do not add a network call.** Zero egress is the product; there is a test asserting
    it.

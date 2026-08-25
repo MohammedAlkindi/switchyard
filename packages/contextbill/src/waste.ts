@@ -5,7 +5,7 @@ import type { DeadRun, Findings, SessionCost, SessionStat, TurnBucket } from './
  *
  * Every function here is a *hypothesis about* waste, not a measurement of it.
  * That distinction is load-bearing and is reflected in the wording the report
- * uses: loadline says "no file written", never "wasted". A long read-only
+ * uses: contextbill says "no file written", never "wasted". A long read-only
  * research session is legitimate work and must not be labelled otherwise on the
  * strength of a heuristic. The numbers are offered so a human can judge.
  */

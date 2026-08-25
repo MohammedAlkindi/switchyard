@@ -228,7 +228,7 @@ export function renderReport(r: Report): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>loadline report</title>
+<title>contextbill report</title>
 <style>${STYLES}</style>
 </head>
 <body>
@@ -278,7 +278,7 @@ ${unpricedNote}
   <strong>This is a prompt, not a verdict.</strong>
   These sessions ran ${LONG_SESSION_TURNS}+ turns without a single Write or Edit call.
   Some will be legitimate research or debugging; others will be a loop that went
-  nowhere. loadline cannot tell which, and does not guess — it surfaces them so
+  nowhere. contextbill cannot tell which, and does not guess — it surfaces them so
   you can look. Note a <code>Bash</code> command that writes a file does not count here.
 </div>
 ${
@@ -335,7 +335,7 @@ ${
 </div>
 
 <footer>
-  <p>Generated ${esc(r.generatedAt)} by loadline.</p>
+  <p>Generated ${esc(r.generatedAt)} by contextbill.</p>
   <p>Prices from the bundled table dated <strong>${esc(r.priceTableDate)}</strong>. Anthropic
      first-party API rates; Bedrock and Vertex are priced separately and are not modelled.</p>
   <p>Cache writes billed at the <strong>${esc(r.cacheTtlAssumed)}</strong> TTL rate. Transcripts do not

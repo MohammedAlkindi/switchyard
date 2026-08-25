@@ -1,7 +1,7 @@
 /**
  * Redaction for values that end up on screen.
  *
- * loadline's whole point is that you screenshot the report and send it to
+ * contextbill's whole point is that you screenshot the report and send it to
  * someone. That makes anything rendered into it effectively public, and the
  * transcript directory layout is not as harmless as it looks.
  *

@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Analyze Claude Code usage locally and see where your tokens and dollars are going. No signup, no account, no network calls.">
 <meta name="color-scheme" content="light dark">
-<meta property="og:title" content="loadline">
+<meta property="og:title" content="contextbill">
 <meta property="og:description" content="Know what your AI agents actually cost. Local-first usage analysis for Claude Code.">
 <meta property="og:type" content="website">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<title>loadline</title>
+<title>contextbill</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -161,12 +161,12 @@ footer { border-top: 1px solid var(--hair); padding: 1.75rem 0 3rem; font-size: 
         <circle cx="12" cy="12" r="7.6" fill="none" stroke="currentColor" stroke-width="2"/>
         <line x1="1.5" y1="12" x2="22.5" y2="12" stroke="currentColor" stroke-width="2"/>
       </svg>
-      loadline
+      contextbill
     </span>
     <span class="links">
       <a href="#how">How it works</a>
       <a href="#local">Local</a>
-      <a href="https://github.com/MohammedAlkindi/loadline">GitHub</a>
+      <a href="https://github.com/MohammedAlkindi/contextbill">GitHub</a>
     </span>
   </nav>
 
@@ -177,10 +177,10 @@ footer { border-top: 1px solid var(--hair); padding: 1.75rem 0 3rem; font-size: 
     </p>
     <div class="run">
       <div class="term">
-        <span><span class="d">$</span> npx loadline</span>
-        <button type="button" data-copy="npx loadline">Copy</button>
+        <span><span class="d">$</span> npx contextbill</span>
+        <button type="button" data-copy="npx contextbill">Copy</button>
       </div>
-      <a class="ghost" href="https://github.com/MohammedAlkindi/loadline">GitHub</a>
+      <a class="ghost" href="https://github.com/MohammedAlkindi/contextbill">GitHub</a>
     </div>
     <div class="badges"><span>no signup</span><span>no account</span><span>no network calls</span><span>0 dependencies</span></div>
   </section>
@@ -189,15 +189,15 @@ footer { border-top: 1px solid var(--hair); padding: 1.75rem 0 3rem; font-size: 
     <div class="frame">
       <div class="bar">
         <i></i><i></i><i></i>
-        <span class="file">loadline-report.html</span>
+        <span class="file">contextbill-report.html</span>
         <span class="live">LIVE — SCROLL IT</span>
       </div>
-      <iframe id="report" title="Example loadline report" loading="lazy" srcdoc="<!doctype html>
+      <iframe id="report" title="Example contextbill report" loading="lazy" srcdoc="<!doctype html>
 <html lang=&quot;en&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
 <meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;>
-<title>loadline report</title>
+<title>contextbill report</title>
 <style>
 :root {
   --bg: #fbfaf8;
@@ -434,7 +434,7 @@ footer p { margin: .3rem 0; }
   <strong>This is a prompt, not a verdict.</strong>
   These sessions ran 200+ turns without a single Write or Edit call.
   Some will be legitimate research or debugging; others will be a loop that went
-  nowhere. loadline cannot tell which, and does not guess — it surfaces them so
+  nowhere. contextbill cannot tell which, and does not guess — it surfaces them so
   you can look. Note a <code>Bash</code> command that writes a file does not count here.
 </div>
 <div class=&quot;card scroll&quot;><table>
@@ -581,7 +581,7 @@ footer p { margin: .3rem 0; }
 </div>
 
 <footer>
-  <p>Generated 2026-08-25T17:18:58.014Z by loadline.</p>
+  <p>Generated 2026-08-25T17:18:58.014Z by contextbill.</p>
   <p>Prices from the bundled table dated <strong>2026-06-24</strong>. Anthropic
      first-party API rates; Bedrock and Vertex are priced separately and are not modelled.</p>
   <p>Cache writes billed at the <strong>5m</strong> TTL rate. Transcripts do not
@@ -621,7 +621,7 @@ footer p { margin: .3rem 0; }
     <h2>Four steps, all of them local.</h2>
     <div>
       <ol class="steps">
-        <li><s>01</s><span><b>Run <code>npx loadline</code></b> — no install, no config, no API key.</span></li>
+        <li><s>01</s><span><b>Run <code>npx contextbill</code></b> — no install, no config, no API key.</span></li>
         <li><s>02</s><span><b>It reads transcripts from disk</b> — <code>~/.claude/projects</code>, opened read-only.</span></li>
         <li><s>03</s><span><b>Costs are computed locally</b> — against a dated price table shipped in the package.</span></li>
         <li><s>04</s><span><b>One HTML file is written</b> — self-contained, no external references.</span></li>
@@ -646,14 +646,14 @@ footer p { margin: .3rem 0; }
     <h2>Find out in about ten seconds.</h2>
     <div class="run">
       <div class="term">
-        <span><span class="d">$</span> npx loadline</span>
-        <button type="button" data-copy="npx loadline">Copy</button>
+        <span><span class="d">$</span> npx contextbill</span>
+        <button type="button" data-copy="npx contextbill">Copy</button>
       </div>
     </div>
   </section>
 
   <footer>
-    <span>loadline — MIT. Built by <a href="https://github.com/MohammedAlkindi">Mohammed Alkindi</a>.</span>
+    <span>contextbill — MIT. Built by <a href="https://github.com/MohammedAlkindi">Mohammed Alkindi</a>.</span>
     <span>The mark on a hull showing how heavily it may safely be loaded.</span>
   </footer>
 

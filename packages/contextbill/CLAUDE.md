@@ -1,4 +1,4 @@
-# loadline
+# contextbill
 
 Local-first CLI that turns coding-agent transcripts into a dollar-denominated usage
 report. Zero runtime dependencies, zero network calls.
@@ -22,7 +22,7 @@ eslint are dev-only.
   dependency that opens a socket, a webfont, a CDN link or an analytics ping breaks it.
   The rendered report is asserted against `/https?:\/\//` in the test suite — keep that
   test passing.
-- **No runtime dependencies.** `npx loadline` must stay instant and reviewable. Anything
+- **No runtime dependencies.** `npx contextbill` must stay instant and reviewable. Anything
   added to `dependencies` needs a stated reason; dev dependencies are unrestricted.
 - Strict mode, zero `any`. Interfaces live in `types.ts` before their consumers.
 - `cli.ts` is the only module permitted to touch the filesystem or `process`. Everything
