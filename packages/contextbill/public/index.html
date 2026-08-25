@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>loadline — what your coding agents actually cost</title>
+<meta name="description" content="A local-first CLI that reads your coding-agent transcripts and tells you what they cost in dollars. No signup, no account, nothing leaves your machine.">
+<meta property="og:title" content="loadline">
+<meta property="og:description" content="What your coding agents actually cost. One command. Nothing leaves your machine.">
+<meta property="og:type" content="website">
+<style>
+:root {
+  --bg: #fbfaf8;
+  --surface: #ffffff;
+  --border: #e6e2db;
+  --ink: #1a1917;
+  --ink-soft: #6b6660;
+  --accent: #b4541f;
+  --accent-soft: #f6ece4;
+  --term-bg: #1c1b18;
+  --term-ink: #ebe7e0;
+  --radius: 12px;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141312;
+    --surface: #1d1c1a;
+    --border: #322f2b;
+    --ink: #f2efea;
+    --ink-soft: #9a948b;
+    --accent: #e08a55;
+    --accent-soft: #33241b;
+    --term-bg: #0e0d0c;
+    --term-ink: #ebe7e0;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141312; --surface: #1d1c1a; --border: #322f2b;
+  --ink: #f2efea; --ink-soft: #9a948b; --accent: #e08a55;
+  --accent-soft: #33241b; --term-bg: #0e0d0c; --term-ink: #ebe7e0;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--sans); line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 54rem; margin: 0 auto; padding: 0 1.25rem; }
+
+/* ---- masthead ---- */
+nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.4rem 0; gap: 1rem; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: .55rem; font-weight: 650; letter-spacing: -.02em; font-size: 1.05rem; }
+.brand .mark { color: var(--accent); }
+nav a.link { color: var(--ink-soft); text-decoration: none; font-size: .875rem; margin-left: 1.1rem; }
+nav a.link:hover { color: var(--accent); }
+
+/* ---- hero ---- */
+header { padding: 3.5rem 0 1rem; }
+h1 {
+  font-size: clamp(2.1rem, 6vw, 3.4rem); line-height: 1.08;
+  letter-spacing: -.035em; margin: 0 0 1rem; font-weight: 680;
+}
+.lede { font-size: clamp(1.05rem, 2.4vw, 1.2rem); color: var(--ink-soft); max-width: 34rem; margin: 0 0 2rem; }
+.term {
+  background: var(--term-bg); color: var(--term-ink); border-radius: var(--radius);
+  padding: 1.15rem 1.3rem; font-family: var(--mono); font-size: .875rem;
+  overflow-x: auto; line-height: 1.75; border: 1px solid var(--border);
+}
+.term .p { color: #8f8880; user-select: none; }
+.term .c { color: #e2a06a; }
+.term .d { color: #7fb894; }
+.term .m { color: #8f8880; }
+.cta { display: flex; gap: .7rem; flex-wrap: wrap; margin: 1.6rem 0 .6rem; }
+.btn {
+  display: inline-block; padding: .6rem 1.15rem; border-radius: 8px;
+  text-decoration: none; font-size: .9rem; font-weight: 560; border: 1px solid var(--ink);
+  background: var(--ink); color: var(--bg); transition: opacity .15s;
+}
+.btn:hover { opacity: .82; }
+.btn.ghost { background: transparent; color: var(--ink); }
+.fineprint { font-size: .8rem; color: var(--ink-soft); margin: 0; }
+
+/* ---- sections ---- */
+section { padding: 3.75rem 0; border-top: 1px solid var(--border); margin-top: 3.5rem; }
+h2 { font-size: clamp(1.35rem, 3.2vw, 1.7rem); letter-spacing: -.025em; margin: 0 0 .7rem; }
+h3 { font-size: 1rem; margin: 0 0 .35rem; letter-spacing: -.01em; }
+p { margin: 0 0 1rem; }
+.eyebrow {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .12em;
+  color: var(--accent); font-weight: 640; margin: 0 0 .5rem;
+}
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.grid > div { background: var(--surface); padding: 1.3rem; }
+.grid p { font-size: .9rem; color: var(--ink-soft); margin: 0; }
+.num { font-family: var(--mono); font-size: .75rem; color: var(--accent); display: block; margin-bottom: .5rem; }
+.pull {
+  border-left: 3px solid var(--accent); background: var(--accent-soft);
+  padding: 1.15rem 1.35rem; border-radius: 0 var(--radius) var(--radius) 0; margin: 1.5rem 0;
+}
+.pull p:last-child { margin-bottom: 0; }
+.pull strong { color: var(--accent); }
+ul.plain { list-style: none; padding: 0; margin: 0; }
+ul.plain li { padding: .7rem 0; border-bottom: 1px solid var(--border); font-size: .93rem; }
+ul.plain li:last-child { border-bottom: none; }
+ul.plain b { display: block; margin-bottom: .1rem; }
+ul.plain span { color: var(--ink-soft); }
+code {
+  font-family: var(--mono); font-size: .87em;
+  background: var(--border); padding: .12em .38em; border-radius: 5px;
+}
+footer {
+  border-top: 1px solid var(--border); margin-top: 3.5rem;
+  padding: 2rem 0 3rem; font-size: .84rem; color: var(--ink-soft);
+}
+footer a { color: var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav>
+  <div class="brand">
+    <!-- The load line: the mark on a hull showing maximum safe loading depth. -->
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
+      <circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <line x1="1" y1="11" x2="21" y2="11" stroke="var(--accent)" stroke-width="1.6"/>
+    </svg>
+    <span>load<span class="mark">line</span></span>
+  </div>
+  <div>
+    <a class="link" href="#how">How it works</a>
+    <a class="link" href="#honest">Honest by design</a>
+    <a class="link" href="https://github.com/MohammedAlkindi/loadline">GitHub</a>
+  </div>
+</nav>
+
+<header>
+  <h1>What your coding agents<br>actually cost.</h1>
+  <p class="lede">
+    Your vendor dashboard gives you one blended number per seat. loadline reads
+    the transcripts already on your disk and tells you where the money went,
+    which sessions produced nothing, and what you pay before you type a word.
+  </p>
+
+  <div class="term">
+<span class="p">$</span> <span class="c">npx loadline</span>
+
+  <span class="d">$1,840</span> across 12,400 turns in 68 sessions
+  <span class="d">$1,900</span> projected per 30 days
+  <span class="d">74,000</span> median tokens loaded before you type <span class="m">— $340 paid for that alone</span>
+
+  <span class="m">2 long session(s) wrote no file — see the report</span>
+  <span class="m">report -&gt; ./loadline-report.html</span>
+  </div>
+  <p class="fineprint">Example output. Your numbers come from your own transcripts and stay there.</p>
+
+  <div class="cta">
+    <a class="btn" href="https://github.com/MohammedAlkindi/loadline">Read the source</a>
+    <a class="btn ghost" href="https://www.npmjs.com/package/loadline">View on npm</a>
+  </div>
+  <p class="fineprint">No signup. No account. No API key. Nothing leaves your machine.</p>
+</header>
+
+<section id="tax">
+  <p class="eyebrow">The number nobody shows you</p>
+  <h2>You pay for the same context on every single turn.</h2>
+  <p>
+    Every session loads a system prompt, a tool catalog, connector definitions and
+    instruction files before it does any work. That block is written to cache once and
+    then re-read on <em>every subsequent turn</em> — so a 500-turn session pays for it
+    500 times.
+  </p>
+  <div class="pull">
+    <p>
+      <strong>It is routinely a double-digit percentage of the bill</strong>, and it is
+      the one line item that shrinks by deleting things rather than by working
+      differently. Prune three connectors you never call and the saving lands on every
+      turn of every session, forever.
+    </p>
+  </div>
+  <p>
+    No per-seat dashboard breaks this out, because from the billing side it is
+    indistinguishable from work. From the transcript side it is obvious.
+  </p>
+</section>
+
+<section id="how">
+  <p class="eyebrow">How it works</p>
+  <h2>Four questions, one command.</h2>
+  <div class="grid">
+    <div>
+      <span class="num">01</span>
+      <h3>Where the money goes</h3>
+      <p>Real dollars split across shell, file reads, browser automation, connectors,
+         model output and fixed overhead — priced per model, with fast-mode turns
+         billed at their own rate.</p>
+    </div>
+    <div>
+      <span class="num">02</span>
+      <h3>The fixed tax</h3>
+      <p>Your median startup prefix, and what you paid to re-read it across every turn
+         of every session.</p>
+    </div>
+    <div>
+      <span class="num">03</span>
+      <h3>Sessions that produced nothing</h3>
+      <p>Long runs that never wrote a file. Surfaced as a prompt to go look — never as
+         a verdict, because read-only research is real work.</p>
+    </div>
+    <div>
+      <span class="num">04</span>
+      <h3>Runs that died on startup</h3>
+      <p>A scheduled agent that exits before working looks identical to one that never
+         fired. Transcript size is the only signal that separates them afterwards.</p>
+    </div>
+  </div>
+</section>
+
+<section id="local">
+  <p class="eyebrow">Local by construction</p>
+  <h2>It installs without a security review.</h2>
+  <p>
+    loadline opens no sockets. Not to Anthropic, not to a telemetry endpoint, not to a
+    CDN for a webfont. It reads local files, writes one local HTML file, and exits.
+    There is a test in the suite asserting the rendered report contains no external
+    reference at all, and it is not allowed to fail.
+  </p>
+  <p>
+    It also ships <strong>zero runtime dependencies</strong> — Node built-ins only. There
+    is no transitive tree for anyone to audit, and <code>npx</code> stays instant.
+  </p>
+  <p>
+    That is the whole distribution strategy. Every tool that ships a cloud dashboard has
+    to get through procurement before an engineer can try it. This one gets tried first.
+  </p>
+</section>
+
+<section id="honest">
+  <p class="eyebrow">Honest by design</p>
+  <h2>Every assumption is stated, not hidden.</h2>
+  <p>
+    A cost tool that quietly guesses is worse than no cost tool, because you act on it.
+    Where loadline cannot know something, it says so in the report itself:
+  </p>
+  <ul class="plain">
+    <li>
+      <b>Cache-write TTL is not recorded in transcripts.</b>
+      <span>Writes bill at 1.25× at the 5-minute TTL and 2× at one hour, and the
+      transcript carries a single number with no TTL field. loadline defaults to the
+      cheaper rate — so it understates rather than overstates — names the assumption in
+      the footer, and gives you a flag to see the other figure.</span>
+    </li>
+    <li>
+      <b>Prices carry the date they were compiled.</b>
+      <span>Every report footer cites it. Anthropic first-party rates only; Bedrock and
+      Vertex are partner-priced and deliberately not modelled.</span>
+    </li>
+    <li>
+      <b>Unpriced models are reported, not zeroed.</b>
+      <span>A model with no entry in the table is counted and called out, rather than
+      silently folded into the total as free.</span>
+    </li>
+    <li>
+      <b>&ldquo;No file written&rdquo; is a prompt, not a verdict.</b>
+      <span>loadline will not call your session wasteful. It shows you the long ones
+      that wrote nothing and lets you judge — and it tells you that a shell command
+      writing a file does not count toward the flag.</span>
+    </li>
+  </ul>
+</section>
+
+<footer>
+  <p>
+    <strong>loadline</strong> — MIT licensed. Built by
+    <a href="https://github.com/MohammedAlkindi">Mohammed Alkindi</a>.
+  </p>
+  <p>
+    This page loads no third-party fonts, scripts, or analytics. It would be strange
+    to claim otherwise.
+  </p>
+</footer>
+
+</div>
+</body>
+</html>
