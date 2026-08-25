@@ -1,0 +1,20 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# Generated reports — these describe a real machine, never commit one
+loadline-report.html
+*.report.html
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log

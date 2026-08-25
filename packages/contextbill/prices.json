@@ -1,0 +1,72 @@
+{
+  "$comment": [
+    "Per-million-token prices in USD. EVERY dollar figure loadline reports derives from",
+    "this file, so it is versioned, dated, and cited in the report footer.",
+    "",
+    "Source: Anthropic first-party API rates, as published in the bundled `claude-api`",
+    "skill reference (cache stamped 2026-06-24). These are Claude API / Microsoft Foundry",
+    "rates. Amazon Bedrock and Google Vertex AI are partner-operated and priced",
+    "separately -- loadline does not model them.",
+    "",
+    "If you are reading a report and the numbers look wrong, check `dated` below first."
+  ],
+  "dated": "2026-06-24",
+  "currency": "USD",
+  "unit": "per_million_tokens",
+  "source": "Anthropic first-party API published rates",
+
+  "cacheWriteMultiplier": {
+    "$comment": [
+      "Cache writes are billed as a multiple of the model's base input rate.",
+      "5-minute TTL writes at 1.25x; 1-hour TTL writes at 2x.",
+      "",
+      "TRANSCRIPTS DO NOT RECORD WHICH TTL WAS USED. `cache_creation_input_tokens` is a",
+      "single number with no TTL field, so loadline cannot infer it and does not guess.",
+      "Default is the 5-minute rate, which is the conservative choice: if your client",
+      "actually used 1-hour caching, the reported cost is an UNDERSTATEMENT, never an",
+      "overstatement. Override with --cache-ttl=1h. The report always names which was used."
+    ],
+    "5m": 1.25,
+    "1h": 2.0,
+    "default": "5m"
+  },
+  "cacheReadMultiplier": 0.1,
+
+  "models": {
+    "claude-fable-5": { "input": 10.0, "output": 50.0 },
+    "claude-mythos-5": { "input": 10.0, "output": 50.0 },
+    "claude-opus-5": {
+      "input": 5.0,
+      "output": 25.0,
+      "fastInput": 10.0,
+      "fastOutput": 50.0,
+      "note": "Fast mode (usage.speed === 'fast') bills at the premium rate."
+    },
+    "claude-opus-4-8": {
+      "input": 5.0,
+      "output": 25.0,
+      "fastInput": 10.0,
+      "fastOutput": 50.0,
+      "note": "Fast mode (usage.speed === 'fast') bills at the premium rate."
+    },
+    "claude-opus-4-7": { "input": 5.0, "output": 25.0 },
+    "claude-opus-4-6": { "input": 5.0, "output": 25.0 },
+    "claude-opus-4-5": { "input": 5.0, "output": 25.0 },
+    "claude-sonnet-5": {
+      "input": 3.0,
+      "output": 15.0,
+      "note": "Introductory pricing of $2.00/$10.00 ran through 2026-08-31. Standard rates are used here, so sessions inside that window are slightly OVERSTATED."
+    },
+    "claude-sonnet-4-6": { "input": 3.0, "output": 15.0 },
+    "claude-sonnet-4-5": { "input": 3.0, "output": 15.0 },
+    "claude-haiku-4-5": { "input": 1.0, "output": 5.0 }
+  },
+
+  "unpricedModels": {
+    "$comment": [
+      "Model IDs that appear in transcripts but carry no billable rate. Counted",
+      "separately and shown in the report rather than silently priced at zero."
+    ],
+    "ids": ["<synthetic>"]
+  }
+}

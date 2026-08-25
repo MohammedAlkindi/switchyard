@@ -1,0 +1,45 @@
+{
+  "name": "loadline",
+  "version": "0.1.0",
+  "description": "Local-first usage and cost report for coding-agent transcripts. Never sends your data anywhere.",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc",
+    "lint": "eslint .",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "claude-code",
+    "tokens",
+    "cost",
+    "observability",
+    "cli"
+  ],
+  "author": "Mohammed Alkindi",
+  "license": "MIT",
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^26.3.0",
+    "eslint": "^10.9.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.68.0",
+    "vitest": "^4.1.11"
+  },
+  "bin": {
+    "loadline": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "prices.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MohammedAlkindi/loadline.git"
+  }
+}

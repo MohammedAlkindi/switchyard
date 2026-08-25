@@ -1,1 +1,4 @@
 * text=auto
+
+# Fixtures are parsed byte-for-byte; keep them LF on every platform.
+*.jsonl -text

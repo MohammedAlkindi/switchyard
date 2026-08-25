@@ -1,0 +1,7 @@
+{"timestamp":"2026-08-01T10:00:00.000Z","message":{"model":"claude-opus-5","usage":{"input_tokens":10,"cache_creation_input_tokens":1000,"cache_read_input_tokens":0,"output_tokens":50},"content":[{"type":"tool_use","id":"t1","name":"Read"}]}}
+{"timestamp":"2026-08-01T10:00:05.000Z","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"0123456789"}]}}
+{"timestamp":"2026-08-01T10:00:10.000Z","message":{"model":"claude-opus-5","usage":{"input_tokens":5,"cache_creation_input_tokens":0,"cache_read_input_tokens":1000,"output_tokens":20},"content":[{"type":"tool_use","id":"t2","name":"Write"}]}}
+{"timestamp":"2026-08-01T10:00:15.000Z","message":{"content":[{"type":"tool_result","tool_use_id":"t2","content":"ok"}]}}
+{"timestamp":"2026-08-01T10:00:20.000Z","message":{"model":"claude-sonnet-5","usage":{"input_tokens":2,"cache_creation_input_tokens":0,"cache_read_input_tokens":1000,"output_tokens":10},"content":[{"type":"tool_use","id":"t3","name":"Bash"}]}}
+{"timestamp":"2026-08-01T10:00:25.000Z","message":{"content":[{"type":"tool_result","tool_use_id":"t3","content":"abcde"}]}}
+this line is deliberately not valid json and must be skipped
