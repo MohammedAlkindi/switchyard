@@ -102,6 +102,18 @@ node dist/cli.js --help
 | `--cache-ttl <5m\|1h>` | `5m` | Cache-write billing rate |
 | `--top <n>` | `20` | Rows in the most-expensive-sessions table |
 | `--json` | — | Print JSON to stdout, write no file |
+| `--show-paths` | off | Show full project directory slugs (see below) |
+
+### Project names are redacted by default
+
+Claude Code names each project directory after the literal startup cwd, mapping
+`:` `\` `/` `.` and `~` all to `-`. A session started in `C:\Users\jdoe\work\acme` becomes
+the slug `C--Users-jdoe-work-acme` — which decodes straight back to your OS account name
+and your directory tree.
+
+This report exists to be screenshotted and sent to someone, so that is redacted by
+default: you get `work-acme`, which keeps the part you care about and drops the part that
+identifies your machine. Pass `--show-paths` if you want the raw slugs locally.
 
 ## Environment variables
 

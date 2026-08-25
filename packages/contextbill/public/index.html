@@ -267,6 +267,12 @@ footer a { color: var(--ink-soft); }
       silently folded into the total as free.</span>
     </li>
     <li>
+      <b>Your directory tree is redacted before it reaches the page.</b>
+      <span>Transcript folders are named after the literal working directory, so the raw
+      label encodes your OS account name and your whole path. Since the report is built
+      to be shared, loadline strips that by default and keeps only the project name.</span>
+    </li>
+    <li>
       <b>&ldquo;No file written&rdquo; is a prompt, not a verdict.</b>
       <span>loadline will not call your session wasteful. It shows you the long ones
       that wrote nothing and lets you judge — and it tells you that a shell command

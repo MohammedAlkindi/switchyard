@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import { aggregate, monthlyProjection } from './aggregate.js';
 import { cacheWriteMultiplier, usd } from './cost.js';
+import { redactProject } from './privacy.js';
 import { renderReport } from './report.js';
 import { scanAll } from './scan.js';
 import type { CacheTtl, PriceTable } from './types.js';
@@ -37,6 +38,9 @@ OPTIONS
                      is higher than reported.
   --json             Print the report as JSON to stdout, write no file.
   --top <n>          Sessions in the "most expensive" table. Default: 20.
+  --show-paths       Show full project directory slugs. Off by default: those
+                     slugs encode your OS username and directory tree, and the
+                     report is meant to be shared.
   --version          Print version.
   --help             This text.
 
@@ -49,6 +53,7 @@ interface Options {
   ttl: CacheTtl;
   json: boolean;
   top: number;
+  showPaths: boolean;
   help: boolean;
   version: boolean;
 }
@@ -60,6 +65,7 @@ export function parseArgs(argv: readonly string[], home: string): Options {
     ttl: '5m',
     json: false,
     top: 20,
+    showPaths: false,
     help: false,
     version: false,
   };
@@ -94,6 +100,9 @@ export function parseArgs(argv: readonly string[], home: string): Options {
       }
       case '--json':
         opts.json = true;
+        break;
+      case '--show-paths':
+        opts.showPaths = true;
         break;
       case '--help':
       case '-h':
@@ -166,7 +175,13 @@ function main(): void {
   }
 
   const table = loadPriceTable();
-  const stats = scanAll(opts.root);
+  const scanned = scanAll(opts.root);
+
+  // Project slugs encode the OS username and directory tree. The report exists
+  // to be shared, so redaction is the default and showing them is opt-in.
+  const stats = opts.showPaths
+    ? scanned
+    : scanned.map((s) => ({ ...s, project: redactProject(s.project, home) }));
 
   if (stats.length === 0) {
     process.stderr.write(`loadline: found no .jsonl transcripts under ${opts.root}\n`);

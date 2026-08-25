@@ -46,6 +46,11 @@ eslint are dev-only.
   disappears into "connectors".
 - **The startup prefix is read from the first turn only.** On later turns the same
   tokens reappear as cache reads; counting those would multiply the figure.
+- **Project slugs are machine-identifying.** A directory slug like
+  `C--Users-jdoe-work-acme` decodes to the user's OS account name and directory tree.
+  The report is built to be shared, so `privacy.ts` strips that by default and
+  `--show-paths` opts back in. Do not render a raw `project` value anywhere without
+  going through `redactProject`.
 - **Never use real transcripts as test fixtures.** They contain private conversation
   data and the repo is public. `fixtures/` is hand-built and pinned to LF via
   `.gitattributes`.
