@@ -8,8 +8,7 @@ export function usd(n: number): string {
   if (!Number.isFinite(n)) return '—';
   if (n === 0) return '$0.00';
   if (Math.abs(n) < 0.01) return `$${n.toFixed(4)}`;
-  if (Math.abs(n) < 1000) return `$${n.toFixed(2)}`;
-  return `$${Math.round(n).toLocaleString('en-US')}`;
+  return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function num(n: number): string {

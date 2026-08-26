@@ -144,7 +144,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
                 {(sessions ?? []).map((s) => (
                   <tr key={s.id}>
                     <td className="mono">{String(s.session_id).slice(0, 8)}</td>
-                    <td>{s.project}</td>
+                    <td><span className="truncate" title={s.project}>{s.project}</span></td>
                     <td className="n">{num(s.turns)}</td>
                     <td className="n">{usd(n(s.usd))}</td>
                     <td className="n">{usd(n(s.usd_per_turn))}</td>

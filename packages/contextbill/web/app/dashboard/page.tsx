@@ -114,7 +114,7 @@ export default async function DashboardPage() {
                   <td>
                     <Link href={`/dashboard/${r.id}`}>{when(r.created_at)}</Link>
                   </td>
-                  <td>{r.label ?? <span className="muted">—</span>}</td>
+                  <td><span className="truncate" title={r.label ?? undefined}>{r.label ?? <span className="muted">Untitled report</span>}</span></td>
                   <td className="n">{num(r.session_count)}</td>
                   <td className="n">{num(r.turns)}</td>
                   <td className="n">{usd(n(r.total_usd))}</td>

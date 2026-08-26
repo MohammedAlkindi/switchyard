@@ -30,7 +30,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </nav>
         </div>
       </header>
-      <main className="wrap app-main">
+      <main id="main" className="wrap app-main" tabIndex={-1}>
         {children}
       </main>
     </>

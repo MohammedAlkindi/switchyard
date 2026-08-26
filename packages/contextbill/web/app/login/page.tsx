@@ -171,7 +171,7 @@ function AuthForm() {
 
 export default function LoginPage() {
   return (
-    <main className="auth-page">
+    <main id="main" className="auth-page" tabIndex={-1}>
       <div className="wrap-narrow auth-shell">
         <p className="center gap-block">
           <Link href="/" className="brand center">

@@ -100,7 +100,15 @@ describe('usd', () => {
   it('keeps enough digits on sub-cent amounts to be checkable by hand', () => {
     expect(usd(0)).toBe('$0.00');
     expect(usd(0.0001234)).toBe('$0.0001');
+  });
+
+  it('uses one precision above a cent so a column never mixes formats', () => {
+    // A table column holding both $491.03 and $7,419 reads as two different
+    // units. Two decimals throughout, grouped, is the same shape at every
+    // magnitude the real data spans.
     expect(usd(12.5)).toBe('$12.50');
-    expect(usd(45210.4)).toBe('$45,210');
+    expect(usd(491.031)).toBe('$491.03');
+    expect(usd(45210.4)).toBe('$45,210.40');
+    expect(usd(23367.22911)).toBe('$23,367.23');
   });
 });

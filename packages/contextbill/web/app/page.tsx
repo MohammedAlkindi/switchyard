@@ -23,7 +23,7 @@ export default async function LandingPage() {
         </div>
       </header>
 
-      <main>
+      <main id="main" tabIndex={-1}>
         <section className="wrap hero">
           <h1 className="tight enter">Know what your AI agents actually cost.</h1>
           <p className="lede enter">

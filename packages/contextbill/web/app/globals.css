@@ -12,7 +12,7 @@
   --hair:    #E6E4E0;
   --ink:     #16150F;
   --ink-2:   #5A574E;
-  --ink-3:   #8C887E;
+  --ink-3:   #6E6A61;
   --spot:    #B4531B;
   --spot-bg: #FBF0E7;
   --ok:      #2F6B3F;
@@ -40,7 +40,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #100F0C; --panel: #171612; --sink: #1E1D18; --hair: #2B2924;
-    --ink: #F2F0EA; --ink-2: #ADA89C; --ink-3: #837E73;
+    --ink: #F2F0EA; --ink-2: #ADA89C; --ink-3: #8E8A7F;
     --spot: #E08A4E; --spot-bg: #2C1D11;
     --ok: #6FAE7E; --ok-bg: #17231A;
     --warn: #D9AE4E; --warn-bg: #2E2610;
@@ -51,7 +51,7 @@
 }
 :root[data-theme="dark"] {
   --bg: #100F0C; --panel: #171612; --sink: #1E1D18; --hair: #2B2924;
-  --ink: #F2F0EA; --ink-2: #ADA89C; --ink-3: #837E73;
+  --ink: #F2F0EA; --ink-2: #ADA89C; --ink-3: #8E8A7F;
   --spot: #E08A4E; --spot-bg: #2C1D11;
   --ok: #6FAE7E; --ok-bg: #17231A;
   --warn: #D9AE4E; --warn-bg: #2E2610;
@@ -168,11 +168,14 @@ th {
 }
 td { padding: .55rem .6rem .55rem 0; border-bottom: 1px solid var(--hair); color: var(--ink-2); }
 tr:last-child td { border-bottom: none; }
-td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; padding-right: 0; }
+td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+/* padding-right:0 only on the final cell: on a middle column it butts the next
+   header against this one, which is what produced "PER TURNOUTPUT". */
+td.n:last-child, th.n:last-child { padding-right: 0; }
 td a { color: var(--ink); font-weight: 500; }
 
-.bar { height: 4px; background: var(--sink); border-radius: 2px; overflow: hidden; min-width: 3rem; }
-.bar i { display: block; height: 100%; background: var(--ink-3); border-radius: 2px; }
+.bar { height: 6px; background: var(--sink); border-radius: 3px; overflow: hidden; min-width: 4rem; }
+.bar i { display: block; height: 100%; background: var(--ink-3); border-radius: 3px; min-width: 3px; }
 .bar i.spot { background: var(--spot); }
 
 .tag {
@@ -267,4 +270,46 @@ td a { color: var(--ink); font-weight: 500; }
 }
 @media (hover: hover) and (pointer: fine) {
   .linkish:hover { color: var(--ink); }
+}
+
+
+/* ---- accessibility & layout hardening ---- */
+
+/* Skip link: visible only when focused, first thing in the tab order. */
+.skip-link {
+  position: absolute; left: .5rem; top: -3rem; z-index: 100;
+  background: var(--ink); color: var(--bg);
+  padding: .55rem .9rem; border-radius: 6px; font-size: .875rem; font-weight: 500;
+  transition: top var(--t-hover) var(--ease-out);
+}
+.skip-link:focus { top: .5rem; }
+
+/* Long project and directory names truncate instead of breaking the grid.
+   The untruncated value stays available via title= on the same element. */
+.truncate {
+  display: block; max-width: 18rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+@media (max-width: 46rem) { .truncate { max-width: 9rem; } }
+
+/* Wide tables scroll inside their own container; the body never does. */
+html, body { max-width: 100%; overflow-x: hidden; }
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.scroll > table { min-width: 34rem; }
+
+/* Headline figures stay on one line and align across the row. */
+.stat .v { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+@media (max-width: 30rem) {
+  .topnav { gap: .75rem; font-size: .8rem; }
+  .page-head { align-items: flex-start; }
+  .stat .v { font-size: 1.6rem; }
+}
+
+/* On a phone the marketing nav links wrap and fight the brand for the top line.
+   Keep the brand and the one action; the links repeat as page sections below. */
+@media (max-width: 34rem) {
+  .topnav a[href^="#"] { display: none; }
+  .topnav { gap: .9rem; }
+  .brand { font-size: .95rem; }
 }
