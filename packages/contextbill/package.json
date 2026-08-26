@@ -28,7 +28,7 @@
     "vitest": "^4.1.11"
   },
   "bin": {
-    "contextbill": "./dist/cli.js"
+    "contextbill": "dist/cli.js"
   },
   "files": [
     "dist/**/*.js",

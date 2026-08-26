@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
  * it. Every assertion below either failed once for real or guards a property
  * the README sells.
  *
- * These read the manifest and the CLI source, never `dist/`, so they pass in a
+ * These read the manifest and the CLI source, never dist/, so they pass in a
  * fresh clone before anything has been built.
  */
 
@@ -29,31 +29,37 @@ const manifest = JSON.parse(
 
 describe('published package', () => {
   it('rebuilds dist before packing, because dist is gitignored', () => {
-    // The failure this prevents: `npm publish` from a fresh clone. dist/ is in
+    // The failure this prevents: publishing from a fresh clone. dist/ is in
     // .gitignore, so with no pack-time build npm ships a tarball containing no
-    // dist/ at all and `npx contextbill` dies on "Cannot find module
+    // dist/ at all, and npx contextbill dies on "Cannot find module
     // .../dist/cli.js". Measured on a clean clone: 4 files / 5.8 kB, against
-    // 26 files / 25.6 kB from a built tree. npm will not let that version
-    // number be reused, so the first publish is the one that cannot be retried.
+    // 26 files / 25.7 kB from a built tree. npm will not let a version number
+    // be reused, so the first publish is the one that cannot be retried.
     const prepack = manifest.scripts?.prepack;
-    expect(prepack, 'package.json needs a prepack script that builds dist/').toBeDefined();
+    expect(prepack, 'package.json needs a prepack that builds dist/').toBeDefined();
     expect(prepack).toContain('build');
   });
 
-  it('ships the file bin points at', () => {
-    expect(manifest.bin?.['contextbill']).toBe('./dist/cli.js');
+  it('ships the file bin points at, in the form npm accepts', () => {
+    // npm 11 rejects a leading "./" on a bin path. Publishing reports
+    //   "bin[contextbill]" script name dist/cli.js was invalid and removed
+    // and corrects the manifest on its way to the registry -- the manifest npx
+    // reads to find the command. npm pack does not normalise, so it never
+    // shows this; only npm publish --dry-run does.
+    const target = manifest.bin?.['contextbill'];
+    expect(target).toBe('dist/cli.js');
     expect(manifest.files ?? []).toContain('dist/**/*.js');
   });
 
   it('keeps the shebang on the CLI entry point', () => {
-    // Without it npx hands the file to the shell instead of node.
+    // Without it npx hands the file to the shell instead of to node.
     const cli = fs.readFileSync(path.join(root, 'src', 'cli.ts'), 'utf8');
     expect(cli.startsWith('#!/usr/bin/env node')).toBe(true);
   });
 
   it('ships zero runtime dependencies', () => {
-    // `npx contextbill` staying instant and auditable is a product claim, not
-    // a preference. One transitive dependency ends it.
+    // npx contextbill staying instant and auditable is a product claim, not a
+    // preference. One transitive dependency ends it.
     expect(manifest.dependencies ?? {}).toEqual({});
   });
 
