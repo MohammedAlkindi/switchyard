@@ -33,6 +33,17 @@ Agents may edit source, tests, docs and the web app in this repo.
   Parsing happens in the browser and only aggregates are stored. The landing page says
   so.
 - Add the Supabase service-role key to `web/`. Only the publishable key belongs there.
+- **Add a schema column that can hold free-form content** (`jsonb`, `content`, `body`,
+  `raw`). No such column exists, and that absence is what makes "we cannot store your
+  conversations" true. Nothing fails if you add one.
+- **Make `save_report` `SECURITY DEFINER`,** or drop an RLS policy. The function is
+  `SECURITY INVOKER` so the caller's policies still apply inside it. The publishable key
+  ships in the browser, so RLS is the only thing separating users.
+- **Merge `parse.ts` into `scan.ts`.** `scan.ts` imports `node:fs` and cannot bundle for
+  a browser; `parse.ts` is Node-free and shared by the CLI and the web app. Splitting the
+  parser in two lets the two surfaces report different numbers for the same transcript.
+- **Re-baseline the `$0.018006` assertion in `pipeline.test.ts` to make it pass.** It is
+  a regression anchor. If it goes red, find the pricing change that caused it.
 - Commit a generated `contextbill-report.html`. It describes a real machine.
 - Use real transcripts as fixtures. They contain private data and this repo is public.
 - Set static spacing with inline styles in `web/`. Classes live in `app/globals.css`.

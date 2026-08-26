@@ -77,6 +77,14 @@ checked on 2026-08-26. Neither has been claimed yet.
   account name and directory tree. Reports are built to be shared, so `privacy.ts`
   strips it by default and `--show-paths` opts back in. Never render a raw `project`
   value without going through `redactProject`.
+- **`parse.ts` must stay separate from `scan.ts`.** `scan.ts` imports `node:fs` and
+  cannot be bundled for a browser. `parse.ts` imports no Node module at all, and both
+  the CLI (`scan.ts`) and the web app (`web/lib/browser-scan.ts`) call into it. That is
+  what makes one transcript produce one set of numbers on both surfaces.
+  *Reversing it:* merging them either breaks the web build on `node:fs`, or pushes
+  someone to write a second parser for the browser. Two parsers drift, and then the CLI
+  and the dashboard quietly disagree about the same file, with no test that can catch it
+  because each is self-consistent.
 - **Never use real transcripts as fixtures.** They hold private conversation data and
   this repo is public. `fixtures/` is hand-built and pinned to LF in `.gitattributes`.
 - **Differential-check against a FROZEN corpus.** Live transcript directories are
@@ -100,3 +108,37 @@ runs 9, and each lints itself. Root config ignores `web/**` and `.vercel/**`.
 (`~/.claude/scripts/usage-audit.js`). They are correct when, against a frozen corpus,
 `turns` and the median startup prefix match that reference **exactly**. That check is
 worth more than any unit test here. Keep it runnable.
+
+### `$0.018006` is a regression anchor, not a sample value
+
+`src/__tests__/pipeline.test.ts` asserts the fixture corpus prices to `0.018006` at nine
+decimal places, and the comment above it works the figure out line by line from
+`prices.json`.
+
+It is there to fail. Pricing bugs do not throw: change a rate, mis-handle a dated model
+id, drop fast-mode billing, or alter how the startup prefix is apportioned, and every
+test still passes while every number the product reports is wrong. This assertion is the
+only thing that notices.
+
+*Reversing it:* if it ever goes red, the answer is to find what changed in the pricing
+path, not to update the number until it matches. Re-baselining the anchor deletes the
+one check that distinguishes a deliberate pricing change from a silent regression. When
+a rate genuinely changes, re-derive the expected total by hand, rewrite the arithmetic
+in the comment, and say so in the commit message.
+
+## Where this knowledge lives
+
+Everything above sits in `CLAUDE.md` / `AGENTS.md` rather than a separate
+`ARCHITECTURE.md`, deliberately.
+
+These files load automatically for both Claude and Codex when work starts in this repo.
+An `ARCHITECTURE.md` does not. Most of what is written here is not description, it is a
+constraint someone is about to violate: the `parse.ts` split, the missing content column,
+the pricing anchor. A constraint that is only discoverable by choosing to open a file is
+a constraint that gets broken by whoever did not open it, and every entry here exists
+because something already went wrong once.
+
+The cost is real and accepted: these files are read on every session in this repo, so
+they stay ordered by what bites hardest and get pruned when an entry stops being true.
+If the design rationale ever grows past what is worth loading every time, split the
+narrative into `docs/` and leave the constraints here.
