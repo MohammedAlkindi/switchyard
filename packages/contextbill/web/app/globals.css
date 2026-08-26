@@ -76,7 +76,7 @@ a { color: inherit; }
 /* ---- typography ---- */
 h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: -.022em; margin: 0; }
 h1 { font-size: clamp(2.4rem, 1.5rem + 3.6vw, 3.9rem); line-height: 1; text-wrap: balance; }
-h2 { font-size: clamp(1.5rem, 1.3rem + 1.2vw, 2rem); line-height: 1.12; text-wrap: balance; }
+h2 { font-size: clamp(1.5rem, 1.3rem + 1.2vw, 2rem); line-height: 1.12; text-wrap: balance; margin-bottom: 1.25rem; }
 h3 { font-size: 1.15rem; }
 p  { margin: 0 0 1rem; color: var(--ink-2); }
 p:last-child { margin-bottom: 0; }
@@ -147,7 +147,7 @@ input:focus { border-color: var(--ink-3); }
 .stack { display: flex; flex-direction: column; gap: 1.25rem; }
 .row { display: flex; gap: .6rem; flex-wrap: wrap; }
 .grid { display: grid; gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: var(--radius); overflow: hidden; }
-.grid > * { background: var(--panel); padding: 1.1rem 1.25rem; }
+.grid > * { background: var(--panel); padding: 1.5rem; }
 .cols-3 { grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
 .cols-4 { grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
 
@@ -155,8 +155,8 @@ input:focus { border-color: var(--ink-3); }
 .stat .v.spot { color: var(--spot); }
 .stat .k { font-size: .75rem; color: var(--ink-3); margin-top: .4rem; }
 
-.feature h3 { font-family: var(--sans); font-size: .95rem; font-weight: 600; letter-spacing: 0; }
-.feature p  { font-size: .88rem; margin: .35rem 0 0; }
+.feature h3 { font-family: var(--sans); font-size: .95rem; font-weight: 600; letter-spacing: 0; line-height: 1.35; margin-bottom: 0; }
+.feature p  { font-size: .88rem; line-height: 1.6; margin: .5rem 0 0; }
 
 /* ---- tables ---- */
 .scroll { overflow-x: auto; }
@@ -313,3 +313,12 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .topnav { gap: .9rem; }
   .brand { font-size: .95rem; }
 }
+
+/* ---- Google sign-in mark ---- */
+.gmark { width: 18px; height: 18px; flex: none; display: block; }
+
+/* The auth screen is a single centred column and never scrolls sideways,
+   independently of the global overflow guard. */
+.auth-page { overflow-x: hidden; }
+.auth-shell, .wrap-narrow { max-width: 100%; }
+.auth-page .btn { max-width: 100%; }
