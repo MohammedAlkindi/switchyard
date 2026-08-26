@@ -2,12 +2,13 @@
   "name": "contextbill",
   "version": "0.1.0",
   "description": "Local-first usage and cost report for coding-agent transcripts. Never sends your data anywhere.",
-  "main": "index.js",
   "scripts": {
     "test": "vitest run",
     "build": "tsc",
     "lint": "eslint .",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run lint && npm run test"
   },
   "keywords": [
     "claude-code",
@@ -42,6 +43,10 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/MohammedAlkindi/contextbill.git"
+  },
+  "homepage": "https://github.com/MohammedAlkindi/contextbill#readme",
+  "bugs": {
+    "url": "https://github.com/MohammedAlkindi/contextbill/issues"
   },
   "workspaces": [
     "web"
