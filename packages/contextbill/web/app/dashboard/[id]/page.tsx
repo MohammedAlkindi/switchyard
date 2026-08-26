@@ -9,6 +9,8 @@ function n(v: string | number | null | undefined): number {
   return 0;
 }
 
+export const metadata = { title: 'Report' };
+
 export default async function ReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();

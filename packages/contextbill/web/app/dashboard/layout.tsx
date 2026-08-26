@@ -3,6 +3,13 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import SignOutButton from './sign-out-button';
 
+export const metadata = {
+  title: 'Reports',
+  // robots.txt already disallows /dashboard. This is the per-page belt to
+  // that braces, and it travels with the route if the file ever moves.
+  robots: { index: false, follow: false },
+};
+
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const {
