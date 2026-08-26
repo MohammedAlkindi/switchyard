@@ -3,7 +3,12 @@
  *
  * House rule: colours are declared here on :root and referenced by variable
  * everywhere else. No component hardcodes a hex value, and no component sets
- * spacing inline — if a layout needs a rule, it gets a class in this file.
+ * spacing inline. If a layout needs a rule, it gets a class in this file.
+ *
+ * The product is light, on every route. It used to follow the OS everywhere,
+ * then briefly followed it everywhere except the landing page, and the seam
+ * between a white marketing page and a near-black dashboard was visible the
+ * moment anyone signed in. One palette, declared once, is what removes it.
  */
 :root {
   --bg:      #FAFAF9;
@@ -22,13 +27,20 @@
   --bad:     #9F2F2D;
   --bad-bg:  #FDEBEC;
   --frame:   #14130F;
-  --shadow:  0 1px 2px rgba(20,19,15,.04), 0 12px 40px -12px rgba(20,19,15,.10);
+
+  /* Ambient and highly diffused. Every raised surface in the product uses one
+     of these two, so a card on the dashboard sits at the same height as a card
+     on the landing page. */
+  --lift-1: 0 1px 2px rgba(22,21,15,.04), 0 8px 24px -12px rgba(22,21,15,.10);
+  --lift-2: 0 1px 2px rgba(22,21,15,.05), 0 24px 60px -28px rgba(22,21,15,.22);
+  --edge:   1px solid rgba(22,21,15,.06);
 
   --serif: var(--font-serif), "Instrument Serif", Georgia, serif;
   --sans:  ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
   --mono:  var(--font-mono), ui-monospace, "SF Mono", Consolas, monospace;
   --pad:   clamp(1.25rem, 4vw, 2rem);
-  --radius: 10px;
+  --radius: 12px;
+  --radius-sm: 8px;
 
   /* The built-in CSS easings are too weak to read as intentional. */
   --ease-out:    cubic-bezier(.23, 1, .32, 1);
@@ -37,29 +49,6 @@
   --t-hover:  180ms;
   --t-enter:  260ms;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #100F0C; --panel: #171612; --sink: #1E1D18; --hair: #2B2924;
-    --ink: #F2F0EA; --ink-2: #ADA89C; --ink-3: #8E8A7F;
-    --spot: #E08A4E; --spot-bg: #2C1D11;
-    --ok: #6FAE7E; --ok-bg: #17231A;
-    --warn: #D9AE4E; --warn-bg: #2E2610;
-    --bad: #D1755A; --bad-bg: #2C1614;
-    --frame: #0A0907;
-    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 16px 48px -16px rgba(0,0,0,.6);
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #100F0C; --panel: #171612; --sink: #1E1D18; --hair: #2B2924;
-  --ink: #F2F0EA; --ink-2: #ADA89C; --ink-3: #8E8A7F;
-  --spot: #E08A4E; --spot-bg: #2C1D11;
-  --ok: #6FAE7E; --ok-bg: #17231A;
-  --warn: #D9AE4E; --warn-bg: #2E2610;
-  --bad: #D1755A; --bad-bg: #2C1614;
-  --frame: #0A0907;
-  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 16px 48px -16px rgba(0,0,0,.6);
-}
-
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
@@ -104,14 +93,15 @@ p:last-child { margin-bottom: 0; }
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
   font: inherit; font-size: .9rem; font-weight: 500;
-  padding: .62rem 1.1rem; border-radius: 6px; cursor: pointer;
+  padding: .62rem 1.3rem; border-radius: 999px; cursor: pointer;
   border: 1px solid var(--ink); background: var(--ink); color: var(--bg);
-  text-decoration: none;
+  text-decoration: none; box-shadow: var(--lift-1);
   transition:
     transform var(--t-press) var(--ease-out),
     opacity var(--t-hover) var(--ease-out),
     border-color var(--t-hover) var(--ease-out);
 }
+.btn { white-space: nowrap; }
 .btn:active { transform: scale(.97); }
 .btn[disabled] { opacity: .45; cursor: not-allowed; }
 .btn[disabled]:active { transform: none; }
@@ -126,7 +116,7 @@ p:last-child { margin-bottom: 0; }
 label { display: block; font-size: .82rem; font-weight: 500; margin-bottom: .35rem; }
 input[type="email"], input[type="password"], input[type="text"] {
   width: 100%; font: inherit; font-size: .95rem;
-  padding: .65rem .8rem; border-radius: 6px;
+  padding: .7rem .9rem; border-radius: var(--radius-sm);
   border: 1px solid var(--hair); background: var(--panel); color: var(--ink);
   transition: border-color var(--t-hover) ease;
 }
@@ -134,7 +124,7 @@ input:focus { border-color: var(--ink-3); }
 .field { margin-bottom: 1rem; }
 .hint { font-size: .76rem; color: var(--ink-3); margin-top: .3rem; }
 
-.notice { border-radius: 6px; padding: .7rem .85rem; font-size: .85rem; margin-bottom: 1rem; }
+.notice { border-radius: var(--radius-sm); padding: .7rem .85rem; font-size: .85rem; margin-bottom: 1rem; }
 .notice.err  { background: var(--bad-bg);  color: var(--bad); }
 .notice.ok   { background: var(--ok-bg);   color: var(--ok); }
 .notice.warn { background: var(--warn-bg); color: var(--warn); }
@@ -142,12 +132,24 @@ input:focus { border-color: var(--ink-3); }
 .divider { display: flex; align-items: center; gap: .8rem; margin: 1.25rem 0; color: var(--ink-3); font-size: .75rem; }
 .divider::before, .divider::after { content: ""; height: 1px; background: var(--hair); flex: 1; }
 
-/* ---- surfaces ---- */
-.card { background: var(--panel); border: 1px solid var(--hair); border-radius: var(--radius); padding: 1.4rem; }
+/* ---- surfaces ----
+ * One raised-surface treatment for the whole product: panel fill, soft ambient
+ * lift, hairline drawn as an inset outline so it never adds to the box. Cards
+ * on the dashboard and cards on the landing page are the same object. */
+.card {
+  background: var(--panel); border-radius: var(--radius); padding: 1.4rem;
+  box-shadow: var(--lift-1); outline: var(--edge); outline-offset: -1px;
+}
 .stack { display: flex; flex-direction: column; gap: 1.25rem; }
 .row { display: flex; gap: .6rem; flex-wrap: wrap; }
-.grid { display: grid; gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: var(--radius); overflow: hidden; }
-.grid > * { background: var(--panel); padding: 1.5rem; }
+.grid { display: grid; gap: 1rem; }
+.grid > * {
+  background: var(--panel); border-radius: var(--radius); padding: 1.5rem;
+  box-shadow: var(--lift-1); outline: var(--edge); outline-offset: -1px;
+  transition:
+    transform var(--t-hover) var(--ease-out),
+    box-shadow var(--t-hover) var(--ease-out);
+}
 .cols-3 { grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
 .cols-4 { grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
 
@@ -197,7 +199,7 @@ td a { color: var(--ink); font-weight: 500; }
 /* ---- terminal ---- */
 .term {
   display: inline-flex; align-items: center; gap: .7rem;
-  background: var(--frame); color: #F2F0EA; border-radius: 7px;
+  background: var(--frame); color: var(--on-frame); border-radius: 999px;
   padding: .72rem 1rem; font-family: var(--mono); font-size: .88rem;
 }
 .term .sigil { color: #7C8A80; user-select: none; }
@@ -279,7 +281,7 @@ td a { color: var(--ink); font-weight: 500; }
 .skip-link {
   position: absolute; left: .5rem; top: -3rem; z-index: 100;
   background: var(--ink); color: var(--bg);
-  padding: .55rem .9rem; border-radius: 6px; font-size: .875rem; font-weight: 500;
+  padding: .55rem 1.1rem; border-radius: 999px; font-size: .875rem; font-weight: 500;
   transition: top var(--t-hover) var(--ease-out);
 }
 .skip-link:focus { top: .5rem; }
@@ -319,44 +321,21 @@ html, body { max-width: 100%; overflow-x: hidden; }
 
 /* The auth screen is a single centred column and never scrolls sideways,
    independently of the global overflow guard. */
+/* The OAuth round trip can land on a viewport narrower than the card wants.
+ * Clamp the shell to the viewport rather than removing .wrap-narrow's measure,
+ * which an earlier version of this rule did and quietly stretched the sign-in
+ * card to the full page width on every screen. */
 .auth-page { overflow-x: hidden; }
-.auth-shell, .wrap-narrow { max-width: 100%; }
+.auth-shell { max-width: min(26rem, 100%); }
 .auth-page .btn { max-width: 100%; }
 
 /* =====================================================================
    LANDING PAGE
    ---------------------------------------------------------------------
-   The marketing page commits to one light world. The app keeps both
-   themes; this surface deliberately does not follow the OS, because it is
-   a pitch and it should look the same in every screenshot of it.
-
-   Tokens are redeclared on .landing rather than on :root so the choice is
-   scoped to this markup. Custom properties inherit, so everything inside
-   picks them up and nothing here can reach the dashboard.
+   Layout only. The palette lives on :root and is the same one the
+   dashboard uses, so there is nothing here to keep in sync.
    ===================================================================== */
-.landing {
-  --bg:      #FAFAF9;
-  --panel:   #FFFFFF;
-  --sink:    #F4F3F1;
-  --hair:    #E6E4E0;
-  --ink:     #16150F;
-  --ink-2:   #5A574E;
-  --ink-3:   #6E6A61;
-  --spot:    #B4531B;
-  --spot-bg: #FBF0E7;
-  --frame:   #14130F;
-
-  /* Ambient and highly diffused. No hard drop shadows anywhere on the page. */
-  --lift-1: 0 1px 2px rgba(22,21,15,.04), 0 8px 24px -12px rgba(22,21,15,.10);
-  --lift-2: 0 1px 2px rgba(22,21,15,.05), 0 24px 60px -28px rgba(22,21,15,.22);
-
-  background: var(--bg);
-  color: var(--ink);
-  min-height: 100dvh;
-}
-/* The viewport behind the page is painted by body, which still follows the
-   OS. Without this, overscroll on the landing page shows a dark band. */
-body:has(.landing) { background: #FAFAF9; }
+.landing { min-height: 100dvh; }
 
 /* ---- nav: a floating pill, detached from the top edge ---- */
 .landing .topbar.floating {
@@ -379,8 +358,11 @@ body:has(.landing) { background: #FAFAF9; }
 @media (hover: hover) and (pointer: fine) {
   .landing .topnav a:hover { color: var(--ink); }
 }
-@media (max-width: 40rem) {
-  .landing .topnav a[href^="#"] { display: none; }
+/* Matched on a class, not on href: these links became /#how when the header
+   moved into a shared component, and an [href^="#"] selector silently stopped
+   applying, leaving a four-item nav wrapping onto three lines on a phone. */
+@media (max-width: 44rem) {
+  .topnav .nav-anchor { display: none; }
 }
 
 /* ---- hero: copy left, the argument drawn on the right ---- */
@@ -413,7 +395,6 @@ body:has(.landing) { background: #FAFAF9; }
 }
 
 /* ---- primary CTA: a pill with its arrow nested in its own orb ---- */
-.landing .btn { border-radius: 999px; }
 .btn.cta {
   padding: .45rem .45rem .45rem 1.35rem;
   gap: .85rem;
@@ -434,7 +415,7 @@ body:has(.landing) { background: #FAFAF9; }
     background: rgba(255,255,255,.26);
   }
 }
-.landing .btn.secondary { padding: .62rem 1.3rem; box-shadow: var(--lift-1); }
+
 
 /* ---- the ledger: an outer tray holding an inner plate ---- */
 .ledger-figure { margin: 0; }
@@ -454,8 +435,8 @@ body:has(.landing) { background: #FAFAF9; }
   display: flex; align-items: baseline; justify-content: space-between;
   margin-bottom: 1.15rem;
 }
-.ledger-title { font-family: var(--serif); font-size: 1.05rem; color: #F2F0EA; }
-.ledger-meta  { font-family: var(--mono); font-size: .7rem; color: #918C80; }
+.ledger-title { font-family: var(--serif); font-size: 1.05rem; color: var(--on-frame); }
+.ledger-meta  { font-family: var(--mono); font-size: .7rem; color: var(--on-frame-2); }
 
 .ledger-rows { display: flex; flex-direction: column; gap: .5rem; }
 .ledger-row {
@@ -464,7 +445,7 @@ body:has(.landing) { background: #FAFAF9; }
   border-radius: .45rem; padding: .14rem .28rem;
   transition: background var(--t-hover) var(--ease-out);
 }
-.ledger-label { font-family: var(--mono); font-size: .68rem; color: #918C80; }
+.ledger-label { font-family: var(--mono); font-size: .68rem; color: var(--on-frame-2); }
 .ledger-track { display: flex; gap: 2px; height: 16px; }
 
 .seg {
@@ -499,7 +480,7 @@ body:has(.landing) { background: #FAFAF9; }
   display: flex; flex-wrap: wrap; gap: 1.1rem;
   margin-top: 1.2rem; padding-top: .95rem;
   border-top: 1px solid rgba(255,255,255,.09);
-  font-family: var(--mono); font-size: .66rem; color: #918C80;
+  font-family: var(--mono); font-size: .66rem; color: var(--on-frame-2);
 }
 .key { display: inline-flex; align-items: center; gap: .45rem; }
 .dot { width: 9px; height: 9px; border-radius: 2px; flex: none; display: block; }
@@ -528,21 +509,8 @@ body:has(.landing) { background: #FAFAF9; }
 }
 .figure-k { display: block; margin-top: .7rem; font-size: .9rem; color: var(--ink-2); }
 
-/* ---- cards float instead of sharing a hairline cage ---- */
-.landing .grid {
-  background: transparent; border: 0; gap: 1rem;
-  border-radius: 0; overflow: visible;
-}
-.landing .grid > * {
-  background: var(--panel);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: var(--lift-1);
-  outline: 1px solid rgba(22,21,15,.05); outline-offset: -1px;
-  transition:
-    transform var(--t-hover) var(--ease-out),
-    box-shadow var(--t-hover) var(--ease-out);
-}
+/* Only the landing page's cards lift on hover. On the dashboard they are
+   containers for data, not things to click. */
 @media (hover: hover) and (pointer: fine) {
   .landing .grid > *:hover { transform: translateY(-2px); box-shadow: var(--lift-2); }
 }
@@ -596,8 +564,8 @@ body:has(.landing) { background: #FAFAF9; }
   .landing .grid > *:hover { transform: none; }
 }
 
-/* The closing row pairs a pill button with the terminal line; match the shape. */
-.landing .term { border-radius: 999px; padding: .72rem 1.15rem; }
+
+
 
 /* ---- footer: the page should end, not just stop ---- */
 .site-foot {
@@ -617,3 +585,54 @@ body:has(.landing) { background: #FAFAF9; }
 @media (max-width: 44rem) {
   .foot-note { margin-left: 0; }
 }
+
+/* ---- legal pages and the 404 ----
+ * Long-form reading, so the measure is narrower than the marketing grid and the
+ * heading rhythm is tighter. Same tokens, same chrome, different density. */
+.legal, .notfound {
+  padding-top: clamp(2.5rem, 6vw, 4rem);
+  padding-bottom: clamp(3.5rem, 8vw, 5.5rem);
+  max-width: 46rem;
+}
+.legal h1 { font-size: clamp(2rem, 1.5rem + 2vw, 2.9rem); margin-bottom: 1rem; }
+.legal h2 {
+  font-size: 1.3rem; margin-top: 2.75rem; margin-bottom: .75rem;
+  padding-top: 1.5rem; border-top: 1px solid var(--hair);
+}
+.legal .lede { margin-bottom: 2rem; }
+.legal p { max-width: 42rem; }
+.legal ul { margin: 0 0 1rem; padding-left: 1.15rem; color: var(--ink-2); max-width: 42rem; }
+.legal li { margin-bottom: .5rem; line-height: 1.6; }
+.legal li strong { color: var(--ink); font-weight: 600; }
+.legal a { color: var(--spot); text-decoration: underline; text-underline-offset: 2px; }
+.legal code { font-size: .88em; }
+
+/* A boxed summary. Its h2 sits inside a card, so it drops the section rule. */
+.callout {
+  background: var(--panel); border-radius: var(--radius); padding: 1.5rem;
+  box-shadow: var(--lift-1); outline: var(--edge); outline-offset: -1px;
+  margin: 2rem 0;
+}
+.callout h2 {
+  margin: 0 0 .6rem; padding-top: 0; border-top: 0;
+  font-family: var(--sans); font-size: .95rem; font-weight: 600; letter-spacing: 0;
+}
+.callout p { margin: 0; font-size: .95rem; }
+
+.legal-nav {
+  margin-top: 3rem; padding-top: 1.5rem;
+  border-top: 1px solid var(--hair); font-size: .88rem;
+}
+
+.notfound h1 { margin-bottom: 1rem; }
+.notfound .row { margin-top: 1.75rem; }
+
+/* A quiet "there is more here" link under a landing section. */
+.section-more { margin-top: 1.5rem; font-size: .88rem; }
+.section-more a {
+  color: var(--spot); text-decoration: underline; text-underline-offset: 3px;
+}
+
+/* The sign-in card holds the page h1, so it needs a card-scale size
+   rather than the marketing h1 scale. */
+.auth-title { font-size: 1.7rem; line-height: 1.15; }

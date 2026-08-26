@@ -1,0 +1,57 @@
+# contextbill
+
+> Local-first cost analysis for Claude Code. Reads the transcripts already on your
+> disk and reports what they cost: which sessions ran expensive, which produced
+> nothing, and how much of the bill is fixed context you pay for on every turn.
+
+contextbill exists because per-seat billing reports one number a month, which is
+enough to know you spent money and not enough to know where. It ships in two
+forms that share one analysis engine, so both produce the same figures for the
+same input.
+
+## What it does
+
+- Prices every turn against a dated rate table, split by model, and by whether
+  tokens were input, output, a cache write or a cache read.
+- Separates the startup prefix (system prompt, tool catalog, connector
+  definitions, instruction files) from the work you actually asked for. That
+  prefix is written to cache once and re-read on every subsequent turn, so a
+  long session pays for it repeatedly. On the corpus it was built against it was
+  18.2% of the bill.
+- Attributes spend to categories such as browser automation, shell, file
+  operations and connector catalogs, so the expensive habit is identifiable.
+- Keeps saved reports so a number can be compared against itself over time.
+
+## The two surfaces
+
+- **Command line**: `npx contextbill`. Zero runtime dependencies, no network
+  access of any kind, writes a self-contained HTML report. Nothing is uploaded.
+- **Hosted web app**: https://contextbill.vercel.app. Transcripts are parsed in
+  the browser tab. Only aggregates reach the server: totals, per-model spend,
+  per-category spend and per-session counts. Message content is never
+  transmitted, and the database has no column that could store it.
+
+## Privacy
+
+- https://contextbill.vercel.app/privacy. What is stored, what is not, and why
+  there is no cookie consent banner (the only cookie is the auth session).
+- Project folder names encode an operating system username, so they are redacted
+  before any report is saved.
+- Row-level security in Postgres restricts every row to the account that created
+  it.
+
+## Links
+
+- Home: https://contextbill.vercel.app
+- Source: https://github.com/MohammedAlkindi/contextbill
+- Package: https://www.npmjs.com/package/contextbill
+- Privacy: https://contextbill.vercel.app/privacy
+- Terms: https://contextbill.vercel.app/terms
+
+## Accuracy note
+
+Every figure is an estimate, not an invoice. A transcript records how many
+tokens were written to cache but not which cache lifetime was billed, so
+contextbill assumes the cheaper one and tends to understate rather than
+overstate. The startup-prefix figure is a model of how fixed overhead is
+apportioned, not a line item any provider bills separately.

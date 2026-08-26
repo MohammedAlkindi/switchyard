@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { SiteHeader, SiteFooter } from './site-chrome';
 
 /**
  * The hero visual is the product's argument, drawn.
@@ -21,7 +22,7 @@ function HeroLedger() {
       <div className="ledger-shell">
         <div
           className="ledger"
-        role="img"
+          role="img"
           aria-label="Six turns of one session. Every turn is billed for the same fixed block of context before any work happens, roughly a third of each turn, while the work itself varies."
         >
           <div className="ledger-head">
@@ -58,6 +59,24 @@ function HeroLedger() {
   );
 }
 
+/**
+ * Structured data for the home page. Kept minimal and factual: a crawler that
+ * believes an aggregateRating we invented is worse than one that reads nothing.
+ */
+const STRUCTURED_DATA = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'contextbill',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'macOS, Windows, Linux',
+  description:
+    'Local-first cost analysis for Claude Code. Reads transcripts already on your disk and reports what they cost.',
+  url: 'https://contextbill.vercel.app',
+  softwareHelp: 'https://github.com/MohammedAlkindi/contextbill',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  author: { '@type': 'Person', name: 'Mohammed Alkindi' },
+};
+
 function ArrowCta({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Link className="btn cta" href={href}>
@@ -90,23 +109,13 @@ export default async function LandingPage() {
   const ctaLabel = user ? 'Create a report' : 'Get started free';
 
   return (
-    // The marketing page commits to one light world instead of following the
-    // OS. Tokens are redeclared on .landing so the choice travels with the
-    // markup: no script, no flash, and the app's own theming is untouched.
     <div className="landing">
-      <header className="topbar floating">
-        <div className="wrap">
-          <span className="brand">contextbill</span>
-          <nav className="topnav">
-            <a href="#how">How it works</a>
-            <a href="#privacy">Privacy</a>
-            <a href="https://github.com/MohammedAlkindi/contextbill">GitHub</a>
-            <Link className="btn secondary" href={user ? '/dashboard' : '/login'}>
-              {user ? 'Dashboard' : 'Sign in'}
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <script
+        type="application/ld+json"
+        // The payload is a literal defined above, so there is no user input in it.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }}
+      />
+      <SiteHeader signedIn={Boolean(user)} />
 
       <main id="main" tabIndex={-1}>
         <section className="wrap hero-split">
@@ -208,6 +217,9 @@ export default async function LandingPage() {
               </p>
             </div>
           </div>
+          <p className="section-more">
+            <Link href="/privacy">Read the full privacy policy</Link>
+          </p>
         </section>
 
         <section className="wrap closer reveal">
@@ -221,18 +233,7 @@ export default async function LandingPage() {
         </section>
       </main>
 
-      <footer className="site-foot">
-        <div className="wrap">
-          <span className="brand">contextbill</span>
-          <nav className="foot-links">
-            <a href="#how">How it works</a>
-            <a href="#privacy">Privacy</a>
-            <a href="https://github.com/MohammedAlkindi/contextbill">GitHub</a>
-            <a href="https://www.npmjs.com/package/contextbill">npm</a>
-          </nav>
-          <span className="foot-note">Your transcripts never leave your machine.</span>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

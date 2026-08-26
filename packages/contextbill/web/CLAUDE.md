@@ -147,24 +147,36 @@ Two traps worth remembering:
   goes in this file; the import at the top pulls the generated notes in.
 - Prose rules for anything user-facing: no em dashes, active voice, no "not X, it's Y".
 
-### The landing page is committed to light, and the app is not
+### One theme, product-wide, and no theme switching
 
-`app/page.tsx` wraps everything in `.landing`, which **redeclares the colour tokens
-locally**. The dashboard and login still follow the OS and still carry both themes; the
-marketing page deliberately does not.
+There is a single palette on `:root` in `app/globals.css`. There is no
+`prefers-color-scheme` block, no `[data-theme]` block, and no theme toggle.
+`viewport.colorScheme` in `app/layout.tsx` declares light so form controls,
+scrollbars and the pre-paint canvas agree with the stylesheet.
 
-Tokens are scoped to that wrapper rather than stamped on `:root` because the alternatives
-are worse. An inline script that sets `data-theme` before paint is the usual fix and it
-adds a script to a page that otherwise needs none; setting it in `layout.tsx` would drag
-the dashboard light with it. Custom properties inherit, so a redeclaration on the wrapper
-reaches every descendant with no script, no flash, and no reach into the app.
+This replaced two earlier arrangements, both wrong. The app first followed the OS
+everywhere. Then the landing page alone was pinned to light by redeclaring the tokens on a
+`.landing` wrapper, which was written up here as deliberate scoping. It was not a scoped
+design decision, it was a seam: a visitor on a dark OS read a white marketing page, signed
+in, and landed on a near-black dashboard. The screenshot that showed it side by side is
+what settled the question.
 
-One consequence worth knowing: `body` is outside `.landing`, so it still resolves `--bg`
-from the theme, and overscroll would show a dark band behind a light page. That is what
-`body:has(.landing)` is for, and it is the one place a hex is hardcoded outside `:root`.
+*Reversing it:* reintroducing a dark palette means committing to it on every route at once,
+including the signed-in pages and the OG image. Half a theme is worse than either whole one.
+Anything that scopes colour to a subtree recreates exactly the seam this removed.
 
-*Reversing it:* letting the landing page follow `prefers-color-scheme` again means every
-screenshot, OG image and demo of the product changes appearance depending on who took it.
+### Shared chrome is a component, not a copy
+
+`app/site-chrome.tsx` exports `SiteHeader` and `SiteFooter`, used by the landing page, the
+privacy policy, the terms page and the 404. They were inlined in the landing page and
+nowhere else, which is how a footer link existed on one route out of four.
+
+Both are presentational, and `signedIn` is a prop rather than a Supabase call inside the
+component, so the legal pages and the 404 stay static. Only the landing page passes a real
+value, because it already reads the session for its call to action.
+
+*Reversing it:* inlining a header back into a page means the next nav item added reaches
+one route, and nobody notices until a screenshot puts two routes next to each other.
 
 ### The hero ledger bars are measured, not chosen
 
@@ -186,3 +198,45 @@ subtle regression, it is a chart with one series missing.
 geometry, not data, and the rule above about inline styles applies: `style={{}}` here is
 reserved for values that came out of a report. The array in `page.tsx` supplies only the
 row labels.
+
+### The privacy policy is a claim about the code, not boilerplate
+
+`app/privacy/page.tsx` states that message content is never stored, that the only cookie is
+the Supabase auth session, that project names are redacted before saving, and that no
+analytics or third-party scripts run. Each of those is currently true and each is checkable:
+the parser is `lib/browser-scan.ts` and runs in the tab, the only write path is the
+`save_report` RPC, and `web/package.json` has five runtime dependencies, none of which is a
+tracker.
+
+Three changes would make the page false without breaking a test:
+
+- Adding any column that can hold free-form text (see the schema section above).
+- Adding an analytics script, a font loaded from a third-party origin, or any embed. Note
+  that `next/font` self-hosts at build time, which is why the page can say a page load does
+  not report the visitor to Google. A `<link>` to a font CDN would end that.
+- Sending a raw transcript line anywhere, for debugging or otherwise.
+
+*Reversing it:* if any of those happens, edit this page in the same commit. A privacy policy
+that has drifted from the code is worse than not having one, because people rely on it.
+
+### There is no cookie banner, and that is the considered answer
+
+The app sets one cookie, the Supabase auth session. It is strictly necessary under the
+ePrivacy Directive, so it does not require consent, and no analytics or advertising cookies
+exist to consent to. A banner here would train people to click Accept on a page that asks
+for nothing, which is the opposite of protection. The privacy page says this in as many
+words.
+
+*Reversing it:* the moment anything non-essential is added, analytics included, a real
+consent banner is required first, and it has to gate the script rather than appear beside
+it.
+
+### No self-serve deletion yet, and the policy says so
+
+All four tables carry DELETE policies, so erasure works at the database level, but the
+dashboard has no delete button. The privacy page states that deletion is by request through
+GitHub rather than implying a button that does not exist. If a delete flow is built, update
+that paragraph in the same commit.
+
+Contact is a GitHub issue link rather than an email address, deliberately: publishing a
+personal address on a public site is the owner's call to make, not a default to inherit.

@@ -85,9 +85,11 @@ function AuthForm() {
 
   return (
     <div className="card">
-      <h2 className="gap-sm">
+      {/* The only heading on the page, so it is the h1 rather than an h2
+          sized to look like one. */}
+      <h1 className="auth-title gap-sm">
         {mode === 'signup' ? 'Create your account' : 'Sign in'}
-      </h2>
+      </h1>
       <p className="small gap-lede">
         {mode === 'signup'
           ? 'Save reports and track your spend over time.'
