@@ -42,5 +42,8 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/MohammedAlkindi/contextbill.git"
-  }
+  },
+  "workspaces": [
+    "web"
+  ]
 }
