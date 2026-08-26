@@ -322,3 +322,298 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .auth-page { overflow-x: hidden; }
 .auth-shell, .wrap-narrow { max-width: 100%; }
 .auth-page .btn { max-width: 100%; }
+
+/* =====================================================================
+   LANDING PAGE
+   ---------------------------------------------------------------------
+   The marketing page commits to one light world. The app keeps both
+   themes; this surface deliberately does not follow the OS, because it is
+   a pitch and it should look the same in every screenshot of it.
+
+   Tokens are redeclared on .landing rather than on :root so the choice is
+   scoped to this markup. Custom properties inherit, so everything inside
+   picks them up and nothing here can reach the dashboard.
+   ===================================================================== */
+.landing {
+  --bg:      #FAFAF9;
+  --panel:   #FFFFFF;
+  --sink:    #F4F3F1;
+  --hair:    #E6E4E0;
+  --ink:     #16150F;
+  --ink-2:   #5A574E;
+  --ink-3:   #6E6A61;
+  --spot:    #B4531B;
+  --spot-bg: #FBF0E7;
+  --frame:   #14130F;
+
+  /* Ambient and highly diffused. No hard drop shadows anywhere on the page. */
+  --lift-1: 0 1px 2px rgba(22,21,15,.04), 0 8px 24px -12px rgba(22,21,15,.10);
+  --lift-2: 0 1px 2px rgba(22,21,15,.05), 0 24px 60px -28px rgba(22,21,15,.22);
+
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100dvh;
+}
+/* The viewport behind the page is painted by body, which still follows the
+   OS. Without this, overscroll on the landing page shows a dark band. */
+body:has(.landing) { background: #FAFAF9; }
+
+/* ---- nav: a floating pill, detached from the top edge ---- */
+.landing .topbar.floating {
+  position: sticky; top: 0; z-index: 20;
+  background: transparent; border-bottom: 0;
+  padding-top: .9rem;
+}
+.landing .topbar.floating .wrap {
+  max-width: 62rem;
+  background: rgba(255,255,255,.74);
+  backdrop-filter: blur(14px) saturate(1.6);
+  -webkit-backdrop-filter: blur(14px) saturate(1.6);
+  border-radius: 999px;
+  padding: .55rem .55rem .55rem 1.35rem;
+  box-shadow: var(--lift-1), inset 0 1px 0 rgba(255,255,255,.9);
+  outline: 1px solid rgba(22,21,15,.06); outline-offset: -1px;
+}
+.landing .topnav { gap: 1.4rem; }
+.landing .topnav a { color: var(--ink-2); }
+@media (hover: hover) and (pointer: fine) {
+  .landing .topnav a:hover { color: var(--ink); }
+}
+@media (max-width: 40rem) {
+  .landing .topnav a[href^="#"] { display: none; }
+}
+
+/* ---- hero: copy left, the argument drawn on the right ---- */
+.hero-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(0, .98fr);
+  gap: clamp(2rem, 5vw, 4.5rem);
+  align-items: center;
+  padding-top: clamp(2.75rem, 6vw, 4.5rem);
+  padding-bottom: clamp(2.5rem, 5vw, 3.5rem);
+}
+@media (max-width: 60rem) {
+  .hero-split { grid-template-columns: 1fr; gap: 2.75rem; }
+}
+.hero-copy h1 { margin-bottom: 1.1rem; }
+.hero-copy .lede { margin-bottom: 1.9rem; }
+.hero-copy .hint { margin-top: 1rem; }
+
+/* A microscopic badge above the headline. Named for the hero rather than
+   called .tag, which the dashboard already uses for its price-table chips. */
+.hero-tag {
+  display: inline-block; margin-bottom: 1.15rem;
+  font-family: var(--mono); font-size: .66rem;
+  text-transform: uppercase; letter-spacing: .16em;
+  color: var(--ink-3);
+  background: var(--panel);
+  border-radius: 999px; padding: .4rem .85rem;
+  box-shadow: var(--lift-1);
+  outline: 1px solid rgba(22,21,15,.06); outline-offset: -1px;
+}
+
+/* ---- primary CTA: a pill with its arrow nested in its own orb ---- */
+.landing .btn { border-radius: 999px; }
+.btn.cta {
+  padding: .45rem .45rem .45rem 1.35rem;
+  gap: .85rem;
+  box-shadow: var(--lift-1);
+}
+.cta-orb {
+  width: 2rem; height: 2rem; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.16);
+  transition:
+    transform var(--t-hover) var(--ease-out),
+    background var(--t-hover) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn.cta:hover { opacity: 1; }
+  .btn.cta:hover .cta-orb {
+    transform: translate(2px, -2px) scale(1.06);
+    background: rgba(255,255,255,.26);
+  }
+}
+.landing .btn.secondary { padding: .62rem 1.3rem; box-shadow: var(--lift-1); }
+
+/* ---- the ledger: an outer tray holding an inner plate ---- */
+.ledger-figure { margin: 0; }
+.ledger-shell {
+  background: linear-gradient(180deg, rgba(22,21,15,.055), rgba(22,21,15,.02));
+  border-radius: 1.6rem;
+  padding: .5rem;
+  box-shadow: var(--lift-2);
+}
+.ledger {
+  background: var(--frame);
+  border-radius: 1.15rem;
+  padding: 1.35rem 1.4rem 1.15rem;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+}
+.ledger-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 1.15rem;
+}
+.ledger-title { font-family: var(--serif); font-size: 1.05rem; color: #F2F0EA; }
+.ledger-meta  { font-family: var(--mono); font-size: .7rem; color: #918C80; }
+
+.ledger-rows { display: flex; flex-direction: column; gap: .5rem; }
+.ledger-row {
+  display: grid; grid-template-columns: 3.1rem 1fr;
+  align-items: center; gap: .7rem;
+  border-radius: .45rem; padding: .14rem .28rem;
+  transition: background var(--t-hover) var(--ease-out);
+}
+.ledger-label { font-family: var(--mono); font-size: .68rem; color: #918C80; }
+.ledger-track { display: flex; gap: 2px; height: 16px; }
+
+.seg {
+  display: block; height: 100%;
+  border-radius: 3px;
+  transform-origin: left center;
+  transition: filter var(--t-hover) var(--ease-out);
+}
+/* The fixed block is identical on every row. That repetition is the point.
+ *
+ * Amber against steel rather than amber against green: both clear 3:1 on the
+ * plate (WCAG 1.4.11 — these bars carry the meaning, so they are not decoration)
+ * and the pair holds ΔE 19.9 under protanopia, where orange/green collapses.
+ * The first green tried here measured 1.79:1 and was effectively invisible. */
+.seg.fixed { width: 34%; background: linear-gradient(180deg, #DE9146, #C0761F); }
+.seg.work  { background: #3D8DB8; }
+
+/* Illustration geometry, not data: the work each turn asked for, varying. */
+.ledger-row:nth-child(1) .seg.work { width: 46%; }
+.ledger-row:nth-child(2) .seg.work { width: 21%; }
+.ledger-row:nth-child(3) .seg.work { width: 9%; }
+.ledger-row:nth-child(4) .seg.work { width: 33%; }
+.ledger-row:nth-child(5) .seg.work { width: 14%; }
+.ledger-row:nth-child(6) .seg.work { width: 25%; }
+
+@media (hover: hover) and (pointer: fine) {
+  .ledger-row:hover { background: rgba(255,255,255,.055); }
+  .ledger-row:hover .seg.fixed { filter: brightness(1.14); }
+}
+
+.ledger-legend {
+  display: flex; flex-wrap: wrap; gap: 1.1rem;
+  margin-top: 1.2rem; padding-top: .95rem;
+  border-top: 1px solid rgba(255,255,255,.09);
+  font-family: var(--mono); font-size: .66rem; color: #918C80;
+}
+.key { display: inline-flex; align-items: center; gap: .45rem; }
+.dot { width: 9px; height: 9px; border-radius: 2px; flex: none; display: block; }
+.dot.fixed { background: #DE9146; }
+.dot.work  { background: #3D8DB8; }
+
+.ledger-cap { margin: .9rem .25rem 0; font-size: .78rem; color: var(--ink-3); }
+
+/* ---- prose split, and the figure that carries the number ---- */
+.split-prose {
+  display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem); align-items: start;
+}
+@media (max-width: 52rem) { .split-prose { grid-template-columns: 1fr; } }
+.split-prose .lede { margin-bottom: 0; }
+.figure-stat {
+  background: var(--panel); border-radius: 1rem; padding: 1.6rem;
+  box-shadow: var(--lift-1);
+  outline: 1px solid rgba(22,21,15,.05); outline-offset: -1px;
+}
+.figure-n {
+  display: block; font-family: var(--serif);
+  font-size: clamp(2.6rem, 2rem + 2.4vw, 3.6rem); line-height: 1;
+  letter-spacing: -.03em; color: var(--spot);
+  font-variant-numeric: tabular-nums;
+}
+.figure-k { display: block; margin-top: .7rem; font-size: .9rem; color: var(--ink-2); }
+
+/* ---- cards float instead of sharing a hairline cage ---- */
+.landing .grid {
+  background: transparent; border: 0; gap: 1rem;
+  border-radius: 0; overflow: visible;
+}
+.landing .grid > * {
+  background: var(--panel);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: var(--lift-1);
+  outline: 1px solid rgba(22,21,15,.05); outline-offset: -1px;
+  transition:
+    transform var(--t-hover) var(--ease-out),
+    box-shadow var(--t-hover) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .landing .grid > *:hover { transform: translateY(-2px); box-shadow: var(--lift-2); }
+}
+
+/* ---- the page breathes, without opening holes ---- */
+.landing .section { padding: clamp(3rem, 5.5vw, 4.25rem) 0; }
+.landing .section + .section { border-top: 0; }
+.closer {
+  padding: clamp(4rem, 7vw, 5.5rem) 0 clamp(4.5rem, 8vw, 6.5rem);
+  text-align: center;
+}
+.closer h2 { margin-bottom: 0; }
+.closer .row { justify-content: center; align-items: center; margin-top: 1.7rem; }
+
+/* ---- entrance: visible first, animated only where supported ----
+   Deliberately @starting-style rather than opacity:0 plus a script. An
+   environment that never runs the animation still renders the page, which
+   is the failure this project already shipped once. */
+@supports (transition-behavior: allow-discrete) {
+  .reveal {
+    opacity: 1; transform: none; filter: none;
+    transition:
+      opacity 680ms var(--ease-out),
+      transform 680ms var(--ease-out),
+      filter 680ms var(--ease-out);
+  }
+  @starting-style {
+    .reveal { opacity: 0; transform: translateY(14px); filter: blur(6px); }
+  }
+  .hero-visual.reveal { transition-delay: 90ms; }
+
+  /* Bars wipe in left to right, one after another, so the eye reads the
+     repeated amber block as a sequence rather than a static pattern. */
+  .ledger-row .seg { animation: seg-in 560ms var(--ease-out) backwards; }
+  .ledger-row:nth-child(1) .seg { animation-delay: 200ms; }
+  .ledger-row:nth-child(2) .seg { animation-delay: 270ms; }
+  .ledger-row:nth-child(3) .seg { animation-delay: 340ms; }
+  .ledger-row:nth-child(4) .seg { animation-delay: 410ms; }
+  .ledger-row:nth-child(5) .seg { animation-delay: 480ms; }
+  .ledger-row:nth-child(6) .seg { animation-delay: 550ms; }
+}
+@keyframes seg-in {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { transition: none; }
+  .ledger-row .seg { animation: none; }
+  .btn.cta:hover .cta-orb { transform: none; }
+  .landing .grid > *:hover { transform: none; }
+}
+
+/* The closing row pairs a pill button with the terminal line; match the shape. */
+.landing .term { border-radius: 999px; padding: .72rem 1.15rem; }
+
+/* ---- footer: the page should end, not just stop ---- */
+.site-foot {
+  border-top: 1px solid var(--hair);
+  padding: 2rem 0 3rem;
+}
+.site-foot .wrap {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: .75rem 1.75rem;
+}
+.foot-links { display: flex; flex-wrap: wrap; gap: 1.25rem; font-size: .85rem; }
+.foot-links a { color: var(--ink-2); text-decoration: none; transition: color var(--t-hover) var(--ease-out); }
+.foot-note { margin-left: auto; font-size: .78rem; color: var(--ink-3); }
+@media (hover: hover) and (pointer: fine) {
+  .foot-links a:hover { color: var(--ink); }
+}
+@media (max-width: 44rem) {
+  .foot-note { margin-left: 0; }
+}
