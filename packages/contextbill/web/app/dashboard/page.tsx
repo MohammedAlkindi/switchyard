@@ -47,9 +47,9 @@ export default async function DashboardPage() {
     return (
       <div className="card empty">
         <h3>No reports yet</h3>
-        <p style={{ maxWidth: '30rem', margin: '0 auto 1.5rem' }}>
+        <p className="narrow-col">
           Point contextbill at your Claude Code transcripts and it will work out what
-          they cost. Parsing happens in this browser — only the totals are saved.
+          they cost. Parsing happens in this browser. Only the totals are saved.
         </p>
         <Link className="btn" href="/dashboard/new">
           Create your first report
@@ -74,7 +74,7 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      <div className="grid cols-3" style={{ marginBottom: '2rem' }}>
+      <div className="grid cols-3 gap-block">
         <div className="stat">
           <div className="v">{usd(n(latest.total_usd))}</div>
           <div className="k">
@@ -84,7 +84,7 @@ export default async function DashboardPage() {
         <div className="stat">
           <div className="v spot">{pct(prefixShare)}</div>
           <div className="k">
-            of spend was context loaded before you typed — {usd(n(latest.startup_prefix_usd))}
+            of spend was context loaded before you typed. That cost {usd(n(latest.startup_prefix_usd))}
           </div>
         </div>
         <div className="stat">
@@ -94,7 +94,7 @@ export default async function DashboardPage() {
       </div>
 
       <div className="card">
-        <h3 style={{ marginBottom: '1rem' }}>All reports</h3>
+        <h3 className="gap-head">All reports</h3>
         <div className="scroll">
           <table>
             <thead>

@@ -15,8 +15,16 @@ import { num, pct, usd } from '@/lib/format';
 
 const TABLE = priceTable as unknown as PriceTable;
 
-/** `webkitdirectory` is not in React's typed attribute set. */
+/**
+ * `webkitdirectory` is not in React's typed attribute set.
+ *
+ * The `<T>` is required: this augments React's generic `InputHTMLAttributes<T>`,
+ * and declaration merging only applies when the type parameters match. ESLint
+ * reads it as unused because nothing in the body references it, which is a false
+ * positive for an augmentation.
+ */
 declare module 'react' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface InputHTMLAttributes<T> {
     webkitdirectory?: string;
     directory?: string;
@@ -187,7 +195,7 @@ export default function NewReportPage() {
           }}
         >
           <h3>Select your transcript folder</h3>
-          <p style={{ maxWidth: '32rem', margin: '0 auto 1.25rem' }}>
+          <p className="center-col gap-top">
             On most machines that is <code className="mono">~/.claude/projects</code>. You can
             also drop <code className="mono">.jsonl</code> files here directly.
           </p>
@@ -199,7 +207,7 @@ export default function NewReportPage() {
             webkitdirectory=""
             directory=""
             accept=".jsonl"
-            style={{ display: 'none' }}
+            className="visually-hidden"
             onChange={(e) => {
               const files = e.target.files ? Array.from(e.target.files) : [];
               void handleFiles(files, ttl);
@@ -233,7 +241,7 @@ export default function NewReportPage() {
       )}
 
       {report && (
-        <div className="stack" style={{ marginTop: '1.5rem' }}>
+        <div className="stack gap-top">
           <div className="grid cols-3">
             <div className="stat">
               <div className="v">{usd(report.cost.total)}</div>
@@ -244,7 +252,7 @@ export default function NewReportPage() {
             <div className="stat">
               <div className="v spot">{pct(prefixShare)}</div>
               <div className="k">
-                context loaded before you typed — {usd(report.findings.startupPrefixUsd)}
+                context loaded before you typed. That cost {usd(report.findings.startupPrefixUsd)}
               </div>
             </div>
             <div className="stat">
@@ -254,7 +262,7 @@ export default function NewReportPage() {
           </div>
 
           <div className="card">
-            <h3 style={{ marginBottom: '1rem' }}>Where it went</h3>
+            <h3 className="gap-head">Where it went</h3>
             <div className="scroll">
               <table>
                 <thead>
@@ -262,7 +270,7 @@ export default function NewReportPage() {
                     <th>Category</th>
                     <th className="n">Cost</th>
                     <th className="n">Share</th>
-                    <th style={{ width: '26%' }} />
+                    <th className="col-share" />
                   </tr>
                 </thead>
                 <tbody>
@@ -300,7 +308,7 @@ export default function NewReportPage() {
               />
             </div>
 
-            <p className="hint" style={{ marginBottom: '1rem' }}>
+            <p className="hint gap-head">
               {num(fileCount)} transcripts read
               {emptyFiles > 0 && ` · ${num(emptyFiles)} contained no usage data`} · prices dated{' '}
               {report.priceTableDate} · cache writes billed at the {report.cacheTtlAssumed} rate
@@ -308,7 +316,7 @@ export default function NewReportPage() {
                 ` · unpriced and excluded: ${report.unpricedModelsSeen.join(', ')}`}
             </p>
 
-            <div style={{ display: 'flex', gap: '.6rem', flexWrap: 'wrap' }}>
+            <div className="row">
               <button className="btn" type="button" onClick={save} disabled={stage === 'saving'}>
                 {stage === 'saving' ? 'Saving…' : 'Save report'}
               </button>

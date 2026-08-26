@@ -24,89 +24,112 @@ export default async function LandingPage() {
       </header>
 
       <main>
-        <section className="wrap" style={{ paddingTop: 'clamp(3rem,8vw,6rem)' }}>
-          <h1 style={{ maxWidth: '17ch' }}>
-            Know what your AI agents actually cost.
-          </h1>
-          <p style={{ fontSize: '1.1rem', maxWidth: '36rem', margin: '1.25rem 0 2rem' }}>
-            Analyze Claude Code usage and see where your tokens and dollars are going —
-            including the costs a per-seat dashboard cannot show you.
+        <section className="wrap hero">
+          <h1 className="tight enter">Know what your AI agents actually cost.</h1>
+          <p className="lede enter">
+            Per-seat billing gives you one number a month. contextbill reads the
+            transcripts already on your disk and shows you the rest: which sessions
+            were expensive, which produced nothing, and how much you pay before you
+            type a word.
           </p>
-          <div style={{ display: 'flex', gap: '.6rem', flexWrap: 'wrap' }}>
+          <div className="row enter">
             <Link className="btn" href={user ? '/dashboard/new' : '/login'}>
               {user ? 'Create a report' : 'Get started free'}
             </Link>
-            <a className="btn secondary" href="https://github.com/MohammedAlkindi/contextbill">
+            <a
+              className="btn secondary"
+              href="https://github.com/MohammedAlkindi/contextbill"
+            >
               View the source
             </a>
           </div>
-          <p className="hint" style={{ marginTop: '1.25rem' }}>
-            Or run it entirely offline: <code className="mono">npx contextbill</code>
+          <p className="hint enter">
+            Prefer the terminal? <code className="mono">npx contextbill</code> runs
+            offline and uploads nothing.
           </p>
         </section>
 
-        <section className="wrap section" id="how" style={{ marginTop: '3rem' }}>
+        <section className="wrap section" id="how">
           <p className="eyebrow">How it works</p>
-          <h2 style={{ marginBottom: '1.5rem' }}>Four steps. Your transcripts never upload.</h2>
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(14rem,1fr))' }}>
-            <div>
-              <h3 style={{ fontSize: '.95rem', fontFamily: 'var(--sans)', fontWeight: 600 }}>
-                1 · Point it at a folder
-              </h3>
-              <p style={{ fontSize: '.88rem', margin: '.35rem 0 0' }}>
+          <h2>Four steps. Your transcripts stay on your machine.</h2>
+          <div className="grid cols-4">
+            <div className="feature">
+              <h3>1 &middot; Point it at a folder</h3>
+              <p>
                 Usually <code className="mono">~/.claude/projects</code>.
               </p>
             </div>
-            <div>
-              <h3 style={{ fontSize: '.95rem', fontFamily: 'var(--sans)', fontWeight: 600 }}>
-                2 · Parsed in your browser
-              </h3>
-              <p style={{ fontSize: '.88rem', margin: '.35rem 0 0' }}>
-                Files are read in the tab. No transcript is transmitted.
+            <div className="feature">
+              <h3>2 &middot; Parsing runs in your browser</h3>
+              <p>Token counts, model ids and timestamps. Never message content.</p>
+            </div>
+            <div className="feature">
+              <h3>3 &middot; Only totals are saved</h3>
+              <p>Aggregates reach the server. Raw transcripts never leave the tab.</p>
+            </div>
+            <div className="feature">
+              <h3>4 &middot; Compare over time</h3>
+              <p>Reports are kept so you can watch a number move after you change something.</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="wrap section">
+          <p className="eyebrow">The number nobody shows you</p>
+          <h2>You pay for the same context on every turn.</h2>
+          <p className="lede">
+            Every session loads a system prompt, a tool catalog, connector definitions
+            and instruction files before doing any work. That block gets written to
+            cache once, then re-read on every turn after. A 500-turn session pays for
+            it 500 times.
+          </p>
+          <p className="lede">
+            On the machine this was built for, that came to 18.2% of the bill. You
+            shrink it by deleting connectors you never call, not by prompting
+            differently.
+          </p>
+        </section>
+
+        <section className="wrap section" id="privacy">
+          <p className="eyebrow">Privacy</p>
+          <h2>What actually leaves your computer.</h2>
+          <div className="grid cols-3">
+            <div className="feature">
+              <h3>Aggregates only</h3>
+              <p>
+                Totals, per-model spend and session-level counts. No prompts, no
+                completions, no file contents.
               </p>
             </div>
-            <div>
-              <h3 style={{ fontSize: '.95rem', fontFamily: 'var(--sans)', fontWeight: 600 }}>
-                3 · Priced against a dated table
-              </h3>
-              <p style={{ fontSize: '.88rem', margin: '.35rem 0 0' }}>
-                Per model, including fast-mode rates.
+            <div className="feature">
+              <h3>Paths are redacted</h3>
+              <p>
+                Folder names encode your OS username. contextbill strips that before
+                anything is stored.
               </p>
             </div>
-            <div>
-              <h3 style={{ fontSize: '.95rem', fontFamily: 'var(--sans)', fontWeight: 600 }}>
-                4 · Totals saved to your account
-              </h3>
-              <p style={{ fontSize: '.88rem', margin: '.35rem 0 0' }}>
-                Track spend across reports over time.
+            <div className="feature">
+              <h3>Or skip the account</h3>
+              <p>
+                The CLI does the same analysis with no network access at all. Same
+                engine, same numbers.
               </p>
             </div>
           </div>
         </section>
 
-        <section className="wrap section" id="privacy">
-          <p className="eyebrow">What is stored</p>
-          <h2 style={{ marginBottom: '1rem' }}>Aggregates, never conversations.</h2>
-          <p style={{ maxWidth: '38rem' }}>
-            contextbill parses transcripts in your browser and sends only derived totals —
-            token counts, costs, session identifiers and category sums. There is deliberately
-            no column in the database that could hold message content, and directory names are
-            redacted before they leave the tab because they encode your OS username.
-          </p>
-          <p style={{ maxWidth: '38rem', marginTop: '1rem' }}>
-            The command-line version does not talk to a network at all. If you would rather
-            keep everything on your machine, use that instead — it produces the same numbers
-            from the same code.
-          </p>
+        <section className="wrap section">
+          <h2>See your number in about a minute.</h2>
+          <div className="row">
+            <Link className="btn" href={user ? '/dashboard/new' : '/login'}>
+              {user ? 'Create a report' : 'Get started free'}
+            </Link>
+            <span className="term">
+              <span className="sigil">$</span> npx contextbill
+            </span>
+          </div>
         </section>
       </main>
-
-      <footer className="wrap" style={{ borderTop: '1px solid var(--hair)', padding: '2rem 0 3rem', fontSize: '.82rem' }}>
-        <p className="muted">
-          contextbill — MIT licensed. Built by{' '}
-          <a href="https://github.com/MohammedAlkindi">Mohammed Alkindi</a>.
-        </p>
-      </footer>
     </>
   );
 }

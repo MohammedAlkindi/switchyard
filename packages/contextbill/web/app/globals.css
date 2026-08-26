@@ -2,7 +2,8 @@
  * contextbill design tokens.
  *
  * House rule: colours are declared here on :root and referenced by variable
- * everywhere else. No component hardcodes a hex value.
+ * everywhere else. No component hardcodes a hex value, and no component sets
+ * spacing inline — if a layout needs a rule, it gets a class in this file.
  */
 :root {
   --bg:      #FAFAF9;
@@ -28,6 +29,13 @@
   --mono:  var(--font-mono), ui-monospace, "SF Mono", Consolas, monospace;
   --pad:   clamp(1.25rem, 4vw, 2rem);
   --radius: 10px;
+
+  /* The built-in CSS easings are too weak to read as intentional. */
+  --ease-out:    cubic-bezier(.23, 1, .32, 1);
+  --ease-in-out: cubic-bezier(.77, 0, .175, 1);
+  --t-press:  140ms;
+  --t-hover:  180ms;
+  --t-enter:  260ms;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -67,7 +75,7 @@ a { color: inherit; }
 
 /* ---- typography ---- */
 h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: -.022em; margin: 0; }
-h1 { font-size: clamp(2.2rem, 1.5rem + 3vw, 3.2rem); line-height: 1.02; text-wrap: balance; }
+h1 { font-size: clamp(2.4rem, 1.5rem + 3.6vw, 3.9rem); line-height: 1; text-wrap: balance; }
 h2 { font-size: clamp(1.5rem, 1.3rem + 1.2vw, 2rem); line-height: 1.12; text-wrap: balance; }
 h3 { font-size: 1.15rem; }
 p  { margin: 0 0 1rem; color: var(--ink-2); }
@@ -78,14 +86,19 @@ p:last-child { margin-bottom: 0; }
 }
 .muted { color: var(--ink-3); }
 .mono  { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.lede  { font-size: 1.1rem; max-width: 34rem; margin-bottom: 2rem; }
+.tight { max-width: 17ch; }
 
 /* ---- app chrome ---- */
 .topbar { border-bottom: 1px solid var(--hair); background: var(--panel); }
 .topbar .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: .85rem; padding-bottom: .85rem; }
 .brand { display: flex; align-items: center; gap: .5rem; font-weight: 600; text-decoration: none; letter-spacing: -.01em; }
 .topnav { display: flex; align-items: center; gap: 1.25rem; font-size: .85rem; }
-.topnav a { color: var(--ink-3); text-decoration: none; }
-.topnav a:hover, .topnav a[aria-current="page"] { color: var(--ink); }
+.topnav a { color: var(--ink-3); text-decoration: none; transition: color var(--t-hover) ease; }
+.topnav a[aria-current="page"] { color: var(--ink); }
+@media (hover: hover) and (pointer: fine) {
+  .topnav a:hover { color: var(--ink); }
+}
 
 /* ---- controls ---- */
 .btn {
@@ -93,21 +106,29 @@ p:last-child { margin-bottom: 0; }
   font: inherit; font-size: .9rem; font-weight: 500;
   padding: .62rem 1.1rem; border-radius: 6px; cursor: pointer;
   border: 1px solid var(--ink); background: var(--ink); color: var(--bg);
-  text-decoration: none; transition: transform .12s ease, opacity .12s ease;
+  text-decoration: none;
+  transition:
+    transform var(--t-press) var(--ease-out),
+    opacity var(--t-hover) var(--ease-out),
+    border-color var(--t-hover) var(--ease-out);
 }
-.btn:hover { opacity: .88; }
-.btn:active { transform: scale(.985); }
+.btn:active { transform: scale(.97); }
 .btn[disabled] { opacity: .45; cursor: not-allowed; }
+.btn[disabled]:active { transform: none; }
 .btn.secondary { background: var(--panel); color: var(--ink); border-color: var(--hair); }
-.btn.secondary:hover { border-color: var(--ink-3); opacity: 1; }
 .btn.danger { background: transparent; color: var(--bad); border-color: var(--hair); }
 .btn.full { width: 100%; }
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover { opacity: .88; }
+  .btn.secondary:hover { border-color: var(--ink-3); opacity: 1; }
+}
 
 label { display: block; font-size: .82rem; font-weight: 500; margin-bottom: .35rem; }
 input[type="email"], input[type="password"], input[type="text"] {
   width: 100%; font: inherit; font-size: .95rem;
   padding: .65rem .8rem; border-radius: 6px;
   border: 1px solid var(--hair); background: var(--panel); color: var(--ink);
+  transition: border-color var(--t-hover) ease;
 }
 input:focus { border-color: var(--ink-3); }
 .field { margin-bottom: 1rem; }
@@ -124,13 +145,18 @@ input:focus { border-color: var(--ink-3); }
 /* ---- surfaces ---- */
 .card { background: var(--panel); border: 1px solid var(--hair); border-radius: var(--radius); padding: 1.4rem; }
 .stack { display: flex; flex-direction: column; gap: 1.25rem; }
+.row { display: flex; gap: .6rem; flex-wrap: wrap; }
 .grid { display: grid; gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: var(--radius); overflow: hidden; }
 .grid > * { background: var(--panel); padding: 1.1rem 1.25rem; }
 .cols-3 { grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
+.cols-4 { grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
 
 .stat .v { font-family: var(--serif); font-size: 2rem; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .stat .v.spot { color: var(--spot); }
 .stat .k { font-size: .75rem; color: var(--ink-3); margin-top: .4rem; }
+
+.feature h3 { font-family: var(--sans); font-size: .95rem; font-weight: 600; letter-spacing: 0; }
+.feature p  { font-size: .88rem; margin: .35rem 0 0; }
 
 /* ---- tables ---- */
 .scroll { overflow-x: auto; }
@@ -163,19 +189,82 @@ td a { color: var(--ink); font-weight: 500; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
 .section { padding: 2.5rem 0; }
 .section + .section { border-top: 1px solid var(--hair); }
+.hero { padding-top: clamp(3.5rem, 9vw, 6.5rem); padding-bottom: clamp(2rem, 5vw, 3rem); }
+
+/* ---- terminal ---- */
+.term {
+  display: inline-flex; align-items: center; gap: .7rem;
+  background: var(--frame); color: #F2F0EA; border-radius: 7px;
+  padding: .72rem 1rem; font-family: var(--mono); font-size: .88rem;
+}
+.term .sigil { color: #7C8A80; user-select: none; }
 
 /* ---- drop zone ---- */
 .drop {
   border: 1.5px dashed var(--hair); border-radius: var(--radius);
   padding: 2.5rem 1.5rem; text-align: center; background: var(--panel);
-  transition: border-color .15s ease, background .15s ease;
+  transition: border-color var(--t-hover) ease, background var(--t-hover) ease;
 }
 .drop.hot { border-color: var(--spot); background: var(--spot-bg); }
 .drop h3 { margin-bottom: .4rem; }
 
 .progress { height: 5px; background: var(--sink); border-radius: 3px; overflow: hidden; margin-top: 1rem; }
-.progress i { display: block; height: 100%; background: var(--spot); transition: width .2s ease; }
+.progress i { display: block; height: 100%; background: var(--spot); transition: width var(--t-enter) var(--ease-out); }
 
+/*
+ * Entrance stagger. Content is visible by default and only animates when the
+ * browser supports @starting-style, so a page that never runs the animation
+ * still renders everything.
+ */
+@supports (transition-behavior: allow-discrete) {
+  .enter {
+    opacity: 1; transform: none;
+    transition: opacity var(--t-enter) var(--ease-out), transform var(--t-enter) var(--ease-out);
+  }
+  @starting-style {
+    .enter { opacity: 0; transform: translateY(6px); }
+  }
+  .enter:nth-child(2) { transition-delay: 40ms; }
+  .enter:nth-child(3) { transition-delay: 80ms; }
+  .enter:nth-child(4) { transition-delay: 120ms; }
+}
+
+/*
+ * Reduced motion means gentler, not none: colour and opacity still carry
+ * meaning, so only movement is removed.
+ */
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; animation: none !important; }
+  .enter { transition: none; }
+  .btn:active { transform: none; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+}
+
+/* ---- layout utilities ----
+ * These exist so components never set spacing inline. Data-driven values
+ * (a bar's width, a hidden input) stay inline; everything static lives here.
+ */
+.app-main    { padding-top: 2rem; padding-bottom: 4rem; }
+.auth-page   { min-height: 100dvh; display: grid; place-items: center; padding: 2rem 0; }
+.auth-shell  { width: 100%; }
+.center      { text-align: center; }
+.center-col  { max-width: 32rem; margin-inline: auto; }
+.narrow-col  { max-width: 30rem; margin: 0 auto 1.5rem; }
+.gap-head    { margin-bottom: 1rem; }
+.gap-block   { margin-bottom: 2rem; }
+.gap-sm      { margin-bottom: .3rem; }
+.gap-lede    { margin-bottom: 1.4rem; }
+.gap-top     { margin-top: 1.25rem; }
+.small       { font-size: .9rem; }
+.xsmall      { font-size: .8rem; }
+.col-share   { width: 26%; }
+.visually-hidden { display: none; }
+
+/* A button that reads as a link: used for sign-out and the sign-in toggle. */
+.linkish {
+  background: none; border: 0; padding: 0; font: inherit;
+  color: var(--ink-3); cursor: pointer; text-decoration: underline;
+  text-underline-offset: 2px; transition: color var(--t-hover) ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .linkish:hover { color: var(--ink); }
 }

@@ -45,7 +45,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
         </Link>
       </div>
 
-      <div className="grid cols-3" style={{ marginBottom: '2rem' }}>
+      <div className="grid cols-3 gap-block">
         <div className="stat">
           <div className="v">{usd(total)}</div>
           <div className="k">
@@ -54,7 +54,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
         </div>
         <div className="stat">
           <div className="v spot">{pct(prefixShare)}</div>
-          <div className="k">context loaded before you typed — {usd(prefixUsd)}</div>
+          <div className="k">context loaded before you typed. That cost {usd(prefixUsd)}</div>
         </div>
         <div className="stat">
           <div className="v">{num(report.median_startup_prefix)}</div>
@@ -64,7 +64,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
 
       <div className="stack">
         <div className="card">
-          <h3 style={{ marginBottom: '1rem' }}>Where it went</h3>
+          <h3 className="gap-head">Where it went</h3>
           <div className="scroll">
             <table>
               <thead>
@@ -72,7 +72,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
                   <th>Category</th>
                   <th className="n">Cost</th>
                   <th className="n">Share</th>
-                  <th style={{ width: '26%' }} />
+                  <th className="col-share" />
                 </tr>
               </thead>
               <tbody>
@@ -97,7 +97,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
         </div>
 
         <div className="card">
-          <h3 style={{ marginBottom: '1rem' }}>By model</h3>
+          <h3 className="gap-head">By model</h3>
           <div className="scroll">
             <table>
               <thead>
@@ -123,9 +123,9 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
         </div>
 
         <div className="card">
-          <h3 style={{ marginBottom: '.4rem' }}>Most expensive sessions</h3>
-          <p className="hint" style={{ marginBottom: '1rem' }}>
-            &ldquo;No file written&rdquo; is a prompt to look, not a verdict — read-only
+          <h3 className="gap-sm">Most expensive sessions</h3>
+          <p className="hint gap-head">
+            &ldquo;No file written&rdquo; asks you to look rather than passing judgement. Read-only
             research is real work.
           </p>
           <div className="scroll">
@@ -162,7 +162,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
 
         <p className="hint">
           Prices from the table dated <strong>{report.price_table_date}</strong>. Cache writes
-          billed at the <strong>{report.cache_ttl}</strong> TTL rate — transcripts do not record
+          billed at the <strong>{report.cache_ttl}</strong> TTL rate. Transcripts do not record
           which was used, so that is an assumption, not a measurement.
           {Array.isArray(report.unpriced_models) && report.unpriced_models.length > 0 && (
             <> Unpriced and excluded from the total: {report.unpriced_models.join(', ')}.</>

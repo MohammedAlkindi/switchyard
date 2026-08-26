@@ -23,14 +23,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <nav className="topnav">
             <Link href="/dashboard">Reports</Link>
             <Link href="/dashboard/new">New report</Link>
-            <span className="muted" style={{ fontSize: '.8rem' }}>
+            <span className="muted xsmall">
               {user.email}
             </span>
             <SignOutButton />
           </nav>
         </div>
       </header>
-      <main className="wrap" style={{ paddingTop: '2rem', paddingBottom: '4rem' }}>
+      <main className="wrap app-main">
         {children}
       </main>
     </>

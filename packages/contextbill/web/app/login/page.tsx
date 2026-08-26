@@ -85,10 +85,10 @@ function AuthForm() {
 
   return (
     <div className="card">
-      <h2 style={{ marginBottom: '.3rem' }}>
+      <h2 className="gap-sm">
         {mode === 'signup' ? 'Create your account' : 'Sign in'}
       </h2>
-      <p style={{ fontSize: '.9rem', marginBottom: '1.4rem' }}>
+      <p className="small gap-lede">
         {mode === 'signup'
           ? 'Save reports and track your spend over time.'
           : 'Welcome back.'}
@@ -151,7 +151,7 @@ function AuthForm() {
         Continue with Google
       </button>
 
-      <p style={{ fontSize: '.85rem', marginTop: '1.25rem', textAlign: 'center' }}>
+      <p className="small gap-top center">
         {mode === 'signup' ? 'Already have an account? ' : 'No account yet? '}
         <button
           type="button"
@@ -160,15 +160,7 @@ function AuthForm() {
             setError(null);
             setInfo(null);
           }}
-          style={{
-            background: 'none',
-            border: 0,
-            padding: 0,
-            font: 'inherit',
-            color: 'var(--ink)',
-            textDecoration: 'underline',
-            cursor: 'pointer',
-          }}
+          className="linkish"
         >
           {mode === 'signup' ? 'Sign in' : 'Create one'}
         </button>
@@ -179,17 +171,17 @@ function AuthForm() {
 
 export default function LoginPage() {
   return (
-    <main style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: '2rem 0' }}>
-      <div className="wrap-narrow" style={{ width: '100%' }}>
-        <p style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <Link href="/" className="brand" style={{ justifyContent: 'center' }}>
+    <main className="auth-page">
+      <div className="wrap-narrow auth-shell">
+        <p className="center gap-block">
+          <Link href="/" className="brand center">
             contextbill
           </Link>
         </p>
         <Suspense fallback={<div className="card">Loading…</div>}>
           <AuthForm />
         </Suspense>
-        <p className="hint" style={{ textAlign: 'center', marginTop: '1.25rem' }}>
+        <p className="hint center gap-top">
           Your transcripts are parsed in your browser. Only the totals are saved.
         </p>
       </div>

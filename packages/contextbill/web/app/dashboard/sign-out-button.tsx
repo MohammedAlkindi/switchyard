@@ -18,15 +18,7 @@ export default function SignOutButton() {
         router.push('/');
         router.refresh();
       }}
-      style={{
-        background: 'none',
-        border: 0,
-        padding: 0,
-        font: 'inherit',
-        fontSize: '.85rem',
-        color: 'var(--ink-3)',
-        cursor: 'pointer',
-      }}
+      className="linkish small"
     >
       {busy ? 'Signing out…' : 'Sign out'}
     </button>
