@@ -235,7 +235,7 @@ export function renderReport(r: Report): string {
 <div class="wrap">
 
 <header>
-  <h1>load<span class="mark">line</span></h1>
+  <h1>context<span class="mark">bill</span></h1>
   <p class="sub">${num(r.transcriptCount)} transcripts · ${num(r.sessionCount)} sessions · ${num(r.turns)} turns · ${r.spanDays.toFixed(0)} days</p>
 </header>
 
