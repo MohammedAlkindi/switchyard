@@ -155,11 +155,16 @@ export default function PrivacyPage() {
           account, and it is not recoverable afterwards.
         </p>
         <p>
-          There is no delete button in the dashboard yet. Until there is, open an issue on{' '}
+          Every saved report carries a delete button on its own page. Deleting one removes
+          the saved totals and the per-category, per-model and per-session rows that belong
+          to it, immediately and permanently. Nothing is retained afterwards and there is no
+          recovery, so treat it as final.
+        </p>
+        <p>
+          To delete the account itself along with every report under it, open an issue on{' '}
           <a href="https://github.com/MohammedAlkindi/contextbill/issues">GitHub</a> and
-          say which account it concerns. If you would rather not have an account at all,
-          the command line tool runs the same analysis with no network access and no sign
-          in.
+          say which account it concerns. If you would rather not have an account at all, the
+          command line tool runs the same analysis with no network access and no sign in.
         </p>
 
         <h2>Children</h2>

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { DeleteReport } from './delete-report';
 import { BASIS, num, pct, usd, when } from '@/lib/format';
 
 function n(v: string | number | null | undefined): number {
@@ -174,6 +175,16 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
             <> Unpriced and excluded from the total: {report.unpriced_models.join(', ')}.</>
           )}
         </p>
+
+        <div className="card">
+          <h3 className="gap-head">Delete this report</h3>
+          <p className="hint gap-block">
+            Removes the saved totals and their per-category, per-model and per-session rows.
+            Your transcripts stay on your own machine either way; only what you saved here
+            is affected.
+          </p>
+          <DeleteReport id={id} label={report.label ?? 'this untitled report'} />
+        </div>
       </div>
     </>
   );
