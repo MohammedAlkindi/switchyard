@@ -36,17 +36,6 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: npm
 
-      # Trusted publishing (OIDC) needs npm >= 11.5.1. Node 24 bundles npm 11.x,
-      # but the exact patch moves with the runner image, and below that floor npm
-      # silently falls back to NODE_AUTH_TOKEN instead of using the OIDC token it
-      # already has permission to mint. That fallback is what failed here on
-      # 2026-08-28 with EOTP -- and it failed *after* writing a provenance
-      # statement to the public transparency log, so the cost is not just a red X.
-      - name: npm new enough for trusted publishing
-        run: |
-          npm install -g npm@latest
-          npm --version
-
       - run: npm ci
 
       # The same gate prepublishOnly runs, run here explicitly so a failure
