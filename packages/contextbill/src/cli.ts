@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 import { aggregate, monthlyProjection } from './aggregate.js';
 import { cacheWriteMultiplier, usd } from './cost.js';
@@ -324,15 +324,38 @@ function main(): void {
  * Without this guard, importing anything from this module executes the whole
  * CLI and then calls process.exit — which makes `parseArgs` untestable and
  * would surprise any consumer that imported it.
+ *
+ * Both sides are resolved to a real path before they are compared. `argv[1]` is
+ * whatever the shell handed us, and for an installed package that is npm's bin
+ * entry — a symlink to this file on POSIX, a shim on Windows — while
+ * `import.meta.url` is always the fully resolved module. Comparing the two
+ * unresolved made `npx contextbill` a silent no-op: the guard was false, main
+ * never ran, and nothing was printed to say so.
  */
 function isEntryPoint(): boolean {
   const invoked = process.argv[1];
   if (invoked === undefined) return false;
   try {
-    return pathToFileURL(path.resolve(invoked)).href === import.meta.url;
+    return canonicalPath(invoked) === canonicalPath(fileURLToPath(import.meta.url));
   } catch {
     return false;
   }
+}
+
+/**
+ * Absolute, symlink-free, comparable. `realpathSync.native` also normalises the
+ * drive-letter case and expands 8.3 short names on Windows; it throws if the
+ * path does not exist, so the resolved path stands in when it does.
+ */
+function canonicalPath(p: string): string {
+  const resolved = path.resolve(p);
+  let real = resolved;
+  try {
+    real = fs.realpathSync.native(resolved);
+  } catch {
+    real = resolved;
+  }
+  return process.platform === 'win32' ? real.toLowerCase() : real;
 }
 
 if (isEntryPoint()) {
