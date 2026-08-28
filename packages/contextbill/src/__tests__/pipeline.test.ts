@@ -22,15 +22,22 @@ describe('end-to-end over fixtures', () => {
   const report = run();
 
   it('prices the whole corpus to a hand-checkable total', () => {
-    // Worked by hand from prices.json at the 5m cache rate:
+    // Worked by hand from prices.json at the 5m cache rate (write 1.25x, read 0.1x):
     //   session-a  opus-5    15in/1000cw/1000cr/70out  = $0.008575
-    //   session-a  sonnet-5   2in/0cw/1000cr/10out     = $0.000456
+    //     15*5 + 1000*5*1.25 + 1000*5*0.1 + 70*25, /1e6
+    //   session-a  sonnet-5   2in/0cw/1000cr/10out     = $0.000304
+    //     2*2 + 1000*2*0.1 + 10*10, /1e6
     //   session-b  haiku-4-5 100in/0cw/0cr/10out       = $0.000150
     //   session-b  opus-5 FAST      0/0/0/100out       = $0.005000
     //   agent      opus-5     7in/500cw/0cr/5out       = $0.003285
     //   dead       opus-5     3in/80cw/0cr/1out        = $0.000540
-    //                                            total = $0.018006
-    expect(report.cost.total).toBeCloseTo(0.018006, 9);
+    //                                            total = $0.017854
+    //
+    // Was $0.018006 until 2026-08-28, when Sonnet 5 was corrected from $3/$15 to its
+    // actual $2/$10 (that row alone moved by $0.000152). Re-derived above line by line
+    // rather than re-baselined to what the code emits, which is the only way this
+    // assertion keeps telling a deliberate rate change apart from a silent regression.
+    expect(report.cost.total).toBeCloseTo(0.017854, 9);
   });
 
   it('counts sessions and subagents separately', () => {

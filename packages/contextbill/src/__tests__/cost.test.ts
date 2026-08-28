@@ -68,8 +68,15 @@ describe('priceModelUsage', () => {
   });
 
   it('falls back to standard rates for a model with no fast tier', () => {
+    // Read the expected rate off the table rather than hardcoding it. What this
+    // test is for is the fallback branch, not Sonnet 5's price — pinning the
+    // literal made it fail when that rate was corrected, which is noise. The one
+    // assertion that deliberately pins rates is the anchor in pipeline.test.ts.
+    const standardOutput = table.models['claude-sonnet-5']?.output ?? 0;
+    expect(standardOutput).toBeGreaterThan(0);
+
     const fast = priceModelUsage(entry('claude-sonnet-5', { output: 1e6 }, 'fast'), table, '5m');
-    expect(fast?.output).toBeCloseTo(15, 10);
+    expect(fast?.output).toBeCloseTo(standardOutput, 10);
   });
 
   it('returns null rather than zero for an unknown model', () => {

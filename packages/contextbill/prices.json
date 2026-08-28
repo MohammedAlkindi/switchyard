@@ -3,14 +3,20 @@
     "Per-million-token prices in USD. EVERY dollar figure contextbill reports derives from",
     "this file, so it is versioned, dated, and cited in the report footer.",
     "",
-    "Source: Anthropic first-party API rates, as published in the bundled `claude-api`",
-    "skill reference (cache stamped 2026-06-24). These are Claude API / Microsoft Foundry",
-    "rates. Amazon Bedrock and Google Vertex AI are partner-operated and priced",
-    "separately -- contextbill does not model them.",
+    "Source: Anthropic's published pricing page, read on the date in `dated` below:",
+    "https://platform.claude.com/docs/en/about-claude/pricing",
+    "These are Claude API / Microsoft Foundry / Claude Platform on AWS rates. Amazon",
+    "Bedrock and Google Vertex AI are partner-operated and priced separately -- contextbill",
+    "does not model them.",
     "",
-    "If you are reading a report and the numbers look wrong, check `dated` below first."
+    "Figures here are what usage WOULD cost metered at these rates. Most Claude Code usage",
+    "is on a subscription, which bills a flat fee, so a contextbill total values the usage",
+    "rather than restating an invoice. Every surface says so.",
+    "",
+    "If you are reading a report and the numbers look wrong, check `dated` below first.",
+    "A test fails once this table is more than 60 days old."
   ],
-  "dated": "2026-06-24",
+  "dated": "2026-08-28",
   "currency": "USD",
   "unit": "per_million_tokens",
   "source": "Anthropic first-party API published rates",
@@ -31,6 +37,15 @@
     "default": "5m"
   },
   "cacheReadMultiplier": 0.1,
+
+  "$comment-retired-models": [
+    "The table below also prices retired models, because old transcripts still mention",
+    "them. Without an entry they land in unpricedModels and drop out of the total, which",
+    "understates any corpus with history. Keys are post-normalizeModelId: the dated suffix",
+    "is stripped before lookup, so `claude-opus-4-1-20250805` resolves to `claude-opus-4-1`.",
+    "This note sits outside `models` deliberately -- a `$comment` key inside that map would",
+    "be indistinguishable from a model to anything that iterates it."
+  ],
 
   "models": {
     "claude-fable-5": { "input": 10.0, "output": 50.0 },
@@ -53,13 +68,18 @@
     "claude-opus-4-6": { "input": 5.0, "output": 25.0 },
     "claude-opus-4-5": { "input": 5.0, "output": 25.0 },
     "claude-sonnet-5": {
-      "input": 3.0,
-      "output": 15.0,
-      "note": "Introductory pricing of $2.00/$10.00 ran through 2026-08-31. Standard rates are used here, so sessions inside that window are slightly OVERSTATED."
+      "input": 2.0,
+      "output": 10.0,
+      "note": "$2/$10 launched as introductory pricing through 2026-08-31. The scheduled increase to $3/$15 was cancelled and $2/$10 is now the standard price."
     },
     "claude-sonnet-4-6": { "input": 3.0, "output": 15.0 },
     "claude-sonnet-4-5": { "input": 3.0, "output": 15.0 },
-    "claude-haiku-4-5": { "input": 1.0, "output": 5.0 }
+    "claude-haiku-4-5": { "input": 1.0, "output": 5.0 },
+
+    "claude-opus-4-1": { "input": 15.0, "output": 75.0 },
+    "claude-opus-4": { "input": 15.0, "output": 75.0 },
+    "claude-sonnet-4": { "input": 3.0, "output": 15.0 },
+    "claude-3-5-haiku": { "input": 0.8, "output": 4.0 }
   },
 
   "unpricedModels": {
