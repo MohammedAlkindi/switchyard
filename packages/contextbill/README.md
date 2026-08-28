@@ -1,24 +1,34 @@
 # contextbill
 
-Know what your AI agents actually cost. Analyze Claude Code usage locally and see
-where your tokens and dollars are going.
+Know what your AI agents cost at API rates. Analyze Claude Code usage locally and
+see where your tokens and dollars are going.
 
 ```console
 $ npx contextbill
 
-  $22,297 across 82,767 turns in 376 sessions
+  $22,297 at API rates across 82,767 turns in 376 sessions
   $22,759 projected per 30 days
-  81,586 median tokens loaded before you type — $4,062 paid for that alone
+  81,586 median tokens loaded before you type — $4,062 of that total
 
   2 long session(s) wrote no file — see the report
+
+  Figures are API-equivalent — what this usage would cost at Anthropic
+  API rates. A subscription bills a flat fee instead.
 
   report -> ./contextbill-report.html
 ```
 
 Those are real figures from one developer machine, not a projection. The third line
-is the one that tends to surprise people: **18.2% of that bill was context nobody
+is the one that tends to surprise people: **18.2% of that total was context nobody
 typed** — the system prompt, tool catalog, connector definitions and instruction
 files that load before every session and get re-read on every subsequent turn.
+
+**What the dollars mean.** contextbill counts the tokens in your transcripts and
+prices them at Anthropic's published first-party API rates. If you are on a
+subscription you paid a flat monthly fee, so these figures are not your invoice:
+they value the usage, which is what makes one session comparable to another and a
+habit comparable to the habit you replaced it with. Nothing here needs an API key
+to be true, and nothing here is a bill.
 
 No signup. No account. No API key. No network calls.
 
@@ -62,8 +72,8 @@ One self-contained HTML file with no external references:
 
 - **Cost by category** — shell, file reads, browser automation, connectors, model
   output, and fixed startup overhead, in dollars.
-- **The startup prefix** — your median pre-input token load and what you paid to
-  re-read it across every turn of every session.
+- **The startup prefix** — your median pre-input token load and what re-reading it
+  across every turn of every session is worth at API rates.
 - **Sessions that wrote no file** — long runs that never produced an artifact.
   Offered as a prompt to go look, not as a verdict; read-only research is real work,
   and a `Bash` command that writes a file does not count toward the flag.

@@ -36,13 +36,16 @@ export default function TermsPage() {
           <p>
             Every figure is an estimate produced from your transcripts and a rate table
             with a date on it. It is not a bill, it is not issued by any model provider,
-            and it will not match your invoice exactly. Two limits are worth naming: a
-            transcript records how many tokens were written to cache but not which
-            cache lifetime was charged, so contextbill assumes the cheaper one and
-            therefore tends to understate; and the startup-prefix figure is a model of
-            how a session&apos;s fixed overhead is apportioned, not a line item anyone billed
-            you. Do not use these numbers as the sole basis for a financial decision, a
-            chargeback or a dispute.
+            and it will not match your invoice. Three limits are worth naming, largest
+            first. Figures are priced at Anthropic&apos;s published first-party API rates,
+            so if you work on a subscription you paid a flat fee and these dollars value
+            the usage rather than restate what you were charged; Bedrock and Vertex are
+            priced separately again and are not modelled. A transcript records how many
+            tokens were written to cache but not which cache lifetime was charged, so
+            contextbill assumes the cheaper one and therefore tends to understate. And
+            the startup-prefix figure is a model of how a session&apos;s fixed overhead is
+            apportioned, not a line item anyone billed you. Do not use these numbers as
+            the sole basis for a financial decision, a chargeback or a dispute.
           </p>
         </div>
 

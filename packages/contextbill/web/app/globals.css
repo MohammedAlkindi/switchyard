@@ -78,6 +78,11 @@ p:last-child { margin-bottom: 0; }
 .lede  { font-size: 1.1rem; max-width: 34rem; margin-bottom: 2rem; }
 .tight { max-width: 17ch; }
 
+/* The pricing basis. Subordinate to the lede, but deliberately larger than
+   .hint: this is the line that stops the headline reading as an invoice, and
+   at footnote size it stops doing that job. */
+.lede-note { font-size: .92rem; color: var(--ink-2); max-width: 34rem; margin-bottom: 2rem; }
+
 /* ---- app chrome ---- */
 .topbar { border-bottom: 1px solid var(--hair); background: var(--panel); }
 .topbar .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: .85rem; padding-bottom: .85rem; }
@@ -378,7 +383,8 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .hero-split { grid-template-columns: 1fr; gap: 2.75rem; }
 }
 .hero-copy h1 { margin-bottom: 1.1rem; }
-.hero-copy .lede { margin-bottom: 1.9rem; }
+.hero-copy .lede { margin-bottom: 1rem; }
+.hero-copy .lede-note { margin-bottom: 1.9rem; }
 .hero-copy .hint { margin-top: 1rem; }
 
 /* A microscopic badge above the headline. Named for the hero rather than

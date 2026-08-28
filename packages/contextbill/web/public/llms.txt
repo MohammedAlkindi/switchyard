@@ -1,8 +1,8 @@
 # contextbill
 
 > Local-first cost analysis for Claude Code. Reads the transcripts already on your
-> disk and reports what they cost: which sessions ran expensive, which produced
-> nothing, and how much of the bill is fixed context you pay for on every turn.
+> disk and prices them at Anthropic API rates: which sessions ran expensive, which
+> produced nothing, and how much of the total is fixed context loaded on every turn.
 
 contextbill exists because per-seat billing reports one number a month, which is
 enough to know you spent money and not enough to know where. It ships in two
@@ -50,8 +50,17 @@ same input.
 
 ## Accuracy note
 
-Every figure is an estimate, not an invoice. A transcript records how many
-tokens were written to cache but not which cache lifetime was billed, so
-contextbill assumes the cheaper one and tends to understate rather than
-overstate. The startup-prefix figure is a model of how fixed overhead is
-apportioned, not a line item any provider bills separately.
+Every figure is an estimate, not an invoice. Three limits, largest first.
+
+Figures are API-equivalent: every dollar is what that usage would cost metered
+at Anthropic's published first-party API rates. Most Claude Code usage is on a
+subscription, which bills a flat fee, so the totals value the usage rather than
+restate what anyone was charged. Bedrock and Vertex are priced separately again
+and are not modelled.
+
+A transcript records how many tokens were written to cache but not which cache
+lifetime was billed, so contextbill assumes the cheaper one and tends to
+understate rather than overstate.
+
+The startup-prefix figure is a model of how fixed overhead is apportioned, not a
+line item any provider bills separately.

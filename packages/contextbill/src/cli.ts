@@ -24,7 +24,7 @@ import type { CacheTtl, PriceTable } from './types.js';
  *     because a measurement did not work is worse than printing nothing.
  */
 
-const HELP = `contextbill — what your coding agents actually cost
+const HELP = `contextbill — what your coding agents cost at API rates
 
 USAGE
   contextbill [options]
@@ -43,6 +43,11 @@ OPTIONS
                      report is meant to be shared.
   --version          Print version.
   --help             This text.
+
+Every dollar figure is API-equivalent: what this usage would cost metered at
+Anthropic's published first-party API rates. If you are on a subscription you
+paid a flat fee instead, so these numbers value the usage rather than restate
+your invoice.
 
 contextbill reads transcripts and writes one HTML file. It opens no sockets.
 `;
@@ -231,9 +236,9 @@ function main(): void {
   const f = report.findings;
   const lines = [
     '',
-    `  ${usd(report.cost.total)} across ${report.turns.toLocaleString('en-US')} turns in ${report.sessionCount.toLocaleString('en-US')} sessions`,
+    `  ${usd(report.cost.total)} at API rates across ${report.turns.toLocaleString('en-US')} turns in ${report.sessionCount.toLocaleString('en-US')} sessions`,
     `  ${usd(monthlyProjection(report))} projected per 30 days`,
-    `  ${f.medianStartupPrefix.toLocaleString('en-US')} median tokens loaded before you type — ${usd(f.startupPrefixUsd)} paid for that alone`,
+    `  ${f.medianStartupPrefix.toLocaleString('en-US')} median tokens loaded before you type — ${usd(f.startupPrefixUsd)} of that total`,
     '',
   ];
   if (f.noFileWritten.length > 0) {
@@ -245,6 +250,13 @@ function main(): void {
   if (report.unpricedModelsSeen.length > 0) {
     lines.push(`  unpriced models excluded: ${report.unpricedModelsSeen.join(', ')}`);
   }
+  // The basis belongs next to the number, not in a footnote. Read without it,
+  // a subscription user takes the total for what they were charged.
+  lines.push(
+    '',
+    '  Figures are API-equivalent — what this usage would cost at Anthropic',
+    '  API rates. A subscription bills a flat fee instead.',
+  );
   lines.push('', `  report -> ${opts.out}`, '');
 
   process.stdout.write(`${lines.join('\n')}\n`);

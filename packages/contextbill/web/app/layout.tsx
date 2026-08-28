@@ -23,11 +23,11 @@ export const metadata: Metadata = {
   // emits relative social-card URLs, which no crawler can fetch.
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'contextbill: know what your AI agents actually cost',
+    default: 'contextbill: what your AI agents cost at API rates',
     template: '%s · contextbill',
   },
   description:
-    'Read the Claude Code transcripts already on your disk and see what they cost: which sessions ran expensive, which produced nothing, and how much you pay before you type a word.',
+    'Read the Claude Code transcripts already on your disk and see what they cost: which sessions ran expensive, which produced nothing, and how much loads before you type a word. Priced at Anthropic API rates.',
   applicationName: 'contextbill',
   authors: [{ name: 'Mohammed Alkindi', url: 'https://github.com/MohammedAlkindi' }],
   creator: 'Mohammed Alkindi',
@@ -43,13 +43,13 @@ export const metadata: Metadata = {
     type: 'website',
     url: '/',
     siteName: 'contextbill',
-    title: 'contextbill: know what your AI agents actually cost',
+    title: 'contextbill: what your AI agents cost at API rates',
     description:
       'Local-first cost analysis for Claude Code. Parsing runs in your browser; only totals are saved.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'contextbill: know what your AI agents actually cost',
+    title: 'contextbill: what your AI agents cost at API rates',
     description:
       'Local-first cost analysis for Claude Code. Parsing runs in your browser; only totals are saved.',
   },

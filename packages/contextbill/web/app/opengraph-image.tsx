@@ -10,7 +10,7 @@ import { ImageResponse } from 'next/og';
  */
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
-export const alt = 'contextbill: know what your AI agents actually cost';
+export const alt = 'contextbill: what your AI agents cost at API rates';
 
 const BG = '#FAFAF9';
 const INK = '#16150F';
@@ -50,7 +50,7 @@ export default function Image() {
             contextbill
           </div>
           <div style={{ fontSize: 82, color: INK, lineHeight: 1.05, maxWidth: 900 }}>
-            Know what your AI agents actually cost.
+            Know what your AI agents cost at API rates.
           </div>
         </div>
 

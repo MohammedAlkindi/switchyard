@@ -242,9 +242,18 @@ export function renderReport(r: Report): string {
 ${unpricedNote}
 
 <div class="headline">
-  <div class="stat"><div class="v accent">${esc(usd(r.cost.total))}</div><div class="k">total, all transcripts on this machine</div></div>
+  <div class="stat"><div class="v accent">${esc(usd(r.cost.total))}</div><div class="k">at API rates, all transcripts on this machine</div></div>
   <div class="stat"><div class="v">${esc(usd(monthly))}</div><div class="k">projected per 30 days at this rate</div></div>
   <div class="stat"><div class="v">${num(f.medianStartupPrefix)}</div><div class="k">median tokens loaded before you type</div></div>
+</div>
+
+<div class="note">
+  <strong>These are API-equivalent figures, not an invoice.</strong>
+  Every dollar here is what this usage would cost metered at Anthropic's published
+  first-party API rates, dated <strong>${esc(r.priceTableDate)}</strong>. If you work on a
+  subscription you paid a flat fee instead, so treat these as a valuation of the
+  usage and a way to compare sessions against each other — not as a restatement of
+  what you were charged.
 </div>
 
 <h2>Where the money goes</h2>
@@ -257,7 +266,7 @@ ${unpricedNote}
 
 <h2>The fixed tax</h2>
 <div class="note">
-  <strong>You paid ${esc(usd(f.startupPrefixUsd))} for context you never typed.</strong>
+  <strong>${esc(usd(f.startupPrefixUsd))} of that total is context nobody typed.</strong>
   Every session loads a system prompt, tool catalog, connector definitions and
   instruction files before it does any work — a median of <strong>${num(f.medianStartupPrefix)} tokens</strong> here.
   That block is written to cache once and then re-read on <em>every subsequent turn</em>,

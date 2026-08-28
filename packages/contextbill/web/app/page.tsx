@@ -121,12 +121,17 @@ export default async function LandingPage() {
         <section className="wrap hero-split">
           <div className="hero-copy reveal">
             <span className="hero-tag">Local-first cost analysis</span>
-            <h1 className="tight">Know what your AI agents actually cost.</h1>
+            <h1 className="tight">Know what your AI agents cost at API rates.</h1>
             <p className="lede">
               Per-seat billing gives you one number a month. contextbill reads the
               transcripts already on your disk and shows you the rest: which sessions ran
-              expensive, which produced nothing, and how much you pay before you type a
+              expensive, which produced nothing, and how much loads before you type a
               word.
+            </p>
+            <p className="lede-note">
+              Every figure is API-equivalent — what that usage would cost metered at
+              Anthropic&apos;s published API rates. On a subscription you paid a flat fee
+              instead, so the dollars value the usage rather than restate your invoice.
             </p>
             <div className="row">
               <ArrowCta href={ctaHref}>{ctaLabel}</ArrowCta>
