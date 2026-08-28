@@ -57,6 +57,21 @@ export interface ModelUsage {
   turns: number;
 }
 
+/**
+ * A transcript that was found but could not be turned into numbers.
+ *
+ * Defined here rather than in either reader because both produce it: the CLI
+ * reads through `node:fs`, the web app through a picked `File`, and a file
+ * neither can read has to be reported the same way by both. A skipped file that
+ * is silently counted as an empty one is the failure this type exists to stop.
+ */
+export interface UnreadableFile {
+  /** Path as the reader saw it: absolute for the CLI, picker-relative in the browser. */
+  path: string;
+  /** Why it was skipped, in words a user can act on. */
+  reason: string;
+}
+
 /** Everything one transcript file yields. Kept small: one of these per transcript. */
 export interface SessionStat {
   /** Absolute path. Identifies the transcript; never emitted into a report. */

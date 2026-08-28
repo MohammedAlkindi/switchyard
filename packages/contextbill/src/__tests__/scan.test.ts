@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { detectLayout, scanAll, scanCorpus } from '../scan.js';
+import { detectLayout, scanAll, scanCorpus, scanFile } from '../scan.js';
 import type { SessionStat } from '../types.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -138,5 +138,43 @@ describe('detectLayout', () => {
   it('assumes the standard depth when there is nothing to measure', () => {
     expect(detectLayout('/anywhere', []).sessionDepth).toBe(2);
     expect(detectLayout('/anywhere', []).singleProject).toBe(false);
+  });
+});
+
+/**
+ * A transcript that cannot be read is not a transcript with nothing in it.
+ *
+ * `scanFile` returns an empty stat on a read failure so its signature holds for
+ * any existing caller, which is exactly how an unreadable file used to be
+ * counted as an empty one — indistinguishable in the output, and inflating
+ * transcriptCount while it hid the failure. `scanCorpus` now drops it and
+ * reports it, the same shape the browser reader settled on.
+ */
+describe('unreadable transcripts', () => {
+  it('hands the reason out rather than swallowing it', () => {
+    const reasons: string[] = [];
+    const stat = scanFile(
+      path.join(FIXTURES, 'no-such-project', 'missing.jsonl'),
+      2,
+      'no-such-project',
+      2,
+      (r) => reasons.push(r),
+    );
+
+    expect(reasons).toHaveLength(1);
+    expect(reasons[0]?.length).toBeGreaterThan(0);
+    // The empty stat is still returned, which is the behaviour that made this
+    // invisible before. It is the caller's job not to count it.
+    expect(stat.turns).toBe(0);
+  });
+
+  it('reports nothing unreadable for a corpus that reads cleanly', () => {
+    expect(scanCorpus(FIXTURES).unreadable).toEqual([]);
+  });
+
+  it('keeps stats and unreadable disjoint', () => {
+    const { stats: all, unreadable } = scanCorpus(FIXTURES);
+    const paths = new Set(all.map((s) => s.file));
+    for (const u of unreadable) expect(paths.has(u.path)).toBe(false);
   });
 });

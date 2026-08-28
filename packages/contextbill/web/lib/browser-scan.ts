@@ -1,6 +1,6 @@
 import { parseTranscript } from '@core/parse';
 import { redactProject } from '@core/privacy';
-import type { SessionStat } from '@core/types';
+import type { SessionStat, UnreadableFile } from '@core/types';
 
 /**
  * Reads transcripts the user selects in the browser.
@@ -46,13 +46,9 @@ export function describePath(relPath: string): {
   return { project, id, isSubagent };
 }
 
-/** A transcript that was picked but could not be turned into numbers. */
-export interface UnreadableFile {
-  /** The picker-relative path, so the user can find the file. */
-  path: string;
-  /** Why it was skipped, in words a user can act on. */
-  reason: string;
-}
+// Re-exported so callers here keep importing it from the reader they use. The
+// definition lives in the core because the CLI produces the same thing.
+export type { UnreadableFile };
 
 export interface ScanResult {
   stats: SessionStat[];

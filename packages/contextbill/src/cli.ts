@@ -203,7 +203,7 @@ function main(): void {
   }
 
   const table = loadPriceTable();
-  const { stats: scanned, layout } = scanCorpus(opts.root);
+  const { stats: scanned, layout, unreadable } = scanCorpus(opts.root);
 
   // Pointing --root at one project directory used to be indistinguishable from
   // pointing it at the projects root: it produced a smaller, plausible number with
@@ -215,6 +215,17 @@ function main(): void {
         '  looks like one project directory rather than a transcripts root.\n' +
         '  Scanning it as a single project. For everything, use\n' +
         '  --root ~/.claude/projects\n\n',
+    );
+  }
+
+  // Say what could not be read before reporting any total built without it. A
+  // total that silently excludes files looks complete and is not.
+  if (unreadable.length > 0) {
+    const shown = unreadable.slice(0, 5).map((u) => `    ${u.path} - ${u.reason}`);
+    const more = unreadable.length > 5 ? `    and ${unreadable.length - 5} more\n` : '';
+    process.stderr.write(
+      `contextbill: ${unreadable.length} transcript(s) could not be read and are ` +
+        `excluded from the totals below.\n${shown.join('\n')}\n${more}\n`,
     );
   }
 

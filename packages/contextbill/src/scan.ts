@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { parseTranscript } from './parse.js';
-import type { SessionStat } from './types.js';
+import type { SessionStat, UnreadableFile } from './types.js';
 
 /**
  * Filesystem side of transcript reading.
@@ -40,6 +40,7 @@ export function scanFile(
   relDepth: number,
   project: string,
   sessionDepth = 2,
+  onUnreadable?: (reason: string) => void,
 ): SessionStat {
   const id = path.basename(file, '.jsonl');
   const isSubagent = relDepth > sessionDepth;
@@ -47,7 +48,13 @@ export function scanFile(
   let text: string;
   try {
     text = fs.readFileSync(file, 'utf8');
-  } catch {
+  } catch (err) {
+    // Returning an empty stat here is why an unreadable transcript used to be
+    // indistinguishable from one containing no usage. The empty stat is still
+    // returned so the signature holds for any existing caller, but the reason is
+    // handed out so `scanCorpus` can drop the file and report it instead of
+    // quietly counting it.
+    onUnreadable?.(err instanceof Error ? err.message : 'unknown read error');
     return parseTranscript('', { id, project, isSubagent, bytes: 0, file });
   }
 
@@ -95,10 +102,15 @@ export function detectLayout(root: string, files: readonly string[]): CorpusLayo
 }
 
 /** Scan every transcript under `root`, with the layout that was inferred. */
-export function scanCorpus(root: string): { stats: SessionStat[]; layout: CorpusLayout } {
+export function scanCorpus(root: string): {
+  stats: SessionStat[];
+  layout: CorpusLayout;
+  unreadable: UnreadableFile[];
+} {
   const files = listTranscripts(root);
   const layout = detectLayout(root, files);
   const stats: SessionStat[] = [];
+  const unreadable: UnreadableFile[] = [];
 
   for (const file of files) {
     const rel = path.relative(root, file);
@@ -113,10 +125,18 @@ export function scanCorpus(root: string): { stats: SessionStat[]; layout: Corpus
     const project = layout.singleProject
       ? path.basename(root) || 'unknown'
       : (parts[layout.sessionDepth - 2] ?? 'unknown');
-    stats.push(scanFile(file, parts.length, project, layout.sessionDepth));
+    let reason: string | null = null;
+    const stat = scanFile(file, parts.length, project, layout.sessionDepth, (r) => {
+      reason = r;
+    });
+
+    // A file that could not be read is not a transcript with nothing in it, and
+    // counting it as one inflates transcriptCount and hides the failure.
+    if (reason !== null) unreadable.push({ path: file, reason });
+    else stats.push(stat);
   }
 
-  return { stats, layout };
+  return { stats, layout, unreadable };
 }
 
 /** Scan every transcript under `root`. */
