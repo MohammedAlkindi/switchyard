@@ -9,7 +9,7 @@ import { aggregate } from '@core/aggregate';
 import { cacheWriteMultiplier } from '@core/cost';
 import { homeSlug } from '@core/privacy';
 import type { CacheTtl, PriceTable, Report } from '@core/types';
-import { scanFiles } from '@/lib/browser-scan';
+import { scanFiles, type UnreadableFile } from '@/lib/browser-scan';
 import { createClient } from '@/lib/supabase/client';
 import { BASIS, num, pct, usd } from '@/lib/format';
 
@@ -42,6 +42,7 @@ export default function NewReportPage() {
   const [report, setReport] = useState<Report | null>(null);
   const [fileCount, setFileCount] = useState(0);
   const [emptyFiles, setEmptyFiles] = useState(0);
+  const [unreadable, setUnreadable] = useState<UnreadableFile[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [label, setLabel] = useState('');
   const [ttl, setTtl] = useState<CacheTtl>('5m');
@@ -65,9 +66,25 @@ export default function NewReportPage() {
       try {
         // The home path is unknown in a browser, so redaction falls back to the
         // generic <drive>/Users/<name> pattern inside redactProject.
-        const { stats, emptyFiles: empties } = await scanFiles(jsonl, homeSlug(''), (p) =>
+        const {
+          stats,
+          emptyFiles: empties,
+          unreadable: skipped,
+        } = await scanFiles(jsonl, homeSlug(''), (p) =>
           setProgress({ done: p.done, total: p.total }),
         );
+
+        // Every file failing is a different situation from a few failing, and
+        // it must not render as a $0.00 report.
+        if (stats.length === 0) {
+          setError(
+            `None of the ${jsonl.length} transcript(s) could be read. ` +
+              `The first failure was "${skipped[0]?.reason ?? 'unknown'}". If Claude Code is ` +
+              'running, the files are being rewritten as they are read; try again in a moment.',
+          );
+          setStage('idle');
+          return;
+        }
 
         const built = aggregate(stats, {
           table: TABLE,
@@ -78,7 +95,7 @@ export default function NewReportPage() {
 
         if (built.turns === 0) {
           setError(
-            `Read ${jsonl.length} file(s) but found no usage data. That folder may not be a ` +
+            `Read ${stats.length} file(s) but found no usage data. That folder may not be a ` +
               'Claude Code transcript root.',
           );
           setStage('idle');
@@ -86,6 +103,8 @@ export default function NewReportPage() {
         }
 
         setEmptyFiles(empties);
+        setUnreadable(skipped);
+        setFileCount(stats.length);
         setReport(built);
         setStage('ready');
       } catch (err) {
@@ -240,6 +259,25 @@ export default function NewReportPage() {
         </div>
       )}
 
+      {report && unreadable.length > 0 && (
+        <div className="notice warn">
+          <strong>
+            {num(fileCount)} of {num(fileCount + unreadable.length)} transcripts were read.
+          </strong>{' '}
+          The {num(unreadable.length)} below could not be, so the totals exclude them. This
+          normally means a Claude Code session was writing to those files while the browser
+          read them.
+          <ul className="gap-top">
+            {unreadable.slice(0, 5).map((u) => (
+              <li key={u.path}>
+                <code className="mono">{u.path}</code> — {u.reason}
+              </li>
+            ))}
+          </ul>
+          {unreadable.length > 5 && <p className="hint">and {num(unreadable.length - 5)} more.</p>}
+        </div>
+      )}
+
       {report && (
         <div className="stack gap-top">
           <div className="grid cols-3">
@@ -314,6 +352,7 @@ export default function NewReportPage() {
 
             <p className="hint">
               {num(fileCount)} transcripts read
+              {unreadable.length > 0 && ` · ${num(unreadable.length)} could not be read`}
               {emptyFiles > 0 && ` · ${num(emptyFiles)} contained no usage data`} · prices dated{' '}
               {report.priceTableDate} · cache writes billed at the {report.cacheTtlAssumed} rate
               {report.unpricedModelsSeen.length > 0 &&

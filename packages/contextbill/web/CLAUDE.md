@@ -6,33 +6,48 @@ Next.js app with Supabase accounts and saved reports. Deployed at
 https://contextbill.vercel.app. The repo root holds the analysis core and its own
 `CLAUDE.md`; read that too.
 
-## UNVERIFIED: nobody has run the thing this product rests on
+## The picker has been run against a real profile, and it fails on a live one
 
-**The browser directory picker has never been tested end to end against a real
-`~/.claude/projects`.** Not in CI, not by hand, not once.
+This section used to say nobody had ever run the browser picker end to end. Someone
+has, and the result splits in two: the numbers are right, and the read is fragile.
 
-That path is the entire web product. `app/dashboard/new/page.tsx` puts
-`webkitdirectory` on a file input, hands what comes back to `lib/browser-scan.ts`, and
-that output becomes every number on the dashboard. There are **zero test files under
-`web/`**. The core has 76 tests; this has none.
+**The numbers agree with the CLI.** 947 transcripts, 775MB, `$23,367.23` in the tab
+against the CLI's `$23,367.229110` over the same directory, 48.6MB heap. The picker
+does yield every `*.jsonl` including nested subagent transcripts, and the slug arrives
+in the form `redactProject` expects.
 
-Everything downstream is verified and none of it covers this. The parser is tested
-against fixtures, the pricing is anchored, RLS is proven with the anon key. All of it
-assumes the browser handed us the right files in the first place, and that assumption is
-the one nobody has checked.
+**The read fails on a directory that is in use.** `File.text()` rejects with
+`NotReadableError` part-way through: the picker captures a handle at selection time and
+the browser revalidates it at read time, and Claude Code rewrites its `.jsonl` files
+while sessions run. A frozen copy of the same corpus parses cleanly. Anyone measuring
+their usage has just been using Claude Code, so **the failing case is the normal one**.
 
-Specifically unknown:
-- Whether a directory picker on a real profile yields every `*.jsonl`, including nested
-  subagent transcripts, or silently skips or truncates.
-- Whether `File.text()` over hundreds of megabytes survives, or dies on memory in a tab.
-- Whether the project slug arrives in the form `redactProject` expects, given the
-  browser reports `webkitRelativePath` and not a filesystem path.
-- Whether Safari and Firefox support the attribute well enough to matter.
+`scanFiles` now scopes its error handling to a single file, retries a failed read once,
+and returns an `unreadable` list alongside the stats. `app/dashboard/new/page.tsx`
+states the coverage when that list is non-empty and refuses to render a report when
+every file failed.
 
-Treat every dashboard figure as unconfirmed until someone runs this against a real
-profile and diffs the totals against `npx contextbill` over the same directory. That diff
-is the acceptance test and it has not been run. Delete this section when it has, and
-record the result.
+*Reversing it:* the temptation is to widen the `try` back out to the whole loop, or to
+drop the `unreadable` list because nothing reads it yet. Either one returns the product
+to a total that looks complete and is not. A partial total that does not say it is
+partial is the failure this codebase exists to avoid; the fix is never to tell people to
+close Claude Code first.
+
+Still unmeasured: Safari and Firefox support for `webkitdirectory`.
+
+### Tests exist under `web/` now
+
+`lib/__tests__/browser-scan.test.ts`, run by the root `npm test` through the aliases in
+the root `vitest.config.ts`. It pins the degradation above, and one thing worth more
+than the rest: **`browser-scan.ts` and `scan.ts` produce identical aggregates for the
+same corpus.** That is the invariant the whole two-surface design rests on, and until
+that test nothing enforced it. Each reader is self-consistent, so a drift between them
+would surface as the CLI and the dashboard disagreeing about one directory with every
+other test still green.
+
+`vitest.config.ts` mirrors `web/tsconfig.json`'s `@core/*` and `@prices` aliases. If
+they drift, the web tests resolve a different module than the app does and stop testing
+the shipped code.
 
 ## How this connects to the core
 
