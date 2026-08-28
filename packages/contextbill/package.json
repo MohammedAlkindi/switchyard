@@ -1,6 +1,6 @@
 {
   "name": "contextbill",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local-first usage and cost report for coding-agent transcripts. Never sends your data anywhere.",
   "scripts": {
     "test": "vitest run",
@@ -36,7 +36,8 @@
     "dist/**/*.d.ts",
     "prices.json",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=18"
