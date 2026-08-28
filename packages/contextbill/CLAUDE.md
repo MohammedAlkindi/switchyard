@@ -142,3 +142,36 @@ The cost is real and accepted: these files are read on every session in this rep
 they stay ordered by what bites hardest and get pruned when an entry stops being true.
 If the design rationale ever grows past what is worth loading every time, split the
 narrative into `docs/` and leave the constraints here.
+
+## Releasing
+
+`v0.1.0` reached npm with no tag, no GitHub Release and no test run behind it. Both tags
+were reconstructed afterwards from the publish timestamp. Do not repeat that: the
+procedure below exists so a published version always has a commit, a changelog entry and
+a green run behind it.
+
+1. Gate: build, lint, the full suite, and `npm audit`.
+2. Bump with `npm version <x.y.z> --no-git-tag-version` (never hand-edit the version), and
+   add the `CHANGELOG.md` section in the same commit.
+3. Commit `chore(release): vX.Y.Z`, push, then tag **on main** with an annotated tag whose
+   message is Conventional-Commits shaped. `commit-guard.js` validates annotated-tag
+   message text as if it were a commit subject and will otherwise block it. That is a
+   false positive on a tag; fix the subject rather than bypassing the hook.
+4. Create the GitHub Release bound to that exact tag, with the changelog section as its
+   notes. Verify the tag rather than letting the tool mint one off the wrong commit.
+5. Publishing then happens in `.github/workflows/release.yml`, triggered by that release.
+
+**Never publish to the registry by hand.** Two reasons, both load-bearing. The workflow
+adds provenance, which a local publish cannot. And `prepublishOnly` runs the test suite,
+which **cannot start on the maintainer's own machine** — Smart App Control blocks the
+unsigned native binding vitest loads, so a local publish either fails at the gate or gets
+forced past it with `--ignore-scripts`, which also skips the build that produces `dist/`.
+
+Publishing needs `NPM_TOKEN` in repository secrets. npm trusted publishing via OIDC would
+remove the secret entirely and is the better end state.
+
+**The engines field is a checked claim, not a hope.** CI builds on current node and then
+runs the built CLI on node 18, asserting the fixture corpus still prices to `$0.017854`.
+Running the *suite* on 18 tests the wrong thing: vitest imports `styleText` from
+`node:util`, which arrived in node 20, so it fails there while the CLI — which imports
+only `fs`, `os`, `path` and `url` — is fine.
