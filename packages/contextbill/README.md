@@ -62,6 +62,7 @@ node dist/cli.js
 | `--root <dir>` | `~/.claude/projects` | Transcript root ([see below](#--root-and-your-working-directory)) |
 | `--out <file>` | `./contextbill-report.html` | Report path |
 | `--cache-ttl <5m\|1h>` | `5m` | Cache-write billing rate |
+| `--project <slug>` | — | Only projects whose slug contains this text |
 | `--top <n>` | `20` | Rows in the most-expensive-sessions table |
 | `--show-paths` | off | Show full project directory slugs |
 | `--json` | — | Print JSON to stdout, write no file |
@@ -98,6 +99,9 @@ One self-contained HTML file with no external references:
   and a `Bash` command that writes a file does not count toward the flag.
 - **Runs that died on startup** — a scheduled agent that exits before working is
   indistinguishable from one that never fired. Transcript size separates them.
+- **Cost by project** — what each directory you work from actually costs. The rows
+  sum to the total exactly, so a project's share is a real share and not a
+  re-estimate. Use `--project <slug>` to report on one of them alone.
 - **Per-model spend** — including fast-mode turns at their own rate.
 - **Token classes** — input, cache writes, cache reads, output.
 

@@ -37,6 +37,9 @@ OPTIONS
                      choice — if your client used 1h caching, the real cost
                      is higher than reported.
   --json             Print the report as JSON to stdout, write no file.
+  --project <slug>   Only transcripts whose project matches this text. Matches
+                     a substring, case-insensitively, so --project acme finds
+                     C--Users-you-work-acme. Without it, every project is read.
   --top <n>          Sessions in the "most expensive" table. Default: 20.
   --show-paths       Show full project directory slugs. Off by default: those
                      slugs encode your OS username and directory tree, and the
@@ -55,6 +58,8 @@ contextbill reads transcripts and writes one HTML file. It opens no sockets.
 interface Options {
   root: string;
   out: string;
+  /** Substring filter on the project slug. Empty means every project. */
+  project: string;
   ttl: CacheTtl;
   json: boolean;
   top: number;
@@ -69,6 +74,7 @@ export function parseArgs(argv: readonly string[], home: string): Options {
   const opts: Options = {
     root: path.join(home, '.claude', 'projects'),
     out: path.resolve('contextbill-report.html'),
+    project: '',
     ttl: '5m',
     json: false,
     top: 20,
@@ -93,6 +99,11 @@ export function parseArgs(argv: readonly string[], home: string): Options {
       case '--out': {
         const v = next();
         if (v !== undefined) opts.out = path.resolve(v);
+        break;
+      }
+      case '--project': {
+        const v = next();
+        if (v !== undefined) opts.project = v;
         break;
       }
       case '--cache-ttl': {
@@ -207,11 +218,32 @@ function main(): void {
     );
   }
 
+  // Filter on the raw slug, before redaction. Redaction strips exactly the part
+  // of the path a user would type to identify their own project, so matching
+  // afterwards would fail on the obvious query and look like a missing project.
+  const selected =
+    opts.project === ''
+      ? scanned
+      : scanned.filter((s) => s.project.toLowerCase().includes(opts.project.toLowerCase()));
+
+  if (opts.project !== '' && selected.length === 0) {
+    const available = [...new Set(scanned.map((s) => s.project))].sort();
+    process.stderr.write(
+      `contextbill: no project matching "${opts.project}" under ${opts.root}\n` +
+        (available.length > 0
+          ? `Projects found: ${available.slice(0, 12).join(', ')}` +
+            (available.length > 12 ? `, and ${available.length - 12} more` : '') +
+            '\n'
+          : ''),
+    );
+    return;
+  }
+
   // Project slugs encode the OS username and directory tree. The report exists
   // to be shared, so redaction is the default and showing them is opt-in.
   const stats = opts.showPaths
-    ? scanned
-    : scanned.map((s) => ({ ...s, project: redactProject(s.project, home) }));
+    ? selected
+    : selected.map((s) => ({ ...s, project: redactProject(s.project, home) }));
 
   if (stats.length === 0) {
     process.stderr.write(`contextbill: found no .jsonl transcripts under ${opts.root}\n`);

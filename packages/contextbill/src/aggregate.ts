@@ -72,6 +72,10 @@ export function aggregate(stats: readonly SessionStat[], opts: AggregateOptions)
   let startupPrefixUsd = 0;
 
   const modelTotals = new Map<string, { usd: number; turns: number }>();
+  const projectTotals = new Map<
+    string,
+    { usd: number; turns: number; sessions: number; transcripts: number; prefixUsd: number }
+  >();
   const categoryBytes = new Map<string, number>();
   const unpricedSeen = new Set<string>();
   const sessions: SessionCost[] = [];
@@ -110,6 +114,23 @@ export function aggregate(stats: readonly SessionStat[], opts: AggregateOptions)
     // conversation content, apportioned across tool categories by bytes read
     // back into context. Exact by construction now that the prefix is capped.
     contentUsd += nonOutputUsd - prefixUsd;
+
+    // Accumulated from the same per-session values as the corpus totals above,
+    // which is what makes the project rows sum back to the whole exactly —
+    // including the prefix, because prefixUsd is capped before it lands here.
+    const proj = projectTotals.get(stat.project) ?? {
+      usd: 0,
+      turns: 0,
+      sessions: 0,
+      transcripts: 0,
+      prefixUsd: 0,
+    };
+    proj.usd += priced.cost.total;
+    proj.turns += stat.turns;
+    proj.transcripts += 1;
+    if (!stat.isSubagent) proj.sessions += 1;
+    proj.prefixUsd += prefixUsd;
+    projectTotals.set(stat.project, proj);
 
     for (const [category, bytes] of Object.entries(stat.toolBytes)) {
       if (typeof bytes !== 'number') continue;
@@ -161,6 +182,18 @@ export function aggregate(stats: readonly SessionStat[], opts: AggregateOptions)
     }))
     .sort((a, b) => b.usd - a.usd);
 
+  const byProject = [...projectTotals.entries()]
+    .map(([project, v]) => ({
+      project,
+      usd: v.usd,
+      share: cost.total > 0 ? (100 * v.usd) / cost.total : 0,
+      turns: v.turns,
+      sessions: v.sessions,
+      transcripts: v.transcripts,
+      startupPrefixUsd: v.prefixUsd,
+    }))
+    .sort((a, b) => b.usd - a.usd);
+
   const topSessions = [...sessions].sort((a, b) => b.usd - a.usd).slice(0, topN);
 
   const spanDays =
@@ -179,6 +212,7 @@ export function aggregate(stats: readonly SessionStat[], opts: AggregateOptions)
     cost,
     byModel,
     byCategory,
+    byProject,
     topSessions,
     findings: buildFindings(stats, sessions, startupPrefixUsd),
     unpricedModelsSeen: [...unpricedSeen].sort(),

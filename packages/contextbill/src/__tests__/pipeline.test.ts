@@ -147,3 +147,47 @@ describe('renderReport', () => {
     expect(html).toContain('5m');
   });
 });
+
+/**
+ * Project rows have to reconcile with the corpus, or they are decoration.
+ *
+ * The reason to be careful here is `startupPrefixUsd`: it is a model capped at
+ * each session's non-output spend, not a billed line, so it survives being
+ * summed only because the per-session capped values are what get accumulated.
+ * Recomputing a prefix from pooled project aggregates would not reconcile, and
+ * nothing else in the suite would notice.
+ */
+describe('byProject', () => {
+  const report = run();
+
+  it('sums to the corpus total exactly', () => {
+    const summed = report.byProject.reduce((n, p) => n + p.usd, 0);
+    expect(summed).toBeCloseTo(report.cost.total, 12);
+  });
+
+  it('sums turns and the fixed-context figure back to the whole', () => {
+    expect(report.byProject.reduce((n, p) => n + p.turns, 0)).toBe(report.turns);
+    expect(report.byProject.reduce((n, p) => n + p.sessions, 0)).toBe(report.sessionCount);
+    expect(report.byProject.reduce((n, p) => n + p.transcripts, 0)).toBe(report.transcriptCount);
+    expect(report.byProject.reduce((n, p) => n + p.startupPrefixUsd, 0)).toBeCloseTo(
+      report.findings.startupPrefixUsd,
+      12,
+    );
+  });
+
+  it('counts a subagent toward its project without counting it as a session', () => {
+    // The subagent lives under demo-project, so that row carries three
+    // transcripts and two sessions. Conflating the two is how sessionCount
+    // silently inflates.
+    const demo = report.byProject.find((p) => p.project.includes('demo-project'));
+    expect(demo?.transcripts).toBe(3);
+    expect(demo?.sessions).toBe(2);
+  });
+
+  it('orders projects by cost and shares total 100%', () => {
+    const shares = report.byProject.reduce((n, p) => n + p.share, 0);
+    expect(shares).toBeCloseTo(100, 6);
+    const usds = report.byProject.map((p) => p.usd);
+    expect([...usds].sort((a, b) => b - a)).toEqual(usds);
+  });
+});

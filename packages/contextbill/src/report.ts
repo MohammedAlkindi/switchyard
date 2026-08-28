@@ -151,6 +151,21 @@ export function renderReport(r: Report): string {
     )
     .join('\n');
 
+  const projectRows = r.byProject
+    .filter((p) => p.usd > 0)
+    .map(
+      (p) => `<tr>
+        <td>${esc(p.project)}</td>
+        <td class="n">${esc(usd(p.usd))}</td>
+        <td class="n">${esc(pct(p.share))}</td>
+        <td class="n">${num(p.sessions)}</td>
+        <td class="n">${num(p.turns)}</td>
+        <td class="n">${esc(usd(p.startupPrefixUsd))}</td>
+        <td style="width:20%">${bar(p.share)}</td>
+      </tr>`,
+    )
+    .join('\n');
+
   const modelRows = r.byModel
     .map(
       (m) => `<tr>
@@ -264,6 +279,23 @@ ${unpricedNote}
 </table>
 </div>
 
+${
+  r.byProject.length > 1
+    ? `<h2>Where it went, by project</h2>
+<div class="note">
+  A project is one directory a session was started from, so work begun in a parent
+  folder is filed under that parent rather than under the repository you were editing.
+  Costs decompose exactly: these rows sum to the total above.
+</div>
+<div class="card scroll">
+<table>
+  <thead><tr><th>Project</th><th class="n">Cost</th><th class="n">Share</th><th class="n">Sessions</th><th class="n">Turns</th><th class="n">Fixed context</th><th></th></tr></thead>
+  <tbody>${projectRows}</tbody>
+</table>
+</div>
+`
+    : ''
+}
 <h2>The fixed tax</h2>
 <div class="note">
   <strong>${esc(usd(f.startupPrefixUsd))} of that total is context nobody typed.</strong>

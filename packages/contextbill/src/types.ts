@@ -103,6 +103,25 @@ export interface CategoryCost {
   share: number;
 }
 
+/**
+ * What one project directory cost.
+ *
+ * `startupPrefixUsd` here is the sum of the same per-session figures the corpus
+ * total is built from, each already capped at that session's non-output spend.
+ * Summing those is exact. Recomputing a prefix from project-level aggregates
+ * would not be — the cap is a per-session property and does not survive being
+ * applied to a pooled total.
+ */
+export interface ProjectCost {
+  project: string;
+  usd: number;
+  share: number;
+  turns: number;
+  sessions: number;
+  transcripts: number;
+  startupPrefixUsd: number;
+}
+
 export interface SessionCost {
   id: string;
   project: string;
@@ -155,6 +174,7 @@ export interface Report {
   cost: CostBreakdown;
   byModel: Array<{ model: string; usd: number; share: number; turns: number }>;
   byCategory: CategoryCost[];
+  byProject: ProjectCost[];
   topSessions: SessionCost[];
   findings: Findings;
   unpricedModelsSeen: string[];
