@@ -8,7 +8,7 @@ import { aggregate, monthlyProjection } from './aggregate.js';
 import { cacheWriteMultiplier, usd } from './cost.js';
 import { redactProject } from './privacy.js';
 import { renderReport } from './report.js';
-import { scanAll } from './scan.js';
+import { scanCorpus } from './scan.js';
 import type { CacheTtl, PriceTable } from './types.js';
 
 /**
@@ -192,7 +192,20 @@ function main(): void {
   }
 
   const table = loadPriceTable();
-  const scanned = scanAll(opts.root);
+  const { stats: scanned, layout } = scanCorpus(opts.root);
+
+  // Pointing --root at one project directory used to be indistinguishable from
+  // pointing it at the projects root: it produced a smaller, plausible number with
+  // no indication that it covered one slug. The scan is correct either way now,
+  // but the user still has to be told which one they measured.
+  if (layout.singleProject) {
+    process.stderr.write(
+      `contextbill: ${opts.root}\n` +
+        '  looks like one project directory rather than a transcripts root.\n' +
+        '  Scanning it as a single project. For everything, use\n' +
+        '  --root ~/.claude/projects\n\n',
+    );
+  }
 
   // Project slugs encode the OS username and directory tree. The report exists
   // to be shared, so redaction is the default and showing them is opt-in.

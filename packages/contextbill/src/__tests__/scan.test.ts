@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { scanAll } from '../scan.js';
+import { detectLayout, scanAll, scanCorpus } from '../scan.js';
 import type { SessionStat } from '../types.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -91,5 +91,52 @@ describe('scanFile totals', () => {
   it('records transcript size for the dead-run signal', () => {
     expect(byId('dead').bytes).toBeGreaterThan(0);
     expect(byId('dead').bytes).toBeLessThan(4096);
+  });
+});
+
+/**
+ * Pointing `--root` one level in used to misreport rather than fail.
+ *
+ * `fixtures/projects/demo-project` is exactly that shape: two sessions at depth
+ * 1 and a subagent at depth 2. Under the old fixed session depth every project
+ * resolved to 'unknown', and the subagent — sitting at the depth a session
+ * normally occupies — was counted as a session, inflating sessionCount. Both
+ * were silent, which is the failure mode this codebase is built to avoid.
+ */
+describe('scanning a single project directory', () => {
+  const PROJECT_DIR = path.join(FIXTURES, 'demo-project');
+  const { stats: inner, layout } = scanCorpus(PROJECT_DIR);
+
+  it('detects that the root is one project, not a projects root', () => {
+    expect(layout.singleProject).toBe(true);
+    expect(layout.sessionDepth).toBe(1);
+  });
+
+  it('names the project after the directory instead of "unknown"', () => {
+    expect(inner.every((s) => s.project === 'demo-project')).toBe(true);
+  });
+
+  it('still recognises the nested transcript as a subagent', () => {
+    const agent = inner.find((s) => s.id === 'agent');
+    expect(agent?.isSubagent).toBe(true);
+    const sessionA = inner.find((s) => s.id === 'session-a');
+    expect(sessionA?.isSubagent).toBe(false);
+  });
+
+  it('prices the same transcripts to the same total from either root', () => {
+    // The layout changes what a file is called, never what it cost. If these
+    // ever diverge, the depth logic has started dropping or duplicating turns.
+    const fromProjectsRoot = stats
+      .filter((s) => s.id !== 'dead')
+      .reduce((n, s) => n + s.turns, 0);
+    const fromProjectDir = inner.reduce((n, s) => n + s.turns, 0);
+    expect(fromProjectDir).toBe(fromProjectsRoot);
+  });
+});
+
+describe('detectLayout', () => {
+  it('assumes the standard depth when there is nothing to measure', () => {
+    expect(detectLayout('/anywhere', []).sessionDepth).toBe(2);
+    expect(detectLayout('/anywhere', []).singleProject).toBe(false);
   });
 });

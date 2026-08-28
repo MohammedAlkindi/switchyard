@@ -59,12 +59,31 @@ node dist/cli.js
 
 | Flag | Default | Meaning |
 | ---- | ------- | ------- |
-| `--root <dir>` | `~/.claude/projects` | Transcript root |
+| `--root <dir>` | `~/.claude/projects` | Transcript root ([see below](#--root-and-your-working-directory)) |
 | `--out <file>` | `./contextbill-report.html` | Report path |
 | `--cache-ttl <5m\|1h>` | `5m` | Cache-write billing rate |
 | `--top <n>` | `20` | Rows in the most-expensive-sessions table |
 | `--show-paths` | off | Show full project directory slugs |
 | `--json` | — | Print JSON to stdout, write no file |
+
+### `--root` and your working directory
+
+**Running contextbill from inside a repo does not scope it to that repo.** `--root`
+always defaults to `~/.claude/projects`, so the corpus is the same wherever you run
+from. The only thing that follows your working directory is where the HTML report
+lands. That is deliberate — spend is worth seeing whole — but it is easy to mistake
+for a bug when two directories report the same number.
+
+To measure one project, point `--root` at its directory under `~/.claude/projects`:
+
+```bash
+npx contextbill --root ~/.claude/projects/C--Users-you-work-acme
+```
+
+contextbill notices that shape and says so, because the figure it produces then
+covers one project rather than everything. Note that transcript folders are named
+after the literal working directory a session started in, so work started from a
+parent folder is filed under that parent, not under the repo you were editing.
 
 ## What the report contains
 
