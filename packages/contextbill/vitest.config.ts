@@ -21,6 +21,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   resolve: {
+    // ORDER MATTERS. A string alias matches any id that starts with it, and the
+    // entries are tried in declaration order, so the bare '@' has to come last or
+    // it swallows '@core/...' and '@prices' before either is reached.
     alias: {
       '@core': path.resolve(here, 'dist'),
       '@prices': path.resolve(here, 'prices.json'),
