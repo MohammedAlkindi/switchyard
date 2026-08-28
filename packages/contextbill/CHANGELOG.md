@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 version is `0.x`, a minor bump may contain breaking changes; those are listed first.
 
+## [0.2.1] - 2026-08-28
+
+0.2.0 was tagged but never reached npm, so this is the first 0.2.x you can install.
+
+### Fixed
+
+- The CLI did nothing at all when run from an installed copy on macOS or Linux
+  (`274b949`). npm installs `bin` as a symlink, so `argv[1]` was the link under
+  `node_modules/.bin` while `import.meta.url` was the resolved file. The entry-point
+  guard compared the two unresolved, concluded it was being imported rather than run,
+  and returned without printing anything -- exit code 0, no output, nothing to search
+  for. Both sides are resolved through `realpath` now. Windows was never affected: its
+  `.cmd` and `.ps1` shims pass the real `dist/cli.js` path as `argv[1]`, not their own.
+
 ## [0.2.0] - 2026-08-28
 
 ### Every dollar figure changed meaning, and one of them changed value
@@ -63,5 +77,6 @@ The CLI and its output are unaffected; these matter only if you import the packa
 Initial release. CLI with zero runtime dependencies that reads Claude Code transcripts,
 prices them, and writes a self-contained HTML report, plus the hosted app.
 
+[0.2.1]: https://github.com/MohammedAlkindi/contextbill/releases/tag/v0.2.1
 [0.2.0]: https://github.com/MohammedAlkindi/contextbill/releases/tag/v0.2.0
 [0.1.0]: https://github.com/MohammedAlkindi/contextbill/releases/tag/v0.1.0
