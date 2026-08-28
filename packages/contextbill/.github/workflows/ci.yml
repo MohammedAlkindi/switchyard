@@ -11,20 +11,13 @@ permissions:
 
 jobs:
   core:
-    name: core (node ${{ matrix.node }})
+    name: core
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # package.json declares >=18. 18 is the floor the package claims to
-        # support and 24 is what it is developed on; testing both is what makes
-        # the claim true rather than aspirational.
-        node: ['18', '24']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
+          node-version: '24'
           cache: npm
       - run: npm ci
       - run: npm run build
@@ -33,9 +26,52 @@ jobs:
       # command covers both workspaces.
       - run: npm test
 
+  engines:
+    name: shipped CLI runs on the oldest supported node
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build on current node. The toolchain is a development concern and has
+      # its own floor; what has to work on old node is the artifact users get.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      # Then run the built CLI on the version package.json claims to support.
+      # Testing the suite here instead would prove nothing about the package:
+      # vitest needs node:util styleText and so fails on 18 while the CLI,
+      # which imports only fs/os/path/url, is fine.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: the CLI produces the expected total on node 18
+        run: |
+          node --version
+          node dist/cli.js --root fixtures/projects --json > out.json
+          node -e "
+            const r = JSON.parse(require('fs').readFileSync('out.json','utf8'));
+            const expected = 0.017854;
+            if (Math.abs(r.cost.total - expected) > 1e-9) {
+              throw new Error('expected ' + expected + ', got ' + r.cost.total);
+            }
+            if (r.turns !== 7) throw new Error('expected 7 turns, got ' + r.turns);
+            console.log('node 18 ok: \$' + r.cost.total + ' across ' + r.turns + ' turns');
+          "
+
   web:
     name: web build
     runs-on: ubuntu-latest
+    env:
+      # Placeholders. The build only needs these to construct a client; the
+      # signed-in routes are dynamic and fetch nothing at build time. Real keys
+      # are not required to prove the app compiles, and the publishable key is
+      # public by design anyway.
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key-for-build-only
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
