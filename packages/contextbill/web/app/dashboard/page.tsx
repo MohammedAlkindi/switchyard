@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { num, pct, usd, when } from '@/lib/format';
+import { BASIS, num, pct, usd, when } from '@/lib/format';
 
 interface ReportRow {
   id: string;
@@ -78,13 +78,14 @@ export default async function DashboardPage() {
         <div className="stat">
           <div className="v">{usd(n(latest.total_usd))}</div>
           <div className="k">
-            total across {num(latest.turns)} turns in {num(latest.session_count)} sessions
+            at API rates, across {num(latest.turns)} turns in {num(latest.session_count)} sessions
           </div>
         </div>
         <div className="stat">
           <div className="v spot">{pct(prefixShare)}</div>
           <div className="k">
-            of spend was context loaded before you typed. That cost {usd(n(latest.startup_prefix_usd))}
+            of that total was context loaded before you typed, worth{' '}
+            {usd(n(latest.startup_prefix_usd))}
           </div>
         </div>
         <div className="stat">
@@ -92,6 +93,8 @@ export default async function DashboardPage() {
           <div className="k">median tokens loaded before your first keystroke</div>
         </div>
       </div>
+
+      <p className="hint">{BASIS}</p>
 
       <div className="card">
         <h3 className="gap-head">All reports</h3>

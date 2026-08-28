@@ -4,6 +4,19 @@
  * `usd` deliberately mirrors the CLI's formatter so a figure reads identically
  * in the terminal, the generated HTML report, and the web dashboard.
  */
+
+/**
+ * The pricing basis, stated once.
+ *
+ * Every surface that renders a dollar figure has to say what the figure is,
+ * because on a subscription it is not what anyone was charged. Holding the
+ * sentence here rather than typing it per page is the same argument as
+ * `site-chrome.tsx`: three copies means the next correction reaches one page
+ * and the other two keep the old claim.
+ */
+export const BASIS =
+  'Figures are API-equivalent: what this usage would cost at Anthropic API rates. ' +
+  'A subscription bills a flat fee instead.';
 export function usd(n: number): string {
   if (!Number.isFinite(n)) return '—';
   if (n === 0) return '$0.00';

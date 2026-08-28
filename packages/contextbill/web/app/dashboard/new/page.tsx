@@ -11,7 +11,7 @@ import { homeSlug } from '@core/privacy';
 import type { CacheTtl, PriceTable, Report } from '@core/types';
 import { scanFiles } from '@/lib/browser-scan';
 import { createClient } from '@/lib/supabase/client';
-import { num, pct, usd } from '@/lib/format';
+import { BASIS, num, pct, usd } from '@/lib/format';
 
 const TABLE = priceTable as unknown as PriceTable;
 
@@ -246,13 +246,15 @@ export default function NewReportPage() {
             <div className="stat">
               <div className="v">{usd(report.cost.total)}</div>
               <div className="k">
-                across {num(report.turns)} turns in {num(report.sessionCount)} sessions
+                at API rates, across {num(report.turns)} turns in {num(report.sessionCount)}{' '}
+                sessions
               </div>
             </div>
             <div className="stat">
               <div className="v spot">{pct(prefixShare)}</div>
               <div className="k">
-                context loaded before you typed. That cost {usd(report.findings.startupPrefixUsd)}
+                of that total was context loaded before you typed, worth{' '}
+                {usd(report.findings.startupPrefixUsd)}
               </div>
             </div>
             <div className="stat">
@@ -308,7 +310,9 @@ export default function NewReportPage() {
               />
             </div>
 
-            <p className="hint gap-head">
+            <p className="hint gap-head">{BASIS}</p>
+
+            <p className="hint">
               {num(fileCount)} transcripts read
               {emptyFiles > 0 && ` · ${num(emptyFiles)} contained no usage data`} · prices dated{' '}
               {report.priceTableDate} · cache writes billed at the {report.cacheTtlAssumed} rate

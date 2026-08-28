@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { num, pct, usd, when } from '@/lib/format';
+import { BASIS, num, pct, usd, when } from '@/lib/format';
 
 function n(v: string | number | null | undefined): number {
   if (typeof v === 'number') return v;
@@ -51,18 +51,22 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
         <div className="stat">
           <div className="v">{usd(total)}</div>
           <div className="k">
-            across {num(report.turns)} turns in {num(report.session_count)} sessions
+            at API rates, across {num(report.turns)} turns in {num(report.session_count)} sessions
           </div>
         </div>
         <div className="stat">
           <div className="v spot">{pct(prefixShare)}</div>
-          <div className="k">context loaded before you typed. That cost {usd(prefixUsd)}</div>
+          <div className="k">
+            of that total was context loaded before you typed, worth {usd(prefixUsd)}
+          </div>
         </div>
         <div className="stat">
           <div className="v">{num(report.median_startup_prefix)}</div>
           <div className="k">median pre-input tokens, re-read every turn</div>
         </div>
       </div>
+
+      <p className="hint">{BASIS}</p>
 
       <div className="stack">
         <div className="card">
