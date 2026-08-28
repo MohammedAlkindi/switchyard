@@ -166,6 +166,18 @@ export function renderReport(r: Report): string {
     )
     .join('\n');
 
+  const connectorRows = r.byConnector
+    .map(
+      (c) => `<tr>
+        <td>${esc(c.server)}</td>
+        <td class="n">${esc(usd(c.usd))}</td>
+        <td class="n">${esc(pct(c.share))}</td>
+        <td class="n">${num(c.calls)}</td>
+        <td style="width:24%">${bar(c.share)}</td>
+      </tr>`,
+    )
+    .join('\n');
+
   const modelRows = r.byModel
     .map(
       (m) => `<tr>
@@ -291,6 +303,28 @@ ${
 <table>
   <thead><tr><th>Project</th><th class="n">Cost</th><th class="n">Share</th><th class="n">Sessions</th><th class="n">Turns</th><th class="n">Fixed context</th><th></th></tr></thead>
   <tbody>${projectRows}</tbody>
+</table>
+</div>
+`
+    : ''
+}
+${
+  r.byConnector.length > 0
+    ? `<h2>What each connector cost</h2>
+<div class="note">
+  <strong>This table can only see connectors you actually called.</strong>
+  A transcript records the calls that happened, not the tool catalog that was
+  loaded, so a connector you never used leaves no trace here — it is paid for
+  in the fixed context below and is invisible to this list. Compare these
+  ${num(r.byConnector.length)} against the connectors you have enabled: the
+  difference is being paid for on every turn and returning nothing.
+  Browser automation appears here as its server and again in the category
+  table; the two cut the same spend along different lines.
+</div>
+<div class="card scroll">
+<table>
+  <thead><tr><th>Server</th><th class="n">Cost</th><th class="n">Share</th><th class="n">Calls</th><th></th></tr></thead>
+  <tbody>${connectorRows}</tbody>
 </table>
 </div>
 `

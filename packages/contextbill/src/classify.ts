@@ -32,6 +32,28 @@ export function classify(name: string): ToolCategory {
 }
 
 /**
+ * The MCP server a tool belongs to, or null if it is not an MCP tool.
+ *
+ * Tool names arrive as `mcp__<server>__<tool>`, so the server is recoverable
+ * from the call itself. That matters because a transcript records nothing about
+ * which servers were *loaded* — there is no tool catalog, no `mcp_servers`, no
+ * system prompt in the file, only the calls that happened. So this can attribute
+ * what a connector cost when it was used, and can never see one that was loaded
+ * and never called. `report.ts` says so rather than implying the list is
+ * complete.
+ *
+ * Server names are not always human-readable: a claude.ai connector is a UUID.
+ * That is passed through unchanged rather than guessed at.
+ */
+export function mcpServer(name: string): string | null {
+  if (!name.startsWith('mcp__')) return null;
+  const rest = name.slice('mcp__'.length);
+  const end = rest.indexOf('__');
+  const server = end === -1 ? rest : rest.slice(0, end);
+  return server.length > 0 ? server : null;
+}
+
+/**
  * Did this tool call write something to disk?
  *
  * Note this is narrower than "had a side effect" — a `Bash` call can absolutely

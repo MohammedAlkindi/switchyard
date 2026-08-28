@@ -57,9 +57,9 @@ export interface ModelUsage {
   turns: number;
 }
 
-/** Everything one transcript file yields. Deliberately small — it is cached to disk. */
+/** Everything one transcript file yields. Kept small: one of these per transcript. */
 export interface SessionStat {
-  /** Absolute path, used as the cache key. Never emitted into a report. */
+  /** Absolute path. Identifies the transcript; never emitted into a report. */
   file: string;
   /** Project directory slug the transcript sits under. */
   project: string;
@@ -77,6 +77,10 @@ export interface SessionStat {
   isSubagent: boolean;
   /** Bytes returned into context per tool category. */
   toolBytes: Partial<Record<ToolCategory, number>>;
+  /** Bytes returned into context per MCP server. Keyed by the server segment. */
+  connectorBytes: Record<string, number>;
+  /** Tool calls made per MCP server. */
+  connectorCalls: Record<string, number>;
   /** True if any Write / Edit / NotebookEdit call was made. */
   producedFile: boolean;
   /** Count of Write / Edit / NotebookEdit calls. */
@@ -120,6 +124,23 @@ export interface ProjectCost {
   sessions: number;
   transcripts: number;
   startupPrefixUsd: number;
+}
+
+/**
+ * What one MCP server cost, and how much it was used.
+ *
+ * Derived from calls that happened. A transcript carries no tool catalog, so a
+ * connector that was loaded and never called leaves no trace here at all — it
+ * is paid for in the startup prefix and is invisible to this table. The report
+ * states that limit next to the table rather than letting the list read as
+ * complete.
+ */
+export interface ConnectorCost {
+  server: string;
+  usd: number;
+  share: number;
+  calls: number;
+  bytes: number;
 }
 
 export interface SessionCost {
@@ -175,6 +196,7 @@ export interface Report {
   byModel: Array<{ model: string; usd: number; share: number; turns: number }>;
   byCategory: CategoryCost[];
   byProject: ProjectCost[];
+  byConnector: ConnectorCost[];
   topSessions: SessionCost[];
   findings: Findings;
   unpricedModelsSeen: string[];

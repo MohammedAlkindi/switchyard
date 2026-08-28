@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { classify, isMutatingTool } from '../classify.js';
+import { classify, isMutatingTool, mcpServer } from '../classify.js';
 
 describe('classify', () => {
   it('buckets the built-in tools', () => {
@@ -34,5 +34,30 @@ describe('classify', () => {
     expect(isMutatingTool('Read')).toBe(false);
     // Bash can write files. It deliberately does not count — see classify.ts.
     expect(isMutatingTool('Bash')).toBe(false);
+  });
+});
+
+describe('mcpServer', () => {
+  it('names the server a tool belongs to', () => {
+    expect(mcpServer('mcp__github__create_branch')).toBe('github');
+    expect(mcpServer('mcp__claude-in-chrome__navigate')).toBe('claude-in-chrome');
+  });
+
+  it('passes an opaque server id through rather than guessing at it', () => {
+    // claude.ai connectors are UUIDs. Rendering the raw id is honest; inventing
+    // a friendly name for it would be a fabrication in a cost report.
+    expect(mcpServer('mcp__aed0a7ff-182d-4b72-9c71-7329cc235f29__send_message')).toBe(
+      'aed0a7ff-182d-4b72-9c71-7329cc235f29',
+    );
+  });
+
+  it('returns null for anything that is not an MCP tool', () => {
+    expect(mcpServer('Bash')).toBe(null);
+    expect(mcpServer('Read')).toBe(null);
+    expect(mcpServer('mcp__')).toBe(null);
+  });
+
+  it('handles a server with no tool segment', () => {
+    expect(mcpServer('mcp__server')).toBe('server');
   });
 });

@@ -1,4 +1,4 @@
-import { classify, isMutatingTool } from './classify.js';
+import { classify, isMutatingTool, mcpServer } from './classify.js';
 import { zeroUsage } from './cost.js';
 import type { ModelUsage, RawUsage, SessionStat, ToolCategory } from './types.js';
 
@@ -66,7 +66,7 @@ export interface ParseOptions {
   isSubagent: boolean;
   /** Size of the transcript in bytes; the dead-run signal. */
   bytes: number;
-  /** Opaque origin, used only as a cache key. Empty in the browser. */
+  /** Opaque origin, carried through onto the stat. Empty in the browser. */
   file?: string;
 }
 
@@ -81,6 +81,8 @@ export function parseTranscript(text: string, opts: ParseOptions): SessionStat {
     startupPrefix: 0,
     isSubagent: opts.isSubagent,
     toolBytes: {},
+    connectorBytes: {},
+    connectorCalls: {},
     producedFile: false,
     fileWrites: 0,
     startedAt: null,
@@ -119,6 +121,10 @@ export function parseTranscript(text: string, opts: ParseOptions): SessionStat {
           typeof block.name === 'string'
         ) {
           pending[block.id] = block.name;
+          const server = mcpServer(block.name);
+          if (server !== null) {
+            stat.connectorCalls[server] = (stat.connectorCalls[server] ?? 0) + 1;
+          }
           if (isMutatingTool(block.name)) {
             stat.producedFile = true;
             stat.fileWrites += 1;
@@ -131,6 +137,13 @@ export function parseTranscript(text: string, opts: ParseOptions): SessionStat {
               : JSON.stringify(block.content ?? '').length;
           const category: ToolCategory = classify(name);
           stat.toolBytes[category] = (stat.toolBytes[category] ?? 0) + size;
+          // Tracked alongside the category rather than instead of it: a browser
+          // tool is an MCP tool, so it belongs to a server here and to `browser`
+          // there. The two tables cut the same spend along different lines.
+          const resultServer = mcpServer(name);
+          if (resultServer !== null) {
+            stat.connectorBytes[resultServer] = (stat.connectorBytes[resultServer] ?? 0) + size;
+          }
         }
       }
     }

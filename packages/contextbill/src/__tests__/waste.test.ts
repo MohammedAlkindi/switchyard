@@ -29,6 +29,8 @@ function stat(over: Partial<SessionStat>): SessionStat {
     startupPrefix: 0,
     isSubagent: false,
     toolBytes: {},
+    connectorBytes: {},
+    connectorCalls: {},
     producedFile: true,
     fileWrites: 1,
     startedAt: null,

@@ -77,6 +77,8 @@ export function aggregate(stats: readonly SessionStat[], opts: AggregateOptions)
     { usd: number; turns: number; sessions: number; transcripts: number; prefixUsd: number }
   >();
   const categoryBytes = new Map<string, number>();
+  const connectorBytes = new Map<string, number>();
+  const connectorCalls = new Map<string, number>();
   const unpricedSeen = new Set<string>();
   const sessions: SessionCost[] = [];
 
@@ -137,6 +139,13 @@ export function aggregate(stats: readonly SessionStat[], opts: AggregateOptions)
       categoryBytes.set(category, (categoryBytes.get(category) ?? 0) + bytes);
     }
 
+    for (const [server, bytes] of Object.entries(stat.connectorBytes)) {
+      connectorBytes.set(server, (connectorBytes.get(server) ?? 0) + bytes);
+    }
+    for (const [server, calls] of Object.entries(stat.connectorCalls)) {
+      connectorCalls.set(server, (connectorCalls.get(server) ?? 0) + calls);
+    }
+
     if (stat.startedAt !== null) {
       earliest = earliest === null ? stat.startedAt : Math.min(earliest, stat.startedAt);
     }
@@ -194,6 +203,24 @@ export function aggregate(stats: readonly SessionStat[], opts: AggregateOptions)
     }))
     .sort((a, b) => b.usd - a.usd);
 
+  // Priced off the same content pool and the same denominator as the category
+  // rows, so a connector's dollars are directly comparable with them. Servers
+  // that were called but returned nothing still appear, with their call count
+  // and $0 — a chatty connector and a silent one are different findings.
+  const byConnector = [...new Set([...connectorBytes.keys(), ...connectorCalls.keys()])]
+    .map((server) => {
+      const bytes = connectorBytes.get(server) ?? 0;
+      const usd = totalBytes > 0 ? contentUsd * (bytes / totalBytes) : 0;
+      return {
+        server,
+        usd,
+        share: cost.total > 0 ? (100 * usd) / cost.total : 0,
+        calls: connectorCalls.get(server) ?? 0,
+        bytes,
+      };
+    })
+    .sort((a, b) => b.usd - a.usd || b.calls - a.calls);
+
   const topSessions = [...sessions].sort((a, b) => b.usd - a.usd).slice(0, topN);
 
   const spanDays =
@@ -213,6 +240,7 @@ export function aggregate(stats: readonly SessionStat[], opts: AggregateOptions)
     byModel,
     byCategory,
     byProject,
+    byConnector,
     topSessions,
     findings: buildFindings(stats, sessions, startupPrefixUsd),
     unpricedModelsSeen: [...unpricedSeen].sort(),
