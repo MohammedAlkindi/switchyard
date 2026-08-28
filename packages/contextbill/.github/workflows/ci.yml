@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: core (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # package.json declares >=18. 18 is the floor the package claims to
+        # support and 24 is what it is developed on; testing both is what makes
+        # the claim true rather than aspirational.
+        node: ['18', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run lint
+      # The web tests live under web/ but run from the root config, so this one
+      # command covers both workspaces.
+      - run: npm test
+
+  web:
+    name: web build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      # web/ compiles against ../dist, so the core has to be built first. Its
+      # own prebuild does that, but running it here makes the dependency obvious
+      # when this job is the one that fails.
+      - run: npm run build
+      - run: npm run lint --workspace=web
+      - run: npm run build --workspace=web
+
+  pack:
+    name: tarball contents
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # Every dollar figure derives from prices.json, and the CLI is useless
+      # without it. Shipping a tarball missing it would be a silent break that
+      # no unit test can see, because the tests read the file from the repo.
+      - name: the tarball ships prices.json and excludes web/
+        run: |
+          npm pack --dry-run --json > pack.json
+          node -e "
+            const files = JSON.parse(require('fs').readFileSync('pack.json','utf8'))[0].files.map(f => f.path);
+            const must = ['prices.json', 'dist/cli.js', 'README.md', 'LICENSE'];
+            const missing = must.filter(f => !files.includes(f));
+            if (missing.length) throw new Error('tarball is missing: ' + missing.join(', '));
+            const leaked = files.filter(f => f.startsWith('web/') || f.endsWith('.test.ts'));
+            if (leaked.length) throw new Error('tarball should not contain: ' + leaked.join(', '));
+            console.log('tarball ok:', files.length, 'files');
+          "

@@ -1,0 +1,63 @@
+name: Publish to npm
+
+# Deliberately NOT triggered by a push to main or by a tag.
+#
+# Publishing is public and effectively irreversible, so it should never happen
+# as a side effect of landing a commit or recording a tag. It fires only when a
+# GitHub Release is published, or when someone runs it by hand — both of which
+# are explicit acts.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish, e.g. v0.2.0'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  # Required for npm provenance: the job mints an OIDC token that npm uses to
+  # attest the package was built from this commit in this repo.
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.event.release.tag_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+
+      - run: npm ci
+
+      # The same gate prepublishOnly runs, run here explicitly so a failure
+      # names the step that failed instead of surfacing as one opaque publish
+      # error. npm will run prepublishOnly again during publish.
+      - run: npm run build
+      - run: npm run lint
+      - run: npm test
+
+      # The tag and the manifest must agree, or the release notes describe one
+      # version while another is published. This has to fail before publish,
+      # not after: a wrong version cannot be unpublished and reused.
+      - name: tag matches package.json
+        run: |
+          TAG="${{ inputs.tag || github.event.release.tag_name }}"
+          PKG="v$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "tag $TAG does not match package.json $PKG"
+            exit 1
+          fi
+          echo "publishing $PKG"
+
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
