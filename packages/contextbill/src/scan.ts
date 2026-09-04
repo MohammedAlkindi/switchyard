@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { parseCodexRollout } from './codex-parse.js';
 import { parseTranscript } from './parse.js';
 import type { SessionStat, UnreadableFile } from './types.js';
 
@@ -8,8 +9,9 @@ import type { SessionStat, UnreadableFile } from './types.js';
  * Filesystem side of transcript reading.
  *
  * This module owns everything that touches disk. The actual parsing lives in
- * `parse.ts`, which is Node-free so the browser can run the identical code —
- * importing `node:fs` from a shared module would break the web bundle.
+ * `parse.ts` and `codex-parse.ts`, both of which are Node-free so the browser
+ * can run the identical code — importing `node:fs` from a shared module would
+ * break the web bundle.
  */
 
 /** Recursively collect *.jsonl paths under a root. */
@@ -144,5 +146,62 @@ export function scanAll(root: string): SessionStat[] {
   return scanCorpus(root).stats;
 }
 
+/**
+ * Read one Codex rollout from disk and parse it.
+ *
+ * Deliberately far simpler than `scanFile`. A Codex rollout is filed by DATE
+ * (`YYYY/MM/DD/rollout-<ISO>-<uuid>.jsonl`), not by project, so there is no
+ * directory layout to infer and no depth that means "subagent" — the project
+ * comes from inside the file, out of `session_meta.payload.cwd`. Inferring a
+ * project from `.../2026/09/01/` would label every session `01`.
+ */
+export function scanCodexFile(file: string, onUnreadable?: (reason: string) => void): SessionStat {
+  const id = path.basename(file, '.jsonl');
+
+  let text: string;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch (err) {
+    onUnreadable?.(err instanceof Error ? err.message : 'unknown read error');
+    return parseCodexRollout('', { id, bytes: 0, file });
+  }
+
+  return parseCodexRollout(text, { id, bytes: Buffer.byteLength(text, 'utf8'), file });
+}
+
+/**
+ * Scan every Codex rollout under `root` (normally `~/.codex/sessions`).
+ *
+ * Returns no `CorpusLayout`: the single-project ambiguity `detectLayout` exists
+ * to catch cannot arise here, because the date tree carries no project
+ * information for `--root` to be pointed at the wrong level of.
+ *
+ * Any `.jsonl` under the root is read rather than only `rollout-*.jsonl`. A file
+ * that is not a rollout parses to zero turns and contributes nothing, which is a
+ * cheaper failure than skipping a renamed or archived session.
+ */
+export function scanCodexCorpus(root: string): {
+  stats: SessionStat[];
+  unreadable: UnreadableFile[];
+} {
+  const stats: SessionStat[] = [];
+  const unreadable: UnreadableFile[] = [];
+
+  for (const file of listTranscripts(root)) {
+    let reason: string | null = null;
+    const stat = scanCodexFile(file, (r) => {
+      reason = r;
+    });
+    // Same rule as the Claude corpus: a file that could not be read is not a
+    // transcript with nothing in it, and counting it as one hides the failure.
+    if (reason !== null) unreadable.push({ path: file, reason });
+    else stats.push(stat);
+  }
+
+  return { stats, unreadable };
+}
+
 export { parseTranscript } from './parse.js';
 export type { ParseOptions } from './parse.js';
+export { parseCodexRollout } from './codex-parse.js';
+export type { CodexParseOptions } from './codex-parse.js';

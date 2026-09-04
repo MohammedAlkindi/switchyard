@@ -71,8 +71,31 @@ checked on 2026-08-26. Neither has been claimed yet.
 - **`classify.ts` order matters.** Browser MCP tools are matched before the generic
   `mcp__` prefix. Reorder them and the largest line item on some machines vanishes into
   "connectors".
+- **`message.usage` repeats, and summing it multiplies the bill.** Claude Code rewrites
+  each streamed assistant message into the transcript several times, and every rewrite
+  restates that message's **cumulative** usage rather than an increment. Measured
+  2026-09-03 over 1,884 real transcripts and 413,702 lines: 150,662 usage-bearing lines
+  collapse to 65,474 messages, and summing every line inflated input 3.44x, cache writes
+  2.83x, cache reads 2.23x, output 2.16x, and the priced total **2.43x**
+  ($33,671.16 naive against $13,855.18 deduplicated, same text, one pass).
+  `parse.ts` keeps the **maximum per field** per id: not the sum, not the last line
+  (rewrites are cumulative but arrival order is not guaranteed), not the first (usually
+  partial). A record with **no** id counts as its own turn — dropping one loses real
+  spend. Nothing about this fails loudly if it regresses; the numbers just get big again.
+- **Deduplication is scoped to ONE transcript, deliberately.** A resumed session copies
+  its parent's history into a new file, so the same id legitimately appears twice.
+  Merging across files is a different correction with different evidence behind it and is
+  **not** done. `Report.deduplication` counts the overlap and the report states it, so
+  the double-count that remains is visible rather than silent.
+- **`turns` counts billed messages, not transcript lines.** Everything downstream reads
+  it that way: the startup-prefix re-read multiplier in `aggregate.ts` (`turns - 1`),
+  `usdPerTurn`, `LONG_SESSION_TURNS`, `DEAD_RUN_TURNS`, and the length buckets in
+  `waste.ts`. Those thresholds were written when the count was inflated, so they are
+  stricter in real terms now — a 200-turn session today is 200 requests, not ~90.
 - **The startup prefix is read from the first turn only.** On later turns those same
-  tokens return as cache reads; counting them multiplies the figure.
+  tokens return as cache reads; counting them multiplies the figure. It is read from the
+  first message *after* its rewrites are collapsed: the first **line** of a streamed
+  message is typically a partial write and understates the prefix.
 - **Project slugs identify the machine.** `C--Users-jdoe-work-acme` decodes to an OS
   account name and directory tree. Reports are built to be shared, so `privacy.ts`
   strips it by default and `--show-paths` opts back in. Never render a raw `project`
@@ -109,11 +132,12 @@ runs 9, and each lints itself. Root config ignores `web/**` and `.vercel/**`.
 `turns` and the median startup prefix match that reference **exactly**. That check is
 worth more than any unit test here. Keep it runnable.
 
-### `$0.018006` is a regression anchor, not a sample value
+### `$0.017854` is a regression anchor, not a sample value
 
-`src/__tests__/pipeline.test.ts` asserts the fixture corpus prices to `0.018006` at nine
+`src/__tests__/pipeline.test.ts` asserts the fixture corpus prices to `0.017854` at nine
 decimal places, and the comment above it works the figure out line by line from
-`prices.json`.
+`prices.json`. It was `0.018006` until 2026-08-28, when Sonnet 5 was corrected from
+$3/$15 to its actual $2/$10; the test comment carries that history.
 
 It is there to fail. Pricing bugs do not throw: change a rate, mis-handle a dated model
 id, drop fast-mode billing, or alter how the startup prefix is apportioned, and every
@@ -125,6 +149,12 @@ path, not to update the number until it matches. Re-baselining the anchor delete
 one check that distinguishes a deliberate pricing change from a silent regression. When
 a rate genuinely changes, re-derive the expected total by hand, rewrite the arithmetic
 in the comment, and say so in the commit message.
+
+**`fixtures/projects/` is the anchor's corpus and carries no `message.id` at all.** Keep
+it that way. Fixtures for the rewrite-deduplication behaviour live in their own tree,
+`fixtures/dedup/`, precisely so that adding one does not drag the pricing anchor with it.
+`dedup.test.ts` asserts the anchor corpus stays id-free, so if someone does add one, the
+test that fails names the reason rather than leaving a mystery delta on the anchor.
 
 ## Where this knowledge lives
 

@@ -32,6 +32,26 @@ function shortDate(ms: number | null): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
+/** A break-even multiple. Two decimals: the difference between 3.1x and 3.15x is real money. */
+function multiple(n: number): string {
+  return `${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}x`;
+}
+
+/**
+ * Drop the scheme from any URL in a citation before it reaches the page.
+ *
+ * The report must contain no `http://` or `https://` at all — a test asserts it,
+ * because a single remote reference would leak that the report was opened and
+ * would break the offline promise. A cited source is inert text and not a
+ * reference, but "no scheme anywhere in the document" is a property a machine
+ * can check and "this particular string is only prose" is not, so the scheme
+ * goes and the host and path stay. The full URL survives in `--json` and in
+ * `prices.json`, both of which a reader can open.
+ */
+function citation(source: string): string {
+  return source.replace(/https?:\/\//g, '');
+}
+
 function bar(share: number): string {
   const w = Math.max(0, Math.min(100, share));
   return `<div class="bar"><div class="bar-fill" style="width:${w.toFixed(2)}%"></div></div>`;
@@ -133,7 +153,126 @@ footer p { margin: .3rem 0; }
   display: inline-block; font-size: .7rem; font-family: var(--mono);
   padding: .1rem .45rem; border-radius: 4px; background: var(--border); color: var(--ink-soft);
 }
+.pill.warn-pill { color: var(--warn); }
 `;
+
+/**
+ * The plan-utilization section. Empty string when `--plan` was not given.
+ *
+ * Structured so the caveat cannot be separated from the number: the framing
+ * note sits above the figure rather than in the footer, the multiple is only
+ * printed when it was derived from whole months, and every partial month in the
+ * trend table is labelled in its own row rather than by a footnote somebody has
+ * to look for.
+ */
+function planSection(r: Report): string {
+  const p = r.plan;
+  if (p === undefined) return '';
+
+  const metered = p.billing === 'metered';
+
+  const monthRows = p.months
+    .map((m) => {
+      const coverage = m.complete
+        ? '<span class="pill">whole month</span>'
+        : `<span class="pill warn-pill">${m.daysCovered.toFixed(1)} of ${num(m.daysInMonth)} days</span>`;
+      const ratioCell = m.ratio === null ? '—' : esc(multiple(m.ratio));
+      return `<tr>
+        <td><code>${esc(m.month)}</code></td>
+        <td class="n">${esc(usd(m.usd))}</td>
+        <td class="n">${num(m.turns)}</td>
+        <td class="n">${ratioCell}</td>
+        <td>${coverage}</td>
+      </tr>`;
+    })
+    .join('\n');
+
+  // The headline is the one number a reader will screenshot, so it is the one
+  // that must refuse to exist rather than be approximated. No complete month
+  // means no multiple — not a smaller multiple, not an asterisked one.
+  const headline = metered
+    ? `<div class="headline">
+  <div class="stat"><div class="v accent">${esc(usd(r.cost.total))}</div><div class="k">API-equivalent value of all usage read</div></div>
+  <div class="stat"><div class="v">metered</div><div class="k">${esc(p.label)} bills per token, so there is no flat fee to divide by</div></div>
+</div>`
+    : p.ratio === null
+      ? `<div class="headline">
+  <div class="stat"><div class="v accent">${esc(usd(r.cost.total))}</div><div class="k">API-equivalent value of all usage read</div></div>
+  <div class="stat"><div class="v">${esc(usd(p.usdPerMonth ?? 0))}</div><div class="k">${esc(p.label)}, per month</div></div>
+  <div class="stat"><div class="v">no whole month</div><div class="k">no break-even multiple can be computed</div></div>
+</div>`
+      : `<div class="headline">
+  <div class="stat"><div class="v accent">${esc(usd(p.completeUsd))}</div><div class="k">API-equivalent value across ${num(p.completeMonths)} whole month(s)</div></div>
+  <div class="stat"><div class="v">${esc(usd(p.completePlanUsd ?? 0))}</div><div class="k">${esc(p.label)} over the same months</div></div>
+  <div class="stat"><div class="v accent">${esc(multiple(p.ratio))}</div><div class="k">break-even multiple over whole months only</div></div>
+</div>`;
+
+  const framing = metered
+    ? `<div class="note">
+  <strong>You are on metered billing, so this is the closest thing here to an invoice — and it is still an estimate.</strong>
+  ${esc(p.label)} charges per token at the rates in the bundled table, so the total above is
+  what those tokens are worth at those rates. It is not your bill: the cache-write TTL is an
+  assumption rather than a measurement, unpriced models drop out, and this reads transcripts
+  on this machine rather than an account. Check the invoice for the invoice.
+</div>`
+    : `<div class="note">
+  <strong>This is API-equivalent value against a flat fee. It is not an invoice and not a refund.</strong>
+  ${esc(p.label)} bills <strong>${esc(usd(p.usdPerMonth ?? 0))} a month whatever you do</strong>. The dollar
+  figures here are what the same usage would have cost metered at API rates, so the multiple
+  below says how much work the subscription absorbed — not that anyone owes anyone the
+  difference. A month where you did nothing costs the same as a month where you did this.
+  ${p.perSeat ? 'This plan is priced per seat and contextbill reads one machine, so the comparison is one person against one seat. ' : ''}
+</div>`;
+
+  const partialWarning = p.months.some((m) => !m.complete)
+    ? `<div class="note">
+  <strong>${num(p.months.filter((m) => !m.complete).length)} of these month(s) are only partly covered.</strong>
+  A corpus starts at the oldest transcript that still exists and ends at the newest, so its
+  first and last months are fragments and the month in progress always is. A fragment charged
+  against a whole month's fee produces a multiple that is too LOW, which is why those rows are
+  excluded from the figure above rather than folded into it. Coverage is measured from the span
+  of the corpus: a month whose middle was deleted still reads as whole, because nothing in a
+  transcript directory can tell a quiet week from a pruned one.
+</div>`
+    : '';
+
+  const undatedWarning =
+    p.undatedUsd > 0
+      ? `<div class="note">
+  <strong>${esc(usd(p.undatedUsd))} could not be placed in any month.</strong>
+  Those transcripts carry no timestamp, so they are excluded from every row below and the
+  monthly figures understate by that much.
+</div>`
+      : '';
+
+  return `<h2>What your plan returned</h2>
+${framing}
+${headline}
+${partialWarning}
+${undatedWarning}
+<div class="card scroll">
+<table>
+  <thead><tr><th>Month (UTC)</th><th class="n">API-equivalent value</th><th class="n">Turns</th><th class="n">vs plan fee</th><th>Coverage</th></tr></thead>
+  <tbody>${monthRows}</tbody>
+</table>
+</div>
+<div class="note">
+  <strong>Plan prices are a vendor fact, not a measurement.</strong>
+  ${esc(p.label)} read at <strong>${esc(p.priceDated)}</strong> from ${esc(citation(p.priceSource))}.
+  contextbill cannot see what you actually pay — it cannot see your account at all — so a
+  price that has moved since that date makes the multiple above wrong and nothing here will
+  notice.${
+    p.usdPerMonthAnnual !== null
+      ? ` This plan also bills ${esc(usd(p.usdPerMonthAnnual))} a month annually; the multiple
+    above divides by the higher monthly-billed price, so on annual billing it is an
+    understatement.`
+      : ''
+  }
+  A session is counted in the month it started, so one running across midnight on the last of
+  the month lands entirely in the earlier month.
+</div>
+`;
+}
 
 export function renderReport(r: Report): string {
   const monthly = monthlyProjection(r);
@@ -242,6 +381,39 @@ export function renderReport(r: Report): string {
         .join('\n')
     : '';
 
+  // Two different statements, and only the second is a caveat. The first says a
+  // known double-count was removed; the second says a smaller one was measured
+  // and deliberately left in place, because merging usage across transcripts is
+  // a correction this codebase has no evidence for.
+  // The residual is stated in DOLLARS, because that is the unit it is a residual
+  // of. It used to be a count of message ids followed by "that much of the total
+  // above is still counted twice" — two different quantities joined by a phrase
+  // that reads as one, and a reader sizing the remaining error from the count
+  // gets a number that can be off by a large factor either way.
+  const d = r.deduplication;
+  const duplicateShare = r.cost.total > 0 ? (100 * d.duplicatedUsd) / r.cost.total : 0;
+  const sharedNote =
+    d.sharedMessageIds > 0
+      ? ` <strong>${num(d.sharedMessageIds)} message(s) are held by more than one transcript</strong>,
+         across ${num(d.transcriptsSharingHistory)} files — a resumed session carrying its parent's
+         history forward. Those copies are NOT merged, so about
+         <strong>${esc(usd(d.duplicatedUsd))}</strong> of the total above, ${esc(pct(duplicateShare))},
+         is counted twice. That figure prices the ${num(d.duplicatedTurns)} redundant copy(ies) at
+         the mean cost per turn of the transcripts holding them: per-message dollars do not survive
+         aggregation, so it is an estimate rather than a line item.`
+      : '';
+  const dedupNote =
+    d.rewritesCollapsed > 0 || d.sharedMessageIds > 0
+      ? `<div class="note">
+  <strong>Streamed rewrites are counted once.</strong>
+  A transcript records each assistant message several times while it streams, and
+  every one of those lines repeats that message's running usage total rather than
+  an increment. contextbill keeps the highest figure per message id and collapsed
+  ${num(d.rewritesCollapsed)} restatement(s) here; ${num(d.unidentifiedRecords)}
+  record(s) carried no message id and were counted as their own turns.${sharedNote}
+</div>`
+      : '';
+
   const unpricedNote = r.unpricedModelsSeen.length
     ? `<div class="note"><strong>Unpriced models excluded from the total</strong>
        ${r.unpricedModelsSeen.map((m) => `<code>${esc(m)}</code>`).join(' ')} —
@@ -283,6 +455,7 @@ ${unpricedNote}
   what you were charged.
 </div>
 
+${planSection(r)}
 <h2>Where the money goes</h2>
 <div class="card scroll">
 <table>
@@ -408,6 +581,8 @@ ${
   </tbody>
 </table>
 </div>
+
+${dedupNote}
 
 <footer>
   <p>Generated ${esc(r.generatedAt)} by contextbill.</p>

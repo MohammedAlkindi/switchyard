@@ -6,6 +6,71 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 version is `0.x`, a minor bump may contain breaking changes; those are listed first.
 
+## [Unreleased]
+
+### Every total drops, by 2.43x on the corpus it was measured against
+
+Claude Code writes each streamed assistant message into the transcript several times,
+and every one of those lines repeats that message's **cumulative** usage rather than an
+increment. `parse.ts` summed `message.usage` once per line, so it counted each message
+as many times as it was rewritten.
+
+Measured 2026-09-03 over 1,884 transcripts and 413,702 lines, naive and deduplicated
+computed from the same text in one pass so a live append could not fake the delta:
+150,662 usage-bearing lines collapse to 65,474 messages. Summing every line inflated
+input 3.44x, cache writes 2.83x, cache reads 2.23x and output 2.16x, and the priced
+total 2.43x — $33,671.16 against $13,855.18.
+
+Usage is now deduplicated by `message.id`, keeping the **maximum per field** — not the
+sum, and not the last line, because the rewrites are cumulative while their arrival
+order is not guaranteed. A record carrying no `message.id` still counts as its own turn.
+
+Consequences worth knowing before comparing a new report against an old one:
+
+- `turns` now counts billed messages rather than transcript lines, so every session
+  reports fewer turns and `usdPerTurn` rises.
+- The startup-prefix figure changes in both directions. Its re-read multiplier
+  (`turns - 1`) falls, because a rewrite is not another request; its per-session token
+  count rises, because the prefix is now read from the collapsed first message instead
+  of that message's first and usually partial line.
+- Dead-run detection gets stricter in the right direction: a corpse whose few messages
+  were rewritten past the `DEAD_RUN_TURNS` threshold used to escape the list.
+- Deduplication is scoped to one transcript. A resumed session copies its parent's
+  history into a new file, and those copies are **not** merged. `Report.deduplication`
+  counts them and both the CLI summary and the HTML report say so.
+
+### Added
+
+- **`--statusline`**, printing one line and no file, for use as a Claude Code
+  `statusLine` command. It reads the JSON Claude Code writes to the command's stdin and
+  prices the transcript named there, falling back to the most recently modified one
+  under `--root`. Two behaviours differ from every other mode on purpose: it writes no
+  file, and it exits non-zero and prints nothing when it cannot answer, because a stack
+  trace inside someone's prompt is worse than a missing line.
+- **`--scope <session|today>`**, what `--statusline` measures. Default `session`, one
+  transcript. `today` filters on file modification time, so a session that began
+  yesterday and continued today is counted in full — it is labelled `active today`
+  rather than `today` for that reason, and it is a bound on today's spend rather than a
+  measurement of it.
+- **`--source <claude|codex|all>`** and **`--codex-root <dir>`**, reading OpenAI Codex
+  CLI rollouts alongside Claude Code transcripts. Opt-in, and the Codex tree is never
+  opened on a default run. `prices.json` carries no OpenAI rates, so **Codex tokens are
+  counted and their dollars are left blank** rather than guessed at; passing `--source`
+  prints a per-source table so you can see which half of the corpus the dollar figure
+  covers. Adding Codex never changes what your Claude Code usage costs.
+- **`--plan <id>`**, valuing usage against a subscription fee. The break-even multiple
+  is computed over **whole calendar months only** and is `null` when the corpus contains
+  none, because a partial month charged against a full fee reports a multiple that is
+  too low. A metered plan gets no multiple at all — there is no flat fee to divide by.
+  An unknown id lists the supported ones instead of silently reporting nothing.
+- **`src/index.ts`, a published library entry point.** Import the analysis instead of
+  shelling out and parsing text: `parseTranscript`, `parseCodexRollout`, `priceAll`,
+  `aggregate`, `classify`, `renderReport`, `usd` and the rest, with every interface
+  they accept or return exported as a type from the same entry. Nothing reachable from
+  it touches the filesystem, so it bundles for a browser; `scan.ts`, which owns
+  `node:fs`, is deliberately not exported and a test walks the import graph to keep it
+  that way.
+
 ## [0.2.1] - 2026-08-28
 
 0.2.0 was tagged but never reached npm, so this is the first 0.2.x you can install.

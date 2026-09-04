@@ -14,9 +14,14 @@
     "rather than restating an invoice. Every surface says so.",
     "",
     "If you are reading a report and the numbers look wrong, check `dated` below first.",
-    "A test fails once this table is more than 60 days old."
+    "A test fails once this table is more than 60 days old.",
+    "",
+    "2026-09-03: every model rate and both cache multipliers below were re-read against the",
+    "source above and NONE had moved. `dated` is bumped because the table was re-verified on",
+    "that date, not because a price changed -- bumping it without re-reading is the one thing",
+    "that turns this field into a lie."
   ],
-  "dated": "2026-08-28",
+  "dated": "2026-09-03",
   "currency": "USD",
   "unit": "per_million_tokens",
   "source": "Anthropic first-party API published rates",
@@ -47,6 +52,43 @@
     "be indistinguishable from a model to anything that iterates it."
   ],
 
+  "$comment-missing-fable-5-1": [
+    "Claude Fable 5.1 and Claude Mythos 5.1 are published ($10 input / $50 output, same as",
+    "the 5.0 entries below) and are DELIBERATELY ABSENT. Their cache hits bill at 0.025x the",
+    "base input rate, not the 0.1x every other model uses, and `cacheReadMultiplier` above is",
+    "a single global number with no per-model override. Adding them would price their cache",
+    "reads FOUR TIMES too high, confidently, with nothing failing -- and cache reads are the",
+    "largest token class on a real corpus, so that error would dominate any total containing",
+    "them. Left unpriced, they land in `unpricedModelsSeen` and are reported loudly instead.",
+    "Adding them correctly means giving a model entry its own optional cacheReadMultiplier",
+    "and teaching cost.ts to prefer it; do that first, then add the two entries."
+  ],
+
+  "$comment-rate-periods": [
+    "A model entry may carry a `periods` array so usage is priced at the rate in force when",
+    "it happened rather than at today's rate. Without it, a vendor price change silently",
+    "reprices history and last quarter's report changes value on a re-run.",
+    "",
+    "Shape: `periods: [{ from: 'YYYY-MM-DD', input, output, fastInput?, fastOutput?, note }]`,",
+    "`from` inclusive and UTC, each period running until the next one's `from`. The LAST",
+    "period must restate the flat `input`/`output` beside it -- those stay the current rate,",
+    "so anything that has not been taught about periods still prices at today's rate. A price",
+    "change is a NEW period; never edit an existing one, because that is the silent repricing",
+    "the mechanism exists to prevent.",
+    "",
+    "NO MODEL BELOW CARRIES A PERIOD, and that is a finding rather than an omission. A period",
+    "is a claim about what a vendor charged on a date, and this repo can evidence no such",
+    "change yet. The one candidate was Sonnet 5: the table read $3/$15 until 2026-08-28 and",
+    "now reads $2/$10. That was THIS TABLE being wrong, not a rate that moved -- the scheduled",
+    "increase to $3/$15 was cancelled, so $2/$10 was the price the whole time and $3/$15 was",
+    "never charged to anyone. Writing it as a dated period would put a rate into the history",
+    "that never existed, and every turn before 2026-08-28 would then be priced 50% high with",
+    "full confidence. An invented historical rate is worse than no history.",
+    "",
+    "Add a period only with a dated published source in its `note`, and re-derive the pricing",
+    "anchor in pipeline.test.ts by hand in the same commit if fixture timestamps cross it."
+  ],
+
   "models": {
     "claude-fable-5": { "input": 10.0, "output": 50.0 },
     "claude-mythos-5": { "input": 10.0, "output": 50.0 },
@@ -70,7 +112,7 @@
     "claude-sonnet-5": {
       "input": 2.0,
       "output": 10.0,
-      "note": "$2/$10 launched as introductory pricing through 2026-08-31. The scheduled increase to $3/$15 was cancelled and $2/$10 is now the standard price."
+      "note": "$2/$10 launched as introductory pricing through 2026-08-31. The scheduled increase to $3/$15 was cancelled and $2/$10 is now the standard price. Deliberately NOT a dated period: this table carried $3/$15 by mistake until 2026-08-28, and that increase never took effect, so there is no earlier rate to date."
     },
     "claude-sonnet-4-6": { "input": 3.0, "output": 15.0 },
     "claude-sonnet-4-5": { "input": 3.0, "output": 15.0 },
@@ -88,5 +130,75 @@
       "separately and shown in the report rather than silently priced at zero."
     ],
     "ids": ["<synthetic>"]
+  },
+
+  "$comment-plans": [
+    "Subscription plan prices for --plan. These are a VENDOR FACT, not a measurement.",
+    "contextbill cannot observe what anyone pays, so every figure under `plans` is",
+    "copied from a published page on the date in `plans.dated` and is worth exactly",
+    "as much as that date. `plans` carries its own `dated` and `source` because plan",
+    "prices and API rates move on different schedules and for different reasons.",
+    "",
+    "A plan whose current price cannot be evidenced is OMITTED rather than estimated.",
+    "That is safe because the omission is loud: --plan rejects any id absent from",
+    "`plans.entries` and prints the ids that are present.",
+    "",
+    "`usdPerMonth` is the MONTHLY-billed price. Where an annual-billed price also",
+    "exists it is recorded beside it and is always the lower of the two. The",
+    "break-even multiple is computed against the monthly-billed price deliberately:",
+    "it is the larger denominator, so it yields the SMALLER multiple. Every choice in",
+    "this feature breaks toward under-claiming.",
+    "",
+    "`entries` is nested rather than sitting at the top of `plans` for the same reason",
+    "the retired-models note sits outside `models`: a $comment key inside the map",
+    "would be indistinguishable from a plan to anything that iterates it."
+  ],
+
+  "plans": {
+    "dated": "2026-09-03",
+    "source": "https://claude.com/pricing, re-read 2026-09-03. Max tier split from https://support.claude.com/en/articles/11049741-what-is-the-max-plan, re-read the same day, because the pricing page shows Max only as \"From $100\" and does not separate 5x from 20x.",
+    "currency": "USD",
+    "entries": {
+      "pro": {
+        "label": "Claude Pro",
+        "billing": "flat",
+        "usdPerMonth": 20,
+        "usdPerMonthAnnual": 17,
+        "note": "claude.com/pricing: \"$17\" per month on an annual subscription, \"$20 if billed monthly\"."
+      },
+      "max5": {
+        "label": "Claude Max 5x",
+        "billing": "flat",
+        "usdPerMonth": 100,
+        "note": "Anthropic's help centre article on the Max plan gives Max 5x as $100/month and states Max is available as a monthly subscription only, so there is no annual rate to record."
+      },
+      "max20": {
+        "label": "Claude Max 20x",
+        "billing": "flat",
+        "usdPerMonth": 200,
+        "note": "Same help-centre article: Max 20x is $200/month, monthly billing only. The public pricing page prints only \"From $100\" for Max and does not distinguish the tiers, which is why the article is cited instead."
+      },
+      "team": {
+        "label": "Claude Team, standard seat",
+        "billing": "flat",
+        "perSeat": true,
+        "usdPerMonth": 25,
+        "usdPerMonthAnnual": 20,
+        "note": "claude.com/pricing, re-read 2026-09-03: the Team standard seat is \"$20\" per month billed annually and \"$25 if billed monthly\", for teams of 2 to 150. usdPerMonth is the $25 monthly-billed figure, which is the LARGER denominator and so yields the SMALLER break-even multiple. Priced per seat. contextbill measures one machine, so this compares one person's usage against one seat. Which seat type carries Claude Code depends on how the organisation is configured and contextbill cannot see that -- if you are on a premium seat use --plan team-premium, or the multiple below is five times too large."
+      },
+      "team-premium": {
+        "label": "Claude Team, premium seat",
+        "billing": "flat",
+        "perSeat": true,
+        "usdPerMonth": 125,
+        "usdPerMonthAnnual": 100,
+        "note": "claude.com/pricing, re-read 2026-09-03: the Team premium seat is $100 per month billed annually and $125 if billed monthly. usdPerMonth is the $125 monthly-billed figure, for the same under-claiming reason as the standard seat. Priced per seat, same caveat as the standard seat."
+      },
+      "api": {
+        "label": "Claude API, pay as you go",
+        "billing": "metered",
+        "note": "No subscription fee: usage is billed per token at the rates in `models` above. There is no flat price to divide by, so no break-even multiple exists and none is reported. This is the one plan where the total is an estimate of an invoice rather than a valuation against a fee -- and it is still an estimate, because the cache-write TTL is an assumption."
+      }
+    }
   }
 }

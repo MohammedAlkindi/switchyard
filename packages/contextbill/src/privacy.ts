@@ -22,6 +22,27 @@ export function homeSlug(home: string): string {
 }
 
 /**
+ * Project slug for an agent that records a raw working directory instead of a
+ * pre-slugged directory name.
+ *
+ * Codex writes `session_meta.payload.cwd` verbatim —
+ * `C:\Users\jdoe\work\acme` — which leaks the OS account name and the whole
+ * directory tree exactly as a Claude Code slug does, just without the encoding
+ * step in front of it. Encoding it here rather than redacting the raw path is
+ * what lets ONE redaction rule cover both agents: `redactProject` already knows
+ * how to strip a home prefix from a slug, and it is the only place that
+ * decision should live.
+ *
+ * A trailing separator is dropped first so `C:\Users\jdoe\work\` and
+ * `C:\Users\jdoe\work` do not become two different projects.
+ */
+export function projectSlugFromPath(cwd: string): string {
+  const trimmed = cwd.trim().replace(/[\\/]+$/, '');
+  if (trimmed === '') return 'unknown';
+  return homeSlug(trimmed);
+}
+
+/**
  * Strip machine-identifying prefixes from a project slug.
  *
  * Prefers an exact match against the real home directory, which is precise.
