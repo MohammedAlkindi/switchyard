@@ -1,0 +1,69 @@
+name: Feature request
+description: Suggest a capability, a flag, or a report section
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before writing this up, two constraints that shape what can be accepted:
+
+        - **The published CLI has zero runtime dependencies and makes no network calls.** Both
+          are product properties with tests behind them, so a proposal that needs either has a
+          high bar to clear.
+        - **contextbill does not guess.** Anything a transcript does not record — the cache TTL,
+          which connectors were loaded, your actual invoice — is stated as unknown rather than
+          inferred. See [METHODOLOGY.md](https://github.com/MohammedAlkindi/contextbill/blob/main/METHODOLOGY.md#what-this-cannot-know).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What can't you do today?
+      description: The problem, not the solution. What were you trying to find out?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+      description: A flag, a report section, a library export, a different default.
+    validations:
+      required: true
+
+  - type: textarea
+    id: data
+    attributes:
+      label: Where would the data come from?
+      description: |
+        If this needs something out of a transcript, which field? If the transcript does not
+        record it, say so — that is still a useful issue, it just changes the answer.
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface?
+      options:
+        - CLI
+        - Statusline
+        - HTML report
+        - Library API
+        - Web app
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried instead (optional)
+      description: Existing flags, a script you wrote, another tool.
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints
+      options:
+        - label: This does not require a new runtime dependency in the published CLI, or I have explained why it must.
+          required: false
+        - label: This does not require a network call.
+          required: false
