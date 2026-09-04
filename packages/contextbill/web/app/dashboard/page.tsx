@@ -35,9 +35,18 @@ export default async function DashboardPage() {
 
   if (error) {
     return (
-      <div className="notice err">
-        Could not load reports: {error.message}
-      </div>
+      <>
+        {/* Every branch of this page needs its own h1: a route that renders
+            only an error box has no heading at all, and "the page failed" is
+            still a page. */}
+        <div className="page-head">
+          <div>
+            <p className="eyebrow">Reports</p>
+            <h1 className="page-title">Something went wrong</h1>
+          </div>
+        </div>
+        <div className="notice err">Could not load reports: {error.message}</div>
+      </>
     );
   }
 
@@ -46,7 +55,7 @@ export default async function DashboardPage() {
   if (reports.length === 0) {
     return (
       <div className="card empty">
-        <h3>No reports yet</h3>
+        <h1>No reports yet</h1>
         <p className="narrow-col">
           Point contextbill at your Claude Code transcripts and it will work out what
           they cost. Parsing happens in this browser. Only the totals are saved.
@@ -67,7 +76,7 @@ export default async function DashboardPage() {
       <div className="page-head">
         <div>
           <p className="eyebrow">Latest report</p>
-          <h2>{when(latest.created_at)}</h2>
+          <h1 className="page-title">{when(latest.created_at)}</h1>
         </div>
         <Link className="btn" href="/dashboard/new">
           New report

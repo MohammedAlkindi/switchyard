@@ -41,7 +41,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
       <div className="page-head">
         <div>
           <p className="eyebrow">Report · {when(report.created_at)}</p>
-          <h2>{report.label ?? 'Untitled report'}</h2>
+          <h1 className="page-title">{report.label ?? 'Untitled report'}</h1>
         </div>
         <Link className="btn secondary" href="/dashboard">
           All reports

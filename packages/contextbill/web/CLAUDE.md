@@ -11,10 +11,29 @@ https://contextbill.vercel.app. The repo root holds the analysis core and its ow
 This section used to say nobody had ever run the browser picker end to end. Someone
 has, and the result splits in two: the numbers are right, and the read is fragile.
 
-**The numbers agree with the CLI.** 947 transcripts, 775MB, `$23,367.23` in the tab
-against the CLI's `$23,367.229110` over the same directory, 48.6MB heap. The picker
-does yield every `*.jsonl` including nested subagent transcripts, and the slug arrives
-in the form `redactProject` expects.
+**The numbers agree with the CLI — but the end-to-end run behind that has NOT been
+repeated since the deduplication change, and its figures are gone.** This section used
+to cite a specific pair: 947 transcripts, 775 MB, `$23,367.23` in the tab against the
+CLI's `$23,367.229110`. That pair predates the streamed-rewrite correction, which
+divides every total by roughly 2.4, so it is now arithmetically impossible and has been
+removed rather than rescaled — scaling a measurement is inventing one.
+
+What is actually verified today, and by what:
+
+- **The two readers agree**, enforced on every `npm test` by
+  `lib/__tests__/browser-scan.test.ts` ("produces identical aggregates from the same
+  corpus"), which runs `scanFiles` and `scanCorpus` over one corpus and asserts
+  `cost`, `usage`, `byModel` and `byCategory` are equal. That is the invariant the
+  two-surface design rests on and it is pinned in CI, not in this file.
+- **Not verified: the live-profile picker run.** Heap ceiling, the shape of a
+  many-hundred-transcript directory, and the `NotReadableError` degradation below were
+  observed once by hand and cannot be reproduced from a test — the directory picker
+  needs a browser and a real profile. Treat the paragraphs after this one as an
+  observation to re-run, not as a current measurement.
+
+Re-running it means: open the hosted app, pick a real `~/.claude/projects`, and compare
+the tab's total against `node dist/cli.js --root <same dir>` to the cent. Write the pair
+and the date here when you do; do not leave a figure here that no run produced.
 
 **The read fails on a directory that is in use.** `File.text()` rejects with
 `NotReadableError` part-way through: the picker captures a handle at selection time and
@@ -219,9 +238,11 @@ row labels.
 `app/privacy/page.tsx` states that message content is never stored, that the only cookie is
 the Supabase auth session, that project names are redacted before saving, and that no
 analytics or third-party scripts run. Each of those is currently true and each is checkable:
-the parser is `lib/browser-scan.ts` and runs in the tab, the only write path is the
-`save_report` RPC, and `web/package.json` has five runtime dependencies, none of which is a
-tracker.
+the parser is `lib/browser-scan.ts` and runs in the tab, the only path that *writes* rows is
+the `save_report` RPC, and `web/package.json` has five runtime dependencies, none of which is
+a tracker. There is a second write path in the sense of a mutation — the client-side delete in
+`app/dashboard/[id]/delete-report.tsx` — but it only ever removes rows, so nothing about what
+can be stored changes.
 
 Three changes would make the page false without breaking a test:
 
@@ -246,12 +267,31 @@ words.
 consent banner is required first, and it has to gate the script rather than appear beside
 it.
 
-### No self-serve deletion yet, and the policy says so
+### Per-report deletion is self-serve; account deletion is by request
 
-All four tables carry DELETE policies, so erasure works at the database level, but the
-dashboard has no delete button. The privacy page states that deletion is by request through
-GitHub rather than implying a button that does not exist. If a delete flow is built, update
-that paragraph in the same commit.
+This section used to say the dashboard had no delete button and that the privacy page
+described deletion as by request. Both stopped being true when `app/dashboard/[id]/delete-report.tsx`
+shipped, and a false line in this file is worse than a missing one: it teaches the next
+session that working code is an oversight and invites it to be undone.
+
+What is actually there:
+
+- **One report at a time, from the dashboard.** `DeleteReport` is rendered at the bottom of
+  `app/dashboard/[id]/page.tsx`. It deletes straight from the client with no RPC and no
+  migration: `reports` carries an owner-scoped DELETE policy and the three child tables
+  reference it `ON DELETE CASCADE`, so removing the parent removes everything under it.
+- **The count is checked, not assumed.** RLS *filters* rather than rejects, so deleting a row
+  you do not own succeeds and removes nothing. The component passes `{ count: 'exact' }` and
+  reports "could not be deleted" on zero. Dropping that check would make a foreign id look
+  like a successful deletion, which is the kind of quiet lie this product exists to avoid.
+- **Confirmation is a second click, not `window.confirm`.** The armed state names the report
+  and says what goes with it.
+- **The whole account is still by request**, through a GitHub issue. The privacy page's
+  "Your rights" section describes both halves and is currently accurate.
+
+*Reversing it:* the privacy page is a claim about the code (see above). If the delete button
+is removed, or account deletion becomes self-serve, edit `app/privacy/page.tsx` and this
+section in the same commit.
 
 Contact is a GitHub issue link rather than an email address, deliberately: publishing a
 personal address on a public site is the owner's call to make, not a default to inherit.

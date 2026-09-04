@@ -16,8 +16,8 @@ same input.
 - Separates the startup prefix (system prompt, tool catalog, connector
   definitions, instruction files) from the work you actually asked for. That
   prefix is written to cache once and re-read on every subsequent turn, so a
-  long session pays for it repeatedly. On the corpus it was built against it was
-  18.2% of the bill.
+  long session pays for it repeatedly. On the corpus it was built against —
+  1,884 transcripts, measured 2026-09-03 — it was 21.2% of the bill.
 - Attributes spend to categories such as browser automation, shell, file
   operations and connector catalogs, so the expensive habit is identifiable.
 - Keeps saved reports so a number can be compared against itself over time.

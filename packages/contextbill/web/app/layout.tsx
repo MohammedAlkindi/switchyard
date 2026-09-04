@@ -38,10 +38,17 @@ export const metadata: Metadata = {
     'prompt cache cost',
     'developer tools',
   ],
-  alternates: { canonical: '/' },
+  // No `alternates.canonical` here, and no `openGraph.url`. Route metadata is
+  // merged down from the root, so a canonical declared here is inherited by
+  // every route that does not override it: /_not-found shipped
+  // <link rel="canonical" href="https://contextbill.vercel.app"> and told
+  // crawlers a 404 was the home page. A canonical URL is per-route by
+  // definition, so the root is the wrong place for one. Each route that should
+  // have one declares it: / in page.tsx, /privacy, /terms and /login in their
+  // own files. Routes that should not have one — the 404, the dashboard — now
+  // emit none, which is the correct answer rather than a missing one.
   openGraph: {
     type: 'website',
-    url: '/',
     siteName: 'contextbill',
     title: 'contextbill: what your AI agents cost at API rates',
     description:

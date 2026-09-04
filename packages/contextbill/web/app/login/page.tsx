@@ -1,18 +1,45 @@
 'use client';
 
-import { Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { safeRedirectPath } from '@core/safe-path';
 import { createClient } from '@/lib/supabase/client';
 
 type Mode = 'signin' | 'signup';
 
 const MIN_PASSWORD = 8;
 
+/**
+ * Where to send the user once a session exists, read at call time.
+ *
+ * This was `useSearchParams()`, and that hook opts the route out of static
+ * rendering: everything inside its Suspense boundary is replaced by the
+ * fallback in the HTML Next emits, so `.next/server/app/login.html` contained
+ * no h1, no form, no email field and no Google button. Its entire visible text
+ * was "Loading…". That is the whole signup funnel, and it is the same failure
+ * the landing page was rebuilt to avoid: content that exists only if a script
+ * runs.
+ *
+ * The parameter is only ever needed inside a submit or OAuth handler, and both
+ * of those run in the browser by definition, so reading `window.location.search`
+ * there costs nothing and keeps the form in the served HTML. It stays correct
+ * across a client-side navigation because the router updates the URL before the
+ * handler can fire.
+ *
+ * `safeRedirectPath` is the same validator the OAuth callback uses. It is not
+ * optional here: `next` rides in the URL, so it is attacker-controlled, and
+ * handing it to `router.push` unchecked is an open redirect out of the sign-in
+ * page. The callback re-validates on its own side; this stops the password path,
+ * which never reaches the callback at all.
+ */
+function nextPath(): string {
+  if (typeof window === 'undefined') return '/dashboard';
+  return safeRedirectPath(new URLSearchParams(window.location.search).get('next'), '/dashboard');
+}
+
 function AuthForm() {
   const router = useRouter();
-  const params = useSearchParams();
-  const next = params.get('next') ?? '/dashboard';
 
   const [mode, setMode] = useState<Mode>('signup');
   const [email, setEmail] = useState('');
@@ -39,6 +66,7 @@ function AuthForm() {
     setBusy(true);
     try {
       const supabase = createClient();
+      const next = nextPath();
 
       if (mode === 'signup') {
         const { data, error: err } = await supabase.auth.signUp({
@@ -74,7 +102,9 @@ function AuthForm() {
       const supabase = createClient();
       const { error: err } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath())}`,
+        },
       });
       if (err) throw err;
     } catch (err) {
@@ -200,9 +230,11 @@ export default function LoginPage() {
             contextbill
           </Link>
         </p>
-        <Suspense fallback={<div className="card">Loading…</div>}>
-          <AuthForm />
-        </Suspense>
+        {/* No Suspense boundary, because nothing here suspends any more. The
+            form is server-rendered into login.html; verify with a grep for
+            `type="email"` in .next/server/app/login.html rather than by
+            looking at the browser, which runs the script either way. */}
+        <AuthForm />
         <p className="hint center gap-top">
           Your transcripts are parsed in your browser. Only the totals are saved.
         </p>

@@ -185,7 +185,7 @@ export default function NewReportPage() {
       <div className="page-head">
         <div>
           <p className="eyebrow">New report</p>
-          <h2>Point it at your transcripts</h2>
+          <h1 className="page-title">Point it at your transcripts</h1>
         </div>
         <Link className="btn secondary" href="/dashboard">
           Cancel
@@ -244,10 +244,22 @@ export default function NewReportPage() {
 
           {stage === 'reading' && (
             <>
-              <div className="progress">
+              {/* scaleX, not width. The fill is full width and squashed from
+                  the left, so a tick composites instead of re-running layout
+                  on a main thread that is already parsing the corpus. Still a
+                  data-driven inline style, which is what the design system
+                  reserves inline styles for. */}
+              <div
+                className="progress"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={progress.total}
+                aria-valuenow={progress.done}
+                aria-label="Transcripts parsed"
+              >
                 <i
                   style={{
-                    width: `${progress.total ? (100 * progress.done) / progress.total : 0}%`,
+                    transform: `scaleX(${progress.total ? progress.done / progress.total : 0})`,
                   }}
                 />
               </div>

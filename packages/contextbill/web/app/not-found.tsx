@@ -3,8 +3,11 @@ import { SiteHeader, SiteFooter } from './site-chrome';
 
 export const metadata = {
   title: 'Page not found',
-  // A 404 that gets indexed is worse than one that does not exist.
-  robots: { index: false, follow: true },
+  // No `robots` key. Next emits <meta name="robots" content="noindex"> for
+  // this route on its own, so declaring one here produced two conflicting
+  // robots tags in _not-found.html — and a crawler reading two is entitled to
+  // take the more restrictive. `noindex` alone already implies follow, so
+  // dropping ours loses nothing and leaves exactly one tag.
 };
 
 export default function NotFound() {

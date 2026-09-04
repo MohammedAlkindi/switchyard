@@ -15,6 +15,23 @@
   --panel:   #FFFFFF;
   --sink:    #F4F3F1;
   --hair:    #E6E4E0;
+  /* THE interactive-boundary token. Every control whose edge is drawn at all
+     draws it with this, and nothing else may: --hair is 1.27:1 against --panel
+     and 1.22:1 against --bg, which is fine for a decorative rule and fails
+     WCAG 1.4.11 the moment it is the only thing marking the edge of a control.
+     Measured against all three surfaces: 3.29:1 on --bg, 3.43:1 on --panel,
+     3.09:1 on --sink, so a control is above the 3:1 floor wherever it lands.
+
+     Current users, and the complete set of controls in this file: .btn.secondary,
+     .btn.danger, the three text inputs, and .drop. Three of those five were on
+     --hair until this was audited, which is the failure mode to watch for: the
+     token existed and read as compliance while the controls it was written for
+     did not use it. Adding a control means adding it here.
+
+     --hair keeps the decorative work: table rules, section rules, the divider,
+     the topbar and footer edges, the ledger's chrome. Those are not controls
+     and 1.4.11 does not reach them. */
+  --hair-2:  #8F8A81;
   --ink:     #16150F;
   --ink-2:   #5A574E;
   --ink-3:   #6E6A61;
@@ -27,6 +44,14 @@
   --bad:     #9F2F2D;
   --bad-bg:  #FDEBEC;
   --frame:   #14130F;
+
+  /* Washes for content sitting on the --ink pill. They are a lightening of
+     that surface rather than colours of their own, which is why they are
+     alpha rather than a hex: the pill is the only dark surface in the product
+     and a solid value here would have to be maintained against it. The two
+     literals these replace were the only colours declared outside :root. */
+  --on-ink-wash:       rgba(255, 255, 255, .16);
+  --on-ink-wash-hover: rgba(255, 255, 255, .26);
 
   /* Ambient and highly diffused. Every raised surface in the product uses one
      of these two, so a card on the dashboard sits at the same height as a card
@@ -45,9 +70,13 @@
   /* The built-in CSS easings are too weak to read as intentional. */
   --ease-out:    cubic-bezier(.23, 1, .32, 1);
   --ease-in-out: cubic-bezier(.77, 0, .175, 1);
+  /* Scroll entry is slower and flatter than a hover: it should read as the
+     page settling, not as a thing announcing itself. */
+  --ease-entry:  cubic-bezier(.16, 1, .3, 1);
   --t-press:  140ms;
   --t-hover:  180ms;
   --t-enter:  260ms;
+  --t-reveal: 600ms;
 }
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -57,7 +86,8 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 a { color: inherit; }
-:focus-visible { outline: 2px solid var(--spot); outline-offset: 3px; border-radius: 3px; }
+/* The focus ring is declared at the very bottom of this file, deliberately.
+   See the note there before moving it back up here. */
 
 .wrap { max-width: 68rem; margin: 0 auto; padding: 0 var(--pad); }
 .wrap-narrow { max-width: 26rem; margin: 0 auto; padding: 0 var(--pad); }
@@ -110,8 +140,16 @@ p:last-child { margin-bottom: 0; }
 .btn:active { transform: scale(.97); }
 .btn[disabled] { opacity: .45; cursor: not-allowed; }
 .btn[disabled]:active { transform: none; }
-.btn.secondary { background: var(--panel); color: var(--ink); border-color: var(--hair); }
-.btn.danger { background: transparent; color: var(--bad); border-color: var(--hair); }
+/* --hair-2, not --hair: on a --bg page a --panel button with a --hair border
+   has no boundary anyone can see (1.24:1). The label carries the meaning, but
+   the control still has to be findable. */
+.btn.secondary { background: var(--panel); color: var(--ink); border-color: var(--hair-2); }
+/* --hair-2 for the same reason .btn.secondary uses it: this button has no fill,
+   so its border is the only thing that says it is a control. --bad would also
+   clear 3:1 (7.20:1 on --panel), but a red-outlined button in a light product
+   with one accent reads as an alarm rather than a control, and the label
+   already carries the meaning. */
+.btn.danger { background: transparent; color: var(--bad); border-color: var(--hair-2); }
 .btn.full { width: 100%; }
 @media (hover: hover) and (pointer: fine) {
   .btn:hover { opacity: .88; }
@@ -119,10 +157,15 @@ p:last-child { margin-bottom: 0; }
 }
 
 label { display: block; font-size: .82rem; font-weight: 500; margin-bottom: .35rem; }
+/* --hair-2, not --hair. A text input's border is the entire visual statement
+   that a box is a box you can type in: there is no fill difference between the
+   field and the --panel card it sits on. At --hair that boundary measured
+   1.27:1 against --panel and 1.22:1 against --bg, against a 3:1 requirement,
+   and the sign-in form was three of these in a row with no visible edges. */
 input[type="email"], input[type="password"], input[type="text"] {
   width: 100%; font: inherit; font-size: .95rem;
   padding: .7rem .9rem; border-radius: var(--radius-sm);
-  border: 1px solid var(--hair); background: var(--panel); color: var(--ink);
+  border: 1px solid var(--hair-2); background: var(--panel); color: var(--ink);
   transition: border-color var(--t-hover) ease;
 }
 input:focus { border-color: var(--ink-3); }
@@ -194,24 +237,53 @@ td a { color: var(--ink); font-weight: 500; }
 .tag.ok   { background: var(--ok-bg);   color: var(--ok); }
 
 .empty { text-align: center; padding: 3rem 1.5rem; color: var(--ink-3); }
-.empty h3 { color: var(--ink); margin-bottom: .5rem; }
+.empty h1, .empty h3 { color: var(--ink); margin-bottom: .5rem; }
+/* The empty state is the whole page, so its heading is the page's h1. Sized
+   like the h3 it replaced: the change is to the document outline, not to the
+   screen. */
+.empty h1 { font-size: 1.15rem; line-height: inherit; }
 
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-.section { padding: 2.5rem 0; }
+/* Every signed-in route began at h2, so the dashboard had no h1 at all and its
+   outline started one level down. These headings are the h1 now; the h1 scale
+   is built for a marketing hero and would shout above a stat row, so this
+   restates the h2 rule exactly, margins included. Nothing moves. */
+.page-title {
+  font-size: clamp(1.5rem, 1.3rem + 1.2vw, 2rem);
+  line-height: 1.12; text-wrap: balance;
+  margin: 0 0 1.25rem;
+}
+/* Longhand: .section is always worn together with .wrap, and `padding: X 0` is
+   a shorthand that resets .wrap's horizontal gutter to zero. Above 68rem the
+   max-width keeps the column centred so it looks fine; on a phone the text ran
+   into both edges of the screen. Set only the axis you mean. */
+.section { padding-top: 2.5rem; padding-bottom: 2.5rem; }
 .section + .section { border-top: 1px solid var(--hair); }
 .hero { padding-top: clamp(3.5rem, 9vw, 6.5rem); padding-bottom: clamp(2rem, 5vw, 3rem); }
 
-/* ---- terminal ---- */
+/* ---- terminal chip ----
+ * Was a near-black pill whose text colour was var(--on-frame), a token that is
+ * declared nowhere. An unresolvable var() with no fallback makes the property
+ * compute to its inherited value, so the label inherited --ink and rendered
+ * #16150F on #14130F: about 1.02:1, invisible, and nothing failed. It is a
+ * light chip on the product's own tokens now. Measured: --ink-2 on --sink is
+ * 6.51:1, --spot on --sink is 4.52:1. */
 .term {
-  display: inline-flex; align-items: center; gap: .7rem;
-  background: var(--frame); color: var(--on-frame); border-radius: 999px;
-  padding: .72rem 1rem; font-family: var(--mono); font-size: .88rem;
+  display: inline-flex; align-items: center; gap: .55rem;
+  background: var(--sink); color: var(--ink-2);
+  border-radius: var(--radius-sm);
+  padding: .6rem .85rem; font-family: var(--mono); font-size: .85rem;
+  outline: var(--edge); outline-offset: -1px;
 }
-.term .sigil { color: #7C8A80; user-select: none; }
+.term .sigil { color: var(--spot); user-select: none; }
 
 /* ---- drop zone ---- */
+/* --hair-2 for the same reason as the inputs: the dashed rule is the whole
+   affordance. It is --panel on --panel, so at --hair the dropzone was a
+   1.27:1 outline around an invisible box on the one screen where the user has
+   to find a target to drop files onto. */
 .drop {
-  border: 1.5px dashed var(--hair); border-radius: var(--radius);
+  border: 1.5px dashed var(--hair-2); border-radius: var(--radius);
   padding: 2.5rem 1.5rem; text-align: center; background: var(--panel);
   transition: border-color var(--t-hover) ease, background var(--t-hover) ease;
 }
@@ -219,7 +291,17 @@ td a { color: var(--ink); font-weight: 500; }
 .drop h3 { margin-bottom: .4rem; }
 
 .progress { height: 5px; background: var(--sink); border-radius: 3px; overflow: hidden; margin-top: 1rem; }
-.progress i { display: block; height: 100%; background: var(--spot); transition: width var(--t-enter) var(--ease-out); }
+/* Scaled, not resized. This fill was `transition: width`, and width is a
+   layout-triggering property: every tick re-ran layout and paint for the whole
+   subtree, on the one screen where the main thread is already saturated
+   parsing a corpus. The element is full width and squashed from the left
+   instead, so a tick costs a composited transform. */
+.progress i {
+  display: block; height: 100%; width: 100%;
+  background: var(--spot); border-radius: 3px;
+  transform: scaleX(0); transform-origin: left center;
+  transition: transform var(--t-enter) var(--ease-out);
+}
 
 /*
  * Entrance stagger. Content is visible by default and only animates when the
@@ -242,11 +324,24 @@ td a { color: var(--ink); font-weight: 500; }
 /*
  * Reduced motion means gentler, not none: colour and opacity still carry
  * meaning, so only movement is removed.
+ *
+ * This block covered `animation` and not `transition`, which meant it removed
+ * almost nothing that actually moves here — every moving thing in this file is
+ * a transition. The skip link still slid in, the CTA orb still travelled, the
+ * button still pressed, and the progress fill still re-animated on every tick
+ * of a parse. Collapsing the duration rather than setting `transition: none`
+ * is what keeps the stated intent: a colour or opacity change still happens,
+ * it just arrives at once instead of travelling.
  */
 @media (prefers-reduced-motion: reduce) {
-  .enter { transition: none; }
   .btn:active { transform: none; }
-  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ---- layout utilities ----
@@ -282,14 +377,18 @@ td a { color: var(--ink); font-weight: 500; }
 
 /* ---- accessibility & layout hardening ---- */
 
-/* Skip link: visible only when focused, first thing in the tab order. */
+/* Skip link: visible only when focused, first thing in the tab order.
+   Parked with a transform rather than a negative `top`, because `top` is
+   layout-triggering and this is the very first thing a keyboard user touches
+   on every page. Same reasoning as .progress i. */
 .skip-link {
-  position: absolute; left: .5rem; top: -3rem; z-index: 100;
+  position: absolute; left: .5rem; top: .5rem; z-index: 100;
   background: var(--ink); color: var(--bg);
   padding: .55rem 1.1rem; border-radius: 999px; font-size: .875rem; font-weight: 500;
-  transition: top var(--t-hover) var(--ease-out);
+  transform: translateY(-300%);
+  transition: transform var(--t-hover) var(--ease-out);
 }
-.skip-link:focus { top: .5rem; }
+.skip-link:focus { transform: none; }
 
 /* Long project and directory names truncate instead of breaking the grid.
    The untruncated value stays available via title= on the same element. */
@@ -299,10 +398,38 @@ td a { color: var(--ink); font-weight: 500; }
 }
 @media (max-width: 46rem) { .truncate { max-width: 9rem; } }
 
-/* Wide tables scroll inside their own container; the body never does. */
-html, body { max-width: 100%; overflow-x: hidden; }
+/* Wide tables scroll inside their own container; the body never does.
+ *
+ * There used to be an `overflow-x: hidden` on html and body here as well, and
+ * it is gone. Measured before removing it, at a 320px viewport, on every route
+ * that can be loaded without an account — /, /privacy, /terms, /login and the
+ * 404: `documentElement.scrollWidth` equals `clientWidth` on all five and no
+ * element's box crosses the viewport edge. So the mask was hiding nothing, and
+ * it was not free: `overflow-x: hidden` against a visible y axis computes to
+ * `overflow-y: auto`, which on <body> makes it a scroll container and is a
+ * known way to break `position: sticky` on a descendant — which .site-top is.
+ *
+ * The three signed-in routes could not be measured this way, because reaching
+ * them needs a session. They were read instead, and the rule below is what
+ * came out of that; see its own note. */
 .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .scroll > table { min-width: 34rem; }
+
+/* Measured, and narrower than it looks. The obvious guess — that a transcript
+   path is one long unbreakable word — is wrong: a real path is full of `/` and
+   `-`, both of which are break opportunities, so
+   `projects/C--Users-…/9f2c41a8-….jsonl` wraps to 212px inside a 320px
+   viewport with or without this rule. It changes nothing on any page that
+   exists today.
+   What it does cover is the case that has no break opportunity at all: a
+   project directory named as one unseparated run of characters. Measured with
+   a 72-character token in the /dashboard/new unreadable-files list, at 320px:
+   the document goes to 784px wide without this rule and stays at 320px with
+   it. That list is built from names off the user's own disk, which is the one
+   place the page cannot bound its own content, and it is on a route that
+   cannot be loaded here to check. Insurance, on measured terms, rather than
+   the mask it replaced. */
+code, .mono { overflow-wrap: anywhere; }
 
 /* Headline figures stay on one line and align across the row. */
 .stat .v { font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -339,26 +466,25 @@ html, body { max-width: 100%; overflow-x: hidden; }
    ---------------------------------------------------------------------
    Layout only. The palette lives on :root and is the same one the
    dashboard uses, so there is nothing here to keep in sync.
+
+   Every surface on this page is one of the product's three fills
+   (--bg, --panel, --sink) with a hairline. There are no gradients, no
+   translucency and no second palette, because the next screen a visitor
+   reaches is the dashboard and it has none of those either.
    ===================================================================== */
 .landing { min-height: 100dvh; }
 
-/* ---- nav: a floating pill, detached from the top edge ---- */
-.landing .topbar.floating {
+/* ---- nav ----
+ * The same flat bar the dashboard uses, made sticky. It was a translucent
+ * floating pill: a large rounded container in a page with no other rounded
+ * containers, blurring the content behind it on a site whose whole argument
+ * is that nothing is hidden. Public pages and signed-in pages now open with
+ * the same object. */
+.site-top {
   position: sticky; top: 0; z-index: 20;
-  background: transparent; border-bottom: 0;
-  padding-top: .9rem;
+  background: var(--panel);
 }
-.landing .topbar.floating .wrap {
-  max-width: 62rem;
-  background: rgba(255,255,255,.74);
-  backdrop-filter: blur(14px) saturate(1.6);
-  -webkit-backdrop-filter: blur(14px) saturate(1.6);
-  border-radius: 999px;
-  padding: .55rem .55rem .55rem 1.35rem;
-  box-shadow: var(--lift-1), inset 0 1px 0 rgba(255,255,255,.9);
-  outline: 1px solid rgba(22,21,15,.06); outline-offset: -1px;
-}
-.landing .topnav { gap: 1.4rem; }
+.landing .topnav { gap: 1.35rem; }
 .landing .topnav a { color: var(--ink-2); }
 @media (hover: hover) and (pointer: fine) {
   .landing .topnav a:hover { color: var(--ink); }
@@ -370,34 +496,42 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .topnav .nav-anchor { display: none; }
 }
 
-/* ---- hero: copy left, the argument drawn on the right ---- */
+/* ---- hero: copy left, the artifact on the right ---- */
 .hero-split {
   display: grid;
-  grid-template-columns: minmax(0, 1.02fr) minmax(0, .98fr);
-  gap: clamp(2rem, 5vw, 4.5rem);
+  grid-template-columns: minmax(0, 1.04fr) minmax(0, .96fr);
+  gap: clamp(2.5rem, 6vw, 5.5rem);
   align-items: center;
-  padding-top: clamp(2.75rem, 6vw, 4.5rem);
-  padding-bottom: clamp(2.5rem, 5vw, 3.5rem);
+  padding-top: clamp(3rem, 6vw, 5rem);
+  padding-bottom: clamp(3rem, 7vw, 5.5rem);
 }
 @media (max-width: 60rem) {
   .hero-split { grid-template-columns: 1fr; gap: 2.75rem; }
 }
-.hero-copy h1 { margin-bottom: 1.1rem; }
-.hero-copy .lede { margin-bottom: 1rem; }
-.hero-copy .lede-note { margin-bottom: 1.9rem; }
-.hero-copy .hint { margin-top: 1rem; }
 
-/* A microscopic badge above the headline. Named for the hero rather than
-   called .tag, which the dashboard already uses for its price-table chips. */
+/* Capped below the global h1 scale. At the full 3.9rem this headline runs to
+   four lines in the hero column and reads as shouting; the hierarchy here is
+   carried by the measure and the whitespace, not by raw size. */
+.hero-copy h1 {
+  font-size: clamp(2.3rem, 1.45rem + 2.9vw, 3.35rem);
+  line-height: 1.03;
+  letter-spacing: -.03em;
+  max-width: 20ch;
+  margin-bottom: 1.15rem;
+}
+.hero-copy .lede { max-width: 33rem; margin-bottom: 2rem; }
+
+/* A microscopic badge above the headline, and the only one on the page.
+   Named for the hero rather than called .tag, which the dashboard already
+   uses for its price-table chips. */
 .hero-tag {
-  display: inline-block; margin-bottom: 1.15rem;
+  display: inline-block; margin-bottom: 1.2rem;
   font-family: var(--mono); font-size: .66rem;
   text-transform: uppercase; letter-spacing: .16em;
   color: var(--ink-3);
   background: var(--panel);
-  border-radius: 999px; padding: .4rem .85rem;
-  box-shadow: var(--lift-1);
-  outline: 1px solid rgba(22,21,15,.06); outline-offset: -1px;
+  border-radius: 999px; padding: .38rem .8rem;
+  outline: var(--edge); outline-offset: -1px;
 }
 
 /* ---- primary CTA: a pill with its arrow nested in its own orb ---- */
@@ -409,7 +543,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .cta-orb {
   width: 2rem; height: 2rem; border-radius: 999px;
   display: inline-flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,.16);
+  background: var(--on-ink-wash);
   transition:
     transform var(--t-hover) var(--ease-out),
     background var(--t-hover) var(--ease-out);
@@ -418,56 +552,73 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .btn.cta:hover { opacity: 1; }
   .btn.cta:hover .cta-orb {
     transform: translate(2px, -2px) scale(1.06);
-    background: rgba(255,255,255,.26);
+    background: var(--on-ink-wash-hover);
   }
 }
 
-
-/* ---- the ledger: an outer tray holding an inner plate ---- */
+/* ---- the ledger: a report window, not a marketing slab ----
+ * Faux-window chrome on the product's own panel fill. The previous version
+ * was a near-black plate in a product that is light on every route, and its
+ * text colours referenced --on-frame and --on-frame-2, two tokens that are
+ * declared nowhere: every label in it inherited --ink and rendered at about
+ * 1.02:1 against the plate. Rebuilding it on real tokens removes the seam
+ * and the defect in one move. */
 .ledger-figure { margin: 0; }
-.ledger-shell {
-  background: linear-gradient(180deg, rgba(22,21,15,.055), rgba(22,21,15,.02));
-  border-radius: 1.6rem;
-  padding: .5rem;
-  box-shadow: var(--lift-2);
-}
 .ledger {
-  background: var(--frame);
-  border-radius: 1.15rem;
-  padding: 1.35rem 1.4rem 1.15rem;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  background: var(--panel);
+  border-radius: var(--radius);
+  box-shadow: var(--lift-2);
+  outline: var(--edge); outline-offset: -1px;
+  overflow: hidden;
 }
+.ledger-bar {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .7rem .95rem;
+  background: var(--sink);
+  border-bottom: 1px solid var(--hair);
+}
+.ledger-dots { display: flex; gap: .34rem; }
+.ledger-dots i {
+  display: block; width: 9px; height: 9px;
+  border-radius: 999px; background: var(--hair);
+}
+.ledger-path { font-family: var(--mono); font-size: .68rem; color: var(--ink-3); }
+
+.ledger-body { padding: 1.15rem 1.15rem 1.25rem; }
 .ledger-head {
-  display: flex; align-items: baseline; justify-content: space-between;
-  margin-bottom: 1.15rem;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+  padding-bottom: .8rem; margin-bottom: 1rem;
+  border-bottom: 1px solid var(--hair);
 }
-.ledger-title { font-family: var(--serif); font-size: 1.05rem; color: var(--on-frame); }
-.ledger-meta  { font-family: var(--mono); font-size: .7rem; color: var(--on-frame-2); }
+.ledger-title {
+  font-family: var(--serif); font-size: 1.15rem;
+  letter-spacing: -.02em; color: var(--ink);
+}
+.ledger-meta { font-family: var(--mono); font-size: .68rem; color: var(--ink-3); }
 
-.ledger-rows { display: flex; flex-direction: column; gap: .5rem; }
+.ledger-rows { display: flex; flex-direction: column; gap: .55rem; }
 .ledger-row {
-  display: grid; grid-template-columns: 3.1rem 1fr;
-  align-items: center; gap: .7rem;
-  border-radius: .45rem; padding: .14rem .28rem;
-  transition: background var(--t-hover) var(--ease-out);
+  display: grid; grid-template-columns: 3.2rem minmax(0, 1fr);
+  align-items: center; gap: .8rem;
 }
-.ledger-label { font-family: var(--mono); font-size: .68rem; color: var(--on-frame-2); }
-.ledger-track { display: flex; gap: 2px; height: 16px; }
+.ledger-label { font-family: var(--mono); font-size: .67rem; color: var(--ink-3); }
+.ledger-track { display: flex; gap: 3px; height: 14px; }
 
-.seg {
-  display: block; height: 100%;
-  border-radius: 3px;
-  transform-origin: left center;
-  transition: filter var(--t-hover) var(--ease-out);
-}
+.seg { display: block; height: 100%; border-radius: 2px; transform-origin: left center; }
+
 /* The fixed block is identical on every row. That repetition is the point.
  *
- * Amber against steel rather than amber against green: both clear 3:1 on the
- * plate (WCAG 1.4.11 — these bars carry the meaning, so they are not decoration)
- * and the pair holds ΔE 19.9 under protanopia, where orange/green collapses.
- * The first green tried here measured 1.79:1 and was effectively invisible. */
-.seg.fixed { width: 34%; background: linear-gradient(180deg, #DE9146, #C0761F); }
-.seg.work  { background: #3D8DB8; }
+ * These bars carry the meaning, so WCAG 1.4.11 applies at 3:1 and taste does
+ * not get a vote. Measured against the panel they sit on and against each
+ * other: --spot 5.01:1 on --panel, --ink 18.29:1 on --panel, and the pair
+ * separates at 3.65:1. Their relative luminances are 0.1597 and 0.0074, a
+ * 21x gap, so the two series stay distinct in full greyscale and therefore
+ * under every form of colour vision deficiency. A previous pairing here was
+ * chosen for brand fit and measured 1.79:1; half the chart was invisible and
+ * nothing failed. Do not change either colour without re-running the numbers
+ * against the surface they are drawn on. */
+.seg.fixed { width: 34%; background: var(--spot); }
+.seg.work  { background: var(--ink); }
 
 /* Illustration geometry, not data: the work each turn asked for, varying. */
 .ledger-row:nth-child(1) .seg.work { width: 46%; }
@@ -477,97 +628,169 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .ledger-row:nth-child(5) .seg.work { width: 14%; }
 .ledger-row:nth-child(6) .seg.work { width: 25%; }
 
-@media (hover: hover) and (pointer: fine) {
-  .ledger-row:hover { background: rgba(255,255,255,.055); }
-  .ledger-row:hover .seg.fixed { filter: brightness(1.14); }
-}
-
 .ledger-legend {
   display: flex; flex-wrap: wrap; gap: 1.1rem;
-  margin-top: 1.2rem; padding-top: .95rem;
-  border-top: 1px solid rgba(255,255,255,.09);
-  font-family: var(--mono); font-size: .66rem; color: var(--on-frame-2);
+  margin-top: 1.15rem; padding-top: .9rem;
+  border-top: 1px solid var(--hair);
+  font-family: var(--mono); font-size: .66rem; color: var(--ink-3);
 }
 .key { display: inline-flex; align-items: center; gap: .45rem; }
 .dot { width: 9px; height: 9px; border-radius: 2px; flex: none; display: block; }
-.dot.fixed { background: #DE9146; }
-.dot.work  { background: #3D8DB8; }
+.dot.fixed { background: var(--spot); }
+.dot.work  { background: var(--ink); }
 
-.ledger-cap { margin: .9rem .25rem 0; font-size: .78rem; color: var(--ink-3); }
+.ledger-cap { margin: 1rem .15rem 0; font-size: .8rem; color: var(--ink-3); }
 
-/* ---- prose split, and the figure that carries the number ---- */
-.split-prose {
-  display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr);
-  gap: clamp(1.5rem, 4vw, 3.5rem); align-items: start;
+/* ---- the measured share: one number, no box around it ----
+ * A card here would say "this is a component". The figure is the argument,
+ * so it gets whitespace and the page's one accent colour instead. */
+.figure-split {
+  display: grid;
+  grid-template-columns: minmax(0, .78fr) minmax(0, 1.22fr);
+  gap: clamp(1.75rem, 5vw, 4rem);
+  align-items: start;
 }
-@media (max-width: 52rem) { .split-prose { grid-template-columns: 1fr; } }
-.split-prose .lede { margin-bottom: 0; }
-.figure-stat {
-  background: var(--panel); border-radius: 1rem; padding: 1.6rem;
-  box-shadow: var(--lift-1);
-  outline: 1px solid rgba(22,21,15,.05); outline-offset: -1px;
+@media (max-width: 52rem) {
+  .figure-split { grid-template-columns: 1fr; gap: 1.5rem; }
 }
+.figure-block { margin: 0; }
 .figure-n {
   display: block; font-family: var(--serif);
-  font-size: clamp(2.6rem, 2rem + 2.4vw, 3.6rem); line-height: 1;
-  letter-spacing: -.03em; color: var(--spot);
-  font-variant-numeric: tabular-nums;
+  font-size: clamp(3.6rem, 2.4rem + 5.4vw, 6.4rem); line-height: .9;
+  letter-spacing: -.04em; color: var(--spot);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-.figure-k { display: block; margin-top: .7rem; font-size: .9rem; color: var(--ink-2); }
+.figure-k {
+  display: block; margin-top: .9rem;
+  font-size: .88rem; line-height: 1.55; color: var(--ink-2); max-width: 19rem;
+}
+.figure-prose .lede { margin-bottom: 1rem; }
+.figure-prose p { max-width: 36rem; }
 
-/* Only the landing page's cards lift on hover. On the dashboard they are
-   containers for data, not things to click. */
-@media (hover: hover) and (pointer: fine) {
-  .landing .grid > *:hover { transform: translateY(-2px); box-shadow: var(--lift-2); }
+/* The pricing basis. It sits with the number it qualifies rather than in the
+   hero: a subscription bills a flat fee, so these dollars value usage instead
+   of restating an invoice, and that sentence is worth nothing anywhere the
+   reader is not looking at a figure. */
+.basis-note {
+  margin: clamp(2rem, 4vw, 3rem) 0 0;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--hair);
+  font-size: .85rem; color: var(--ink-3); max-width: 44rem;
 }
 
-/* ---- the page breathes, without opening holes ---- */
-.landing .section { padding: clamp(3rem, 5.5vw, 4.25rem) 0; }
+/* ---- steps and claims: hairlines, not cards ----
+ * Four steps and three claims used to be two grids of identical boxes, which
+ * made two different sections read as the same section. Elevation should mean
+ * something; here nothing is raised and the rules do the grouping. */
+.steps {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 clamp(2rem, 5vw, 4.5rem);
+  border-top: 1px solid var(--hair);
+}
+.step { padding: 1.4rem 0; border-bottom: 1px solid var(--hair); }
+.step h3 {
+  font-family: var(--sans); font-size: .95rem; font-weight: 600;
+  letter-spacing: 0; line-height: 1.35; margin: 0;
+}
+.step p { margin: .45rem 0 0; font-size: .88rem; line-height: 1.6; max-width: 34ch; }
+@media (max-width: 46rem) {
+  .steps { grid-template-columns: 1fr; }
+}
+
+.claims { margin: 0; border-top: 1px solid var(--hair); }
+.claim {
+  display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
+  gap: .3rem clamp(1.5rem, 4vw, 3.5rem);
+  padding: 1.45rem 0; border-bottom: 1px solid var(--hair);
+}
+.claim dt {
+  font-family: var(--mono); font-size: .69rem;
+  text-transform: uppercase; letter-spacing: .09em;
+  color: var(--ink-3); padding-top: .2rem;
+}
+.claim dd { margin: 0; font-size: .95rem; line-height: 1.6; color: var(--ink-2); max-width: 46ch; }
+@media (max-width: 40rem) {
+  .claim { grid-template-columns: 1fr; padding: 1.2rem 0; }
+}
+
+/* ---- the page breathes, and sections are separated by space, not rules ----
+ * Longhand, deliberately. These elements carry .wrap as well, and `padding: X 0`
+ * is a shorthand: it resets .wrap's `padding: 0 var(--pad)` to zero on both
+ * sides. Above 68rem the max-width still centres the column so nothing looks
+ * wrong, but on a phone there is no centring room left and every line of text
+ * runs into the edge of the screen. Setting only the axis you mean is what
+ * keeps the gutter. */
+.landing .section {
+  padding-top: clamp(3.5rem, 7vw, 6rem);
+  padding-bottom: clamp(3.5rem, 7vw, 6rem);
+}
 .landing .section + .section { border-top: 0; }
+.landing h2 { max-width: 22ch; margin-bottom: 1.75rem; }
+
 .closer {
-  padding: clamp(4rem, 7vw, 5.5rem) 0 clamp(4.5rem, 8vw, 6.5rem);
+  padding-top: clamp(4.5rem, 8vw, 7rem);
+  padding-bottom: clamp(5rem, 9vw, 7.5rem);
   text-align: center;
 }
-.closer h2 { margin-bottom: 0; }
-.closer .row { justify-content: center; align-items: center; margin-top: 1.7rem; }
+.closer h2 { margin: 0 auto; max-width: 20ch; }
+.closer .row { justify-content: center; align-items: center; gap: .8rem; margin-top: 1.9rem; }
+.closer-note { margin: 1.1rem 0 0; font-size: .82rem; color: var(--ink-3); }
 
-/* ---- entrance: visible first, animated only where supported ----
-   Deliberately @starting-style rather than opacity:0 plus a script. An
-   environment that never runs the animation still renders the page, which
-   is the failure this project already shipped once. */
-@supports (transition-behavior: allow-discrete) {
-  .reveal {
-    opacity: 1; transform: none; filter: none;
-    transition:
-      opacity 680ms var(--ease-out),
-      transform 680ms var(--ease-out),
-      filter 680ms var(--ease-out);
-  }
-  @starting-style {
-    .reveal { opacity: 0; transform: translateY(14px); filter: blur(6px); }
-  }
-  .hero-visual.reveal { transition-delay: 90ms; }
-
-  /* Bars wipe in left to right, one after another, so the eye reads the
-     repeated amber block as a sequence rather than a static pattern. */
-  .ledger-row .seg { animation: seg-in 560ms var(--ease-out) backwards; }
-  .ledger-row:nth-child(1) .seg { animation-delay: 200ms; }
-  .ledger-row:nth-child(2) .seg { animation-delay: 270ms; }
-  .ledger-row:nth-child(3) .seg { animation-delay: 340ms; }
-  .ledger-row:nth-child(4) .seg { animation-delay: 410ms; }
-  .ledger-row:nth-child(5) .seg { animation-delay: 480ms; }
-  .ledger-row:nth-child(6) .seg { animation-delay: 550ms; }
-}
-@keyframes seg-in {
-  from { transform: scaleX(0); }
-  to   { transform: scaleX(1); }
+/* A quiet "there is more here" link under a landing section. */
+.section-more { margin-top: 1.6rem; font-size: .88rem; }
+.section-more a {
+  color: var(--spot); text-decoration: underline; text-underline-offset: 3px;
 }
 
+/* ---- entrance: nothing is hidden unless the page proved it can unhide it ----
+ * The pre-state is scoped to [data-motion="on"], and only the inline script in
+ * page.tsx sets that attribute, after checking for IntersectionObserver and
+ * for prefers-reduced-motion. So a blocked script, an old browser, or a
+ * reduced-motion request all render the finished page rather than a blank one.
+ * That is the failure this project already shipped once.
+ *
+ * Only transform and opacity animate. .reveal alone moves the block itself;
+ * .stagger moves its children in sequence instead; .wipe scales the bars in
+ * from the left, which is the one animation here that carries meaning rather
+ * than polish: it makes six identical amber blocks read as a repetition. */
+[data-motion="on"] .reveal:not(.stagger):not(.wipe),
+[data-motion="on"] .reveal.stagger > * {
+  opacity: 0; transform: translateY(12px);
+  transition:
+    opacity var(--t-reveal) var(--ease-entry),
+    transform var(--t-reveal) var(--ease-entry);
+}
+[data-motion="on"] .reveal:not(.stagger):not(.wipe).is-in,
+[data-motion="on"] .reveal.stagger.is-in > * {
+  opacity: 1; transform: none;
+}
+/* The hero's two halves are one gesture: copy first, artifact a beat later. */
+[data-motion="on"] .hero-visual.reveal { transition-delay: 90ms; }
+
+[data-motion="on"] .reveal.stagger.is-in > *:nth-child(2) { transition-delay:  70ms; }
+[data-motion="on"] .reveal.stagger.is-in > *:nth-child(3) { transition-delay: 140ms; }
+[data-motion="on"] .reveal.stagger.is-in > *:nth-child(4) { transition-delay: 210ms; }
+
+[data-motion="on"] .reveal.wipe .seg {
+  transform: scaleX(0);
+  transition: transform 560ms var(--ease-entry);
+}
+[data-motion="on"] .reveal.wipe.is-in .seg { transform: scaleX(1); }
+[data-motion="on"] .reveal.wipe.is-in > *:nth-child(2) .seg { transition-delay:  70ms; }
+[data-motion="on"] .reveal.wipe.is-in > *:nth-child(3) .seg { transition-delay: 140ms; }
+[data-motion="on"] .reveal.wipe.is-in > *:nth-child(4) .seg { transition-delay: 210ms; }
+[data-motion="on"] .reveal.wipe.is-in > *:nth-child(5) .seg { transition-delay: 280ms; }
+[data-motion="on"] .reveal.wipe.is-in > *:nth-child(6) .seg { transition-delay: 350ms; }
+
+/* The script already bails before setting the attribute, so this block is the
+   belt to that pair of braces: it also covers a preference changed after load. */
 @media (prefers-reduced-motion: reduce) {
-  .reveal { transition: none; }
-  .ledger-row .seg { animation: none; }
+  [data-motion="on"] .reveal:not(.stagger):not(.wipe),
+  [data-motion="on"] .reveal.stagger > *,
+  [data-motion="on"] .reveal.wipe .seg {
+    opacity: 1; transform: none; transition: none;
+  }
   .btn.cta:hover .cta-orb { transform: none; }
-  .landing .grid > *:hover { transform: none; }
 }
 
 
@@ -642,3 +865,26 @@ html, body { max-width: 100%; overflow-x: hidden; }
 /* The sign-in card holds the page h1, so it needs a card-scale size
    rather than the marketing h1 scale. */
 .auth-title { font-size: 1.7rem; line-height: 1.15; }
+
+
+/* ---- the focus ring, declared last and deliberately doubled ----
+ *
+ * Six selectors in this file use `outline: var(--edge)` as decorative chrome:
+ * .card, .grid > *, .term, .hero-tag, .ledger and .callout. Each is a single
+ * class, (0,1,0), the same weight as a bare `:focus-visible` — and each is
+ * written after it. At equal specificity the later rule wins, so the focus
+ * ring was already losing on paper. It only failed to show because none of
+ * those six is focusable today. The day one gains a tabindex or becomes a
+ * button, the ring disappears and no test in this repo notices.
+ *
+ * Both halves of the fix are load-bearing. Repeating the pseudo-class costs
+ * (0,2,0), which outranks any single-class rule; being last in the file wins
+ * the tie against a two-class rule someone adds later. Specificity alone or
+ * order alone each still loses one of those two cases.
+ *
+ * Nothing else in this file may be appended below this rule. */
+:focus-visible:focus-visible {
+  outline: 2px solid var(--spot);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
