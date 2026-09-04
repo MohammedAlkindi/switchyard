@@ -6,7 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 version is `0.x`, a minor bump may contain breaking changes; those are listed first.
 
-## [Unreleased]
+## [0.3.0] - 2026-09-03
 
 ### Every total drops, by 2.43x on the corpus it was measured against
 

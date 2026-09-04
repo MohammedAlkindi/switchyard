@@ -1,6 +1,6 @@
 {
   "name": "contextbill",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Local-first usage and cost report for coding-agent transcripts. Never sends your data anywhere.",
   "scripts": {
     "test": "vitest run",
