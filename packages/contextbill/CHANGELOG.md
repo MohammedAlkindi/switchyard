@@ -6,6 +6,139 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 version is `0.x`, a minor bump may contain breaking changes; those are listed first.
 
+## [Unreleased]
+
+Figures in this section come from one frozen copy of a 2,424-transcript,
+1,527,997,880-byte `~/.claude/projects`, measured 2026-09-09. Freezing matters: a live
+transcript directory is appended to while you read it, and the off-by-one that produces
+looks exactly like a regression.
+
+### Every total drops again: resumed copies are now merged across transcripts
+
+A resumed session copies its parent's transcript lines into a new file, so the same
+billed request sat in two transcripts and was counted twice. `parse.ts` cannot see that
+— it reads one file at a time — so `aggregate.ts` now runs `mergeResumedCopies` over
+every transcript in hand, before anything is priced. The CLI and the browser both reach
+it through `aggregate`, so both surfaces still report the same number for the same
+directory.
+
+On the corpus above that is **$15,733.14 to $14,482.81**, a drop of $1,250.33 (7.9%),
+and **75,936 turns to 72,891** (3,045 redundant copies removed across 39 transcripts).
+
+Two messages are treated as one request only when **both `message.id` and the first line
+`uuid` match**. A uuid is minted per line by whoever wrote it, so a shared one is proof
+of a copy; `sessionId` is useless because it is rewritten on every copied line. Ids that
+share no uuid are **not** merged — merging them would be right if they are one request's
+rewrites scattered across sibling subagent files, and wrong if a gateway handed one id to
+two independent sessions, and the transcripts do not distinguish those. Three such ids
+exist on this corpus and stay counted twice, worth about $1.25; the CLI and the report
+both name that residue.
+
+Before comparing a new report against an old one:
+
+- `startupPrefix`, `bytes` and the tool counters are deliberately **not** adjusted by the
+  merge. Those bytes really were read back into that session's context window, and
+  re-deriving a prefix from the first message a session wrote itself would read a
+  mid-conversation cache read as startup context.
+- Which session a shared request is attributed to is a deterministic tie-break, not a
+  fact recovered from the file. It moves dollars between rows of the session and project
+  tables and cannot move the total.
+- Calling `parseTranscript` yourself over many files and summing gets the per-file
+  rewrite collapse and **not** this correction.
+
+### Added
+
+- **Codex turns are priced in dollars.** `prices.json` gained OpenAI rates on 2026-09-07,
+  so `--source codex` and `--source all` report dollars instead of a blank column. Only
+  the models local rollouts actually name are priced — `gpt-5.6-sol` and `gpt-5.6-terra`.
+  `gpt-5.5` is deliberately left unpriced: OpenAI charges a cache-write premium on
+  GPT-5.6 and later and none before it, and `cacheWriteMultiplier` is a single global with
+  no per-model override, so pricing it would assert a premium nobody charges. Its tokens
+  are counted and named in `unpriced models` instead.
+- **`datedByProvider` in `prices.json`.** The two vendors were read on different days
+  (Anthropic 2026-09-03, OpenAI 2026-09-07) and one `dated` field cannot describe both.
+  Every OpenAI entry repeats its own source URL and reading date; a test fails if one does
+  not.
+- **`--limits`**, reporting subscription rate-limit windows: how much of each is
+  consumed, when it resets, and — labelled separately — the pace that implies. These are
+  the only figures contextbill prints that are not derived from a transcript. Claude Code
+  reads the `anthropic-ratelimit-unified-*` response headers and writes them to a
+  statusLine command's stdin, so a window that is present is the vendor's own count.
+  contextbill never infers one: with no readable payload it says it cannot see a window.
+  There is no window at all on an API-key, Bedrock or Vertex session, nor for a subscriber
+  before the first API response of the session. Writes no file; combines with `--json`.
+- **A rate-limit segment on `--statusline`**, when the payload carries one:
+  `$0.94 API-equiv · 16 turns · 2.7M tok · session · 7d 63% used · ~2d1h to limit (projected)`.
+  Absent, the line is unchanged.
+
+### Fixed
+
+- **`--plan` no longer books a whole session to the month it opened in.** A session is
+  now apportioned across calendar months by the timestamps its own model rows carry.
+  `parse.ts` already buckets usage per model, per speed, per UTC day, and a UTC day never
+  straddles a month boundary, so the split is exact rather than estimated. The old
+  behaviour was worst exactly where `--plan` is read: because the break-even multiple is
+  computed over **complete** months only, value dragged out of a partial month landed in a
+  numerator that month is excluded from, inflating the one figure the flag exists to
+  produce. Session *counts* still go whole to the start month, because a session is one
+  session.
+- **`--scope today` no longer reads stdin.** The rate-limit segment arrives on the
+  statusline payload, and hoisting one shared read to the top of the function handed the
+  cheap scope the expensive scope's failure mode — a host that leaves the pipe open. Only
+  session scope reads stdin now, so the limit segment is session-scope only.
+
+### Changed
+
+- **Every threshold in `waste.ts` was re-cut, and none was rescaled.** They were all
+  written when `turns` counted transcript lines rather than billed messages. Dividing them
+  by the old inflation factor would leave a threshold still derived from the bug, so each
+  was given back its meaning and re-cut against the distribution that meaning talks about.
+  `LONG_SESSION_TURNS` 200 to 50, `DEAD_RUN_BYTES` 4,096 to 32,768, `DEAD_RUN_TURNS` 3 to
+  **2** (a `<=` filter, so it is the only one that moves down), and the length buckets
+  50/200/500/1000 to 10/50/150/400.
+
+  `DEAD_RUN_BYTES` is the one worth knowing about: 4,096 matched **zero** transcripts, so
+  the "runs that died on startup" finding could never fire. It had been calibrated against
+  a scheduler's `*.log` files, while `bytes` is the JSONL transcript — Claude Code writes
+  injected session context into the first records, so even a run that dies on startup
+  leaves roughly 15 KB.
+
+  On the corpus above: long sessions with no file written go from 2 ($164.89) to 9
+  ($293.50), the shortest of them 68 turns and the smallest worth $11.37; runs that died
+  on startup go from **0 to 15**, running 14,663 to 30,047 bytes and 0 to 2 billed turns.
+  The length buckets now populate every row — 309 / 106 / 86 / 54 / 16 sessions carrying
+  1.3% / 7.3% / 18.6% / 37.4% / 35.4% of main-session spend — where the old bands put two
+  thirds of sessions in the first row and a single session in the last.
+
+  The dead-run finding is Claude Code transcripts only, and the code enforces that. A
+  Codex rollout is a different file written by a different program and nothing has
+  measured what a dead one weighs, so those transcripts are skipped rather than judged
+  against a floor cut on someone else's population.
+
+### Documentation
+
+- **The README statusline benchmark table is gone.** It had five rows and a stated
+  method, and it has now failed to reproduce twice on the machine it was measured on.
+  Re-measured 2026-09-09 against the frozen corpus above: the `node -e ""` floor read
+  0.09 s against a published 0.17 s, session scope on the median transcript 0.15 s
+  against 0.28 s, on the largest 0.46 s against 0.67 s, and a full report 14.8 s against
+  20.1 s on a corpus 17% larger. `--scope today` could not be measured at all, because a
+  frozen copy contains no file modified today.
+
+  The floor is what settles it: `node -e ""` runs no contextbill code, so a 1.9x move
+  there means the published table described a machine state rather than a program. The
+  re-measurement was itself taken on a busy machine, so it is an upper bound and not a
+  replacement. The section now explains why the scopes differ and gives a recipe for
+  measuring it on your own hardware.
+- **Two sections that recorded a decision the code had already reversed were replaced,
+  not amended.** `METHODOLOGY.md` and `CLAUDE.md` both stated that cross-transcript
+  merging was deliberately not done, and both now say what actually runs and that the old
+  reading was wrong. Leaving both readings in place would teach the next reader that
+  shipped work is an oversight.
+- `METHODOLOGY.md` gains sections on the waste thresholds and on rate-limit windows, and
+  its deduplication figures were re-measured on the corpus above rather than carried
+  forward.
+
 ## [0.3.0] - 2026-09-03
 
 ### Every total drops, by 2.43x on the corpus it was measured against

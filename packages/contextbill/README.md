@@ -6,27 +6,38 @@ see where your tokens and dollars are going.
 ```console
 $ npx contextbill
 
-  $13,855.18 at API rates across 65,474 turns in 603 sessions
-  $12,333.53 projected per 30 days
-  105,697 median tokens loaded before you type — $2,935.74 of that total
+  $14,482.81 at API rates across 72,891 turns in 571 sessions
+  $11,250.61 projected per 30 days
+  124,518 median tokens loaded before you type — $2,834.25 of that total
 
-  3 long session(s) wrote no file — see the report
-  unpriced models excluded: <synthetic>
-  85,188 streamed rewrite(s) collapsed — usage is counted once per message
-  1,158 message(s) span 49 transcripts (resumed sessions) and are NOT merged
+  9 long session(s) wrote no file — see the report
+  15 run(s) look like they died on startup
+  unpriced models excluded: <synthetic>, claude-fable-5-1
+  96,785 streamed rewrite(s) collapsed — usage is counted once per message
+  1,965 message(s) copied forward by a resumed session merged across 39 transcript(s) —
+  $1,250.33 that would otherwise be counted twice
+  3 message id(s) span 17 transcripts with no shared line id —
+  nothing proves they are the same request, so they are NOT merged (about $1.25 counted twice)
 
-  Figures are API-equivalent — what this usage would cost at Anthropic
-  API rates. A subscription bills a flat fee instead.
+  Figures are API-equivalent — what this usage would cost metered at the
+  published Anthropic API rates. A subscription bills a flat fee instead.
 
   report -> ./contextbill-report.html
 ```
 
-Those are real figures from one developer machine, not a projection: 1,884
-transcripts and 1.30 GB, measured 2026-09-03 against a frozen copy of the corpus.
-The third line is the one that tends to surprise people: **21.2% of that total was
-context nobody typed** — the system prompt, tool catalog, connector definitions and
-instruction files that load before every session and get re-read on every subsequent
-turn.
+Those are real figures from one developer machine, not a projection: 2,424
+transcripts and 1,527,997,880 bytes, measured 2026-09-09 against a frozen copy of
+the corpus. The third line is the one that tends to surprise people: **19.6% of that
+total was context nobody typed** — the system prompt, tool catalog, connector
+definitions and instruction files that load before every session and get re-read on
+every subsequent turn.
+
+Two of those lines are corrections rather than findings, and they are printed because
+a total that has been corrected should say so. The streamed-rewrite collapse counts
+each assistant message once instead of once per line it was written on. The
+resumed-session merge counts each request once across the whole corpus rather than
+once per file it was copied into. What could not be proved a copy stays counted and
+is named, which is why the last line quotes a residue rather than hiding it.
 
 **What the dollars mean.** contextbill counts the tokens in your transcripts and
 prices them at Anthropic's published first-party API rates. If you are on a
@@ -83,6 +94,7 @@ node dist/cli.js
 | `--json` | — | Print JSON to stdout, write no file |
 | `--statusline` | — | Print one short line, write no file ([see below](#use-it-as-a-statusline)) |
 | `--scope <session\|today>` | `session` | What `--statusline` measures |
+| `--limits` | — | Report subscription rate-limit windows ([see below](#see-your-rate-limit-windows)) |
 
 ### `--root` and your working directory
 
@@ -109,19 +121,35 @@ parent folder is filed under that parent, not under the repo you were editing.
 (`--codex-root` to point elsewhere). It is a separate flag from `--root` because the
 two agents keep their transcripts in different places and in different layouts.
 
-**Codex tokens are counted; their dollars are left blank.** `prices.json` carries
-Anthropic rates and no OpenAI ones, so every Codex turn lands in the token totals and
-contributes $0 to the dollar total. contextbill will not guess a rate — a wrong one
-prices real usage confidently and nothing fails. With `--source` given, the CLI prints
-a per-source table so you can see which half of the corpus the dollar figure covers,
-and adding Codex never changes what your Claude Code usage costs.
+**Codex turns are priced in dollars.** `prices.json` gained OpenAI rates on
+2026-09-07, so a Codex turn is priced from a published OpenAI rate exactly as a Claude
+Code turn is priced from a published Anthropic one. `datedByProvider` carries a
+separate reading date per vendor, and every OpenAI entry repeats its own source URL
+and reading date; a test fails if one does not.
+
+**Only the models Codex rollouts actually name are priced**, which today means
+`gpt-5.6-sol` and `gpt-5.6-terra`. `gpt-5.5` is deliberately left out: OpenAI charges
+a cache-write premium on GPT-5.6 and later and none before it, and the cache-write
+multiplier in `prices.json` is one global value with no per-model override, so pricing
+`gpt-5.5` would assert a premium nobody charges and nothing would fail. Left out, its
+tokens are counted, named in `unpriced models`, and kept out of every dollar figure.
+
+With `--source` given the CLI prints a per-source table, so you can always see which
+part of the corpus a dollar figure covers. Adding Codex never changes what your Claude
+Code usage costs.
 
 ## Use it as a statusline
 
 `--statusline` prints one line and writes nothing:
 
 ```
-$6.72 API-equiv · 18 turns · 2.8M tok · session
+$0.94 API-equiv · 16 turns · 2.7M tok · session
+```
+
+When the payload carries a rate-limit window, the line carries it too:
+
+```
+$0.94 API-equiv · 16 turns · 2.7M tok · session · 7d 63% used · ~2d1h to limit (projected)
 ```
 
 Add it to `~/.claude/settings.json`:
@@ -152,25 +180,49 @@ Claude Code writes a JSON payload to the command's stdin; contextbill reads
 it falls back to the most recently modified transcript under `--root`.
 
 **It is scoped because it has to be fast.** Claude Code runs the command on every
-prompt, and a full corpus scan is not a per-prompt operation.
+prompt, and a full corpus scan is not a per-prompt operation. Session scope reads one
+transcript, `--scope today` reads the files modified since local midnight, and an
+unscoped run reads everything — so the three differ by roughly the amount of data each
+one opens, which is the only part of this that is a property of the tool rather than
+of a machine.
 
-| Scope | Time | What it covered |
-| ----- | ---- | --------------- |
-| `--scope session` (default) | 0.28 s | 1 transcript, 360 KB — the path from stdin |
-| `--scope session`, largest in corpus | 0.67 s | 1 transcript, 32.2 MB — the same path, worst case |
-| `--scope session`, no stdin | 0.41 s | The median transcript, after stat-ing 1,884 files to find the newest |
-| `--scope today` | 2.19 s | 268 transcripts, 158 MB |
-| no scoping (`contextbill`, full report) | 20.1 s | 1,884 transcripts, 1.30 GB |
+**There is no timing table here, and that is deliberate.** One stood here until
+2026-09-09 with five rows and a stated method, and it has now failed to reproduce twice
+on the machine it was measured on. Re-measured 2026-09-09 against a frozen
+2,424-transcript, 1,527,997,880-byte corpus, median of five to seven runs:
 
-**Method**, so you can reproduce or dispute it: node v24.18.0 on Windows 11, against a
-frozen copy of a 1,884-transcript, 1,304,047,059-byte corpus; each row run five times
-with the median reported; the corpus was copied immediately before the run, so it was
-warm in the OS page cache and a cold read is slower. The 360 KB transcript is the
-corpus median and the 32.2 MB one is its largest file, so those two rows bracket the
-range rather than describing a typical session twice.
+| Row | Published | Re-measured | |
+| --- | --------- | ----------- | - |
+| `node -e ""` floor | 0.17 s | **0.09 s** | 1.9x faster |
+| session scope, median transcript on stdin | 0.28 s | **0.15 s** | 1.9x faster |
+| session scope, largest transcript on stdin | 0.67 s | **0.46 s** | 1.5x faster |
+| session scope, no stdin | 0.41 s | **0.39 s** | 1.05x, over 29% more files |
+| full report | 20.1 s | **14.8 s** | 1.36x faster, on a 17% larger corpus |
+| `--scope today` | 2.19 s | not measurable | a frozen copy has no files modified today |
 
-`node -e ""` costs 0.17 s on the same machine, which is the floor no Node CLI beats.
-The default session scope spends about a tenth of a second above it.
+**The floor is the row that settles it.** `node -e ""` runs no contextbill code at all,
+so it cannot have got faster because the tool changed. A machine-level constant moving by
+1.9x means the published table describes a machine state rather than a program, and every
+row above it inherits that. For the record, the re-measurement was itself taken on a busy
+machine — 26 node processes, 17 Claude Code processes, 48% CPU — so it is an upper bound
+and not the quiet-machine number either.
+
+A benchmark nobody can reproduce is worse than no benchmark, so it is gone rather than
+restated with today's equally circumstantial figures.
+
+Measure it on your own hardware instead, which is the only number that answers the
+question you actually have:
+
+```bash
+# one transcript, the shape a statusline actually runs
+echo '{"transcript_path":"/path/to/session.jsonl"}' | \
+  node -e 'const t=Date.now();require("child_process").execFileSync(process.execPath,["dist/cli.js","--statusline"],{input:require("fs").readFileSync(0)});console.error(Date.now()-t+"ms")'
+```
+
+Run it several times and take the median, compare it against `node -e ""` on the same
+machine in the same minute, and read the difference rather than the absolute — Node's
+own startup is the floor no CLI written in it beats, and it moves with load just as
+everything above it does.
 
 `--scope today` is labelled **`active today`** in the output rather than `today`,
 because it filters on file modification time: a session that started yesterday and
@@ -185,6 +237,63 @@ Two behaviours differ from every other mode, both on purpose:
 - **`API-equiv` is not droppable.** These are the dollars this usage would cost metered
   at published API rates. If you are on a subscription you paid a flat fee instead, and
   a bare dollar figure sitting in a prompt reads as a bill.
+
+## See your rate-limit windows
+
+`--limits` reports how much of each subscription rate-limit window is gone, when it
+resets, and the pace that implies:
+
+```
+  Rate-limit windows, read from the statusline payload
+
+  measured   42% of the 5-hour session limit used — resets in 1h58m (2026-09-09 22:43 UTC)
+  projected  13.9 points/hour since that window opened; at that pace the window resets before it fills
+
+  measured   63% of the 7-day limit used — resets in 3d10h (2026-09-13 07:44 UTC)
+  projected  0.7 points/hour since that window opened
+             100% around 2026-09-11 22:39 UTC — 2d1h from now, before the reset
+  measured   $0.00 API-equivalent across 0 turn(s) in 0 transcript(s) touched
+             since that window opened — $0.00/hour
+```
+
+That block is a verbatim capture, not an illustration: it is what
+`contextbill --limits --root fixtures/projects` printed on 2026-09-09 with a sample
+payload on stdin. The local-spend row reads `$0.00` because the bundled fixture corpus
+has no file modified inside the window — against a real corpus it carries the
+API-equivalent figure for the transcripts touched since the window opened.
+
+**These are the only numbers in contextbill that are not derived from a transcript,
+and that is the point.** Claude Code reads the `anthropic-ratelimit-unified-*` response
+headers and writes the resulting percentages to a statusline command's stdin. So a
+window that is present is the vendor's own count of what is gone, not a reconstruction
+of one. Everything labelled `projected` is a straight line through that count — the
+pace so far, extended — and usage is bursty, so read a projection as a pace and never
+as a promise.
+
+Wire it up the same way as `--statusline`:
+
+```json
+{
+  "statusLine": { "type": "command", "command": "contextbill --limits" }
+}
+```
+
+**What it cannot see, stated plainly.** It never infers a window from your transcripts.
+A locally inferred window cannot see usage from another machine, from the web app, or
+from a session whose transcript was deleted, and it cannot see how the vendor weights a
+request — which is exactly why locally inferred windows disagree with the limits people
+actually hit. So:
+
+- **No payload, no answer.** Run by hand with nothing on stdin and it says it cannot
+  see a window rather than guessing one.
+- **There is no window at all** on an API-key, Bedrock or Vertex session, and none for
+  a subscriber until the first API response of the session.
+- **The dollar figures beside a window are not what the percentage measures.** A plan
+  window is weighted by rules this tool cannot see. They sit next to the official
+  numbers, never as a check on them.
+- **`--scope today` carries no window**, because only session scope reads stdin.
+
+Writes no file. Combines with `--json`.
 
 ## Use it as a library
 
@@ -257,10 +366,16 @@ Two things worth knowing before you trust a number:
   contributes zero dollars and real tokens. Surface that or your totals quietly
   under-report — contextbill's own output names the model ids rather than folding them
   in.
-- **Deduplication is per transcript.** A streamed assistant message is written to the
-  transcript several times, each restating that message's *cumulative* usage, so
-  `parseTranscript` keeps the maximum per field per `message.id`. Summing raw lines
-  inflated the priced total by 2.43x on the corpus this was measured against.
+- **Deduplication happens in two places, and only one of them is `parseTranscript`.**
+  A streamed assistant message is written to the transcript several times, each
+  restating that message's *cumulative* usage, so `parseTranscript` keeps the maximum
+  per field per `message.id`. Summing raw lines inflated the priced total by 2.39x on
+  the corpus this was measured against. The second correction is in `aggregate`: a
+  resumed session copies its parent's history into a new file, so the same request sits
+  in two transcripts, and `aggregate` merges those copies across the whole corpus.
+  Calling `parseTranscript` on many files and adding the results yourself gets the
+  first correction and not the second — on this corpus that is a further $1,250.33, or
+  7.9% of the pre-merge total.
 
 ## What the report contains
 
@@ -294,9 +409,9 @@ What contextbill commits to instead:
   that implements it. The suite pins an exact end-to-end dollar figure worked out by hand from
   `prices.json`, so a pricing regression fails loudly. `scan.ts` and `classify.ts` can be
   differential-checked against the reference script they were ported from. The
-  streamed-rewrite correction is stated with its measured factors, not asserted: across 1,884
-  transcripts and 413,702 lines, 150,662 usage-bearing lines collapse to 65,474 messages, and
-  the priced total moves from $33,671.16 to $13,855.18 on the same text in one pass.
+  streamed-rewrite correction is stated with its measured factors, not asserted: across 2,424
+  transcripts and 459,783 lines, 171,974 usage-bearing lines collapse to 75,196 messages, and
+  the priced total moves from $37,655.25 to $15,733.14 on the same text in one pass.
 - **Per-MCP-connector attribution.** Tool names arrive as `mcp__<server>__<tool>`, so spend is
   attributable per connector, priced off the same content pool and the same denominator as the
   category rows. Servers that were called and returned nothing still appear with their call
@@ -360,9 +475,15 @@ deduplication rule, dated rate periods, the category and connector apportionment
 none of it can know.
 
 Every dollar figure derives from `prices.json`, which carries the date it was
-compiled and is cited in every report footer. Anthropic first-party API rates only —
-Amazon Bedrock and Google Vertex AI are partner-operated, priced separately, and not
-modelled.
+compiled and is cited in every report footer. It holds **first-party rates from two
+vendors** — Anthropic's for Claude Code usage and OpenAI's for Codex — each with its
+own reading date under `datedByProvider`, because the two were read on different days
+and a single `dated` field would have to lie about one of them.
+
+First-party only, in both cases. Amazon Bedrock, Google Vertex AI and Azure OpenAI are
+partner-operated and priced separately; contextbill does not model them, and a
+transcript produced through any of them is priced as if it had gone to the first-party
+API.
 
 Three details that are easy to get wrong, and how contextbill handles them:
 

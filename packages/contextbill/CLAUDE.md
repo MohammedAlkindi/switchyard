@@ -60,8 +60,19 @@ checked on 2026-08-26. Neither has been claimed yet.
 ## Things that will bite you
 
 - **`prices.json` is load-bearing.** Every dollar figure derives from it. Do not edit
-  rates from memory. Verify against a current published source and update `dated` in the
-  same commit. A wrong rate makes the product confidently wrong and nothing fails.
+  rates from memory. Verify against a current published source and update the reading
+  date in the same commit. A wrong rate makes the product confidently wrong and nothing
+  fails.
+  **It carries two vendors now** — Anthropic rates read 2026-09-03, OpenAI rates read
+  2026-09-07 — so the per-vendor `datedByProvider` is the field that matters and the
+  top-level `dated` cannot describe both. Every OpenAI entry repeats its own source URL
+  and reading date in its `note`, and `prices.test.ts` fails if one does not.
+  Two models are deliberately **absent** and must stay absent until `cost.ts` learns a
+  per-model cache multiplier: `gpt-5.5` (OpenAI charges no cache-write premium before
+  GPT-5.6, and `cacheWriteMultiplier` is one global) and `claude-fable-5-1`. Pricing
+  either would assert a rate nobody charges, silently. Left out, their tokens are counted
+  and named in `unpricedModelsSeen`; `prices.test.ts` fails if `gpt-5.5` is priced
+  without one.
 - **Cache-write TTL is unknowable from a transcript.** `cache_creation_input_tokens` is
   one number with no TTL field. The 5m default understates rather than overstates. Never
   "improve" this by inferring a TTL.
@@ -73,25 +84,56 @@ checked on 2026-08-26. Neither has been claimed yet.
   "connectors".
 - **`message.usage` repeats, and summing it multiplies the bill.** Claude Code rewrites
   each streamed assistant message into the transcript several times, and every rewrite
-  restates that message's **cumulative** usage rather than an increment. Measured
-  2026-09-03 over 1,884 real transcripts and 413,702 lines: 150,662 usage-bearing lines
-  collapse to 65,474 messages, and summing every line inflated input 3.44x, cache writes
-  2.83x, cache reads 2.23x, output 2.16x, and the priced total **2.43x**
-  ($33,671.16 naive against $13,855.18 deduplicated, same text, one pass).
+  restates that message's **cumulative** usage rather than an increment. Re-measured
+  2026-09-09 over a frozen copy of 2,424 real transcripts and 459,783 lines: 171,974
+  usage-bearing lines collapse to 75,196 messages, and summing every line inflated input
+  4.98x, cache writes 2.78x, cache reads 2.21x, output 2.10x, and the priced total
+  **2.39x** ($37,655.25 naive against $15,733.14 deduplicated, same text, one pass).
+  The deduplicated figure was produced by a script written independently of `parse.ts`
+  and matches the shipped CLI's pre-merge total for that corpus to the cent.
   `parse.ts` keeps the **maximum per field** per id: not the sum, not the last line
   (rewrites are cumulative but arrival order is not guaranteed), not the first (usually
   partial). A record with **no** id counts as its own turn — dropping one loses real
   spend. Nothing about this fails loudly if it regresses; the numbers just get big again.
-- **Deduplication is scoped to ONE transcript, deliberately.** A resumed session copies
-  its parent's history into a new file, so the same id legitimately appears twice.
-  Merging across files is a different correction with different evidence behind it and is
-  **not** done. `Report.deduplication` counts the overlap and the report states it, so
-  the double-count that remains is visible rather than silent.
+- **Resumed copies ARE merged across transcripts. This entry used to say the opposite
+  and it was wrong.** It recorded "merging across files is not done" as a deliberate
+  design decision for want of evidence. The evidence was gathered, `aggregate.ts` now
+  calls `mergeResumedCopies` on every aggregate, and the old wording would teach the next
+  session that shipped work is an oversight and invite it to be undone.
+  What actually runs: a message is treated as one request across two files only when
+  **both `message.id` and the first line `uuid` match**. A uuid is minted per line by
+  whoever wrote it, so a shared one is proof of a copy; `sessionId` is useless because it
+  is rewritten on every copied line. Merged messages are valued at the maximum per field
+  across holders — the same law the per-file collapse uses — so a surviving copy can be
+  *raised*, and the reported "removed" figure is **net** of those raises.
+  What is deliberately **not** merged, and stays disclosed as a residue: ids that share
+  no uuid. Merging those would be right if they are one request's rewrites scattered
+  across sibling subagent files, and wrong if a gateway handed one id to two independent
+  sessions, and nothing in the transcripts tells the two apart. On the frozen 2,424-file
+  corpus that is 1,965 ids merged (3,045 copies, 39 transcripts, $1,250.33) against 3 ids
+  left counted twice (17 transcripts, about $1.25).
+  What is deliberately **not touched** by the merge: `startupPrefix`, `bytes`,
+  `toolBytes`, `connectorBytes` and the tool counters. Re-deriving a prefix from the
+  first message a session wrote *itself* would read a mid-conversation cache read as
+  startup context and inflate it by the whole parent transcript; those bytes genuinely
+  were read back into that session's window.
+  Attribution between holders is a deterministic tie-break, not a fact in the file. It
+  moves dollars between `topSessions` and `byProject` rows and cannot move the total.
 - **`turns` counts billed messages, not transcript lines.** Everything downstream reads
   it that way: the startup-prefix re-read multiplier in `aggregate.ts` (`turns - 1`),
-  `usdPerTurn`, `LONG_SESSION_TURNS`, `DEAD_RUN_TURNS`, and the length buckets in
-  `waste.ts`. Those thresholds were written when the count was inflated, so they are
-  stricter in real terms now — a 200-turn session today is 200 requests, not ~90.
+  `usdPerTurn`, and every threshold in `waste.ts`.
+- **Every `waste.ts` threshold was re-cut on 2026-09-07, and NOT rescaled.** They were
+  written against the inflated line count; dividing them by the old inflation factor
+  would leave a threshold still derived from the bug, so each was given back its meaning
+  and re-cut against the distribution that meaning talks about. `LONG_SESSION_TURNS`
+  200 -> 50, `DEAD_RUN_BYTES` 4,096 -> 32,768, `DEAD_RUN_TURNS` 3 -> **2** (a `<=`
+  filter, so it is the only one that moves down), buckets 50/200/500/1000 ->
+  10/50/150/400. `DEAD_RUN_BYTES` is the one worth remembering: 4,096 matched **zero**
+  transcripts, because it had been calibrated against a scheduler's `*.log` files while
+  `bytes` is the JSONL, and Claude Code writes injected session context into the first
+  records so even a corpse weighs ~15 KB. On the frozen 2,424-file corpus the change took
+  no-file findings from 2 ($164.89) to 9 ($293.50) and dead runs from **0 to 15**.
+  `waste-thresholds.test.ts` pins the anchors. Do not rescale these; re-cut them.
 - **The startup prefix is read from the first turn only.** On later turns those same
   tokens return as cache reads; counting them multiplies the figure. It is read from the
   first message *after* its rewrites are collapsed: the first **line** of a streamed
@@ -104,6 +146,10 @@ checked on 2026-08-26. Neither has been claimed yet.
   cannot be bundled for a browser. `parse.ts` imports no Node module at all, and both
   the CLI (`scan.ts`) and the web app (`web/lib/browser-scan.ts`) call into it. That is
   what makes one transcript produce one set of numbers on both surfaces.
+  **`codex-parse.ts` and `limits.ts` are under the same rule** — Node-free on purpose so
+  they bundle identically. `limits.ts` in particular parses a payload that only ever
+  arrives on stdin today, which makes it tempting to reach for `node:process` inside it;
+  `cli.ts` reads stdin and hands the parsed object in, and it has to stay that way.
   *Reversing it:* merging them either breaks the web build on `node:fs`, or pushes
   someone to write a second parser for the browser. Two parsers drift, and then the CLI
   and the dashboard quietly disagree about the same file, with no test that can catch it
@@ -180,7 +226,15 @@ were reconstructed afterwards from the publish timestamp. Do not repeat that: th
 procedure below exists so a published version always has a commit, a changelog entry and
 a green run behind it.
 
-1. Gate: build, lint, the full suite, and `npm audit`.
+1. Gate: build, lint, the full suite, and `npm audit --omit=dev`.
+
+   **`--omit=dev` is load-bearing, not a softening.** Bare `npm audit` exits 1 here on a
+   dev-only advisory in the `web` workspace's eslint chain (js-yaml via
+   `@eslint/eslintrc`), and `files` in package.json keeps `web/` out of the tarball
+   entirely, so that finding cannot reach anyone who installs this package. Gating on it
+   would block every release on something the release does not ship, and a gate that can
+   never pass is a gate people learn to skip. `npm audit --omit=dev` exits 0 with 0
+   vulnerabilities; run the bare form too and read it, but gate on the runtime one.
 2. Bump with `npm version <x.y.z> --no-git-tag-version` (never hand-edit the version), and
    add the `CHANGELOG.md` section in the same commit.
 3. Commit `chore(release): vX.Y.Z`, push, then tag **on main** with an annotated tag whose

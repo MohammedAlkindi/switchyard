@@ -246,9 +246,9 @@ export default async function LandingPage() {
           <h2>Where the money actually goes.</h2>
           <div className="figure-split reveal">
             <p className="figure-block">
-              <span className="figure-n">21.2%</span>
+              <span className="figure-n">19.6%</span>
               <span className="figure-k">
-                of the bill on the machine this was built for, measured across 1,884
+                of the bill on the machine this was built for, measured across 2,424
                 transcripts.
               </span>
             </p>
@@ -263,12 +263,19 @@ export default async function LandingPage() {
                 each session actually produced, so you can tell an expensive session from
                 a wasted one.
               </p>
+              <p>
+                A model with no published rate in the table is counted and named rather
+                than quietly folded in at zero, so a total that does not cover everything
+                says which part it missed.
+              </p>
             </div>
           </div>
           <p className="basis-note">
             Every figure is API-equivalent: what that usage would cost metered at
             Anthropic&apos;s published API rates. On a subscription you paid a flat fee
             instead, so the dollars value the usage rather than restate your invoice.
+            This app reads Claude Code transcripts. The command line also reads OpenAI
+            Codex CLI rollouts on request, priced at OpenAI&apos;s own published rates.
           </p>
         </section>
 

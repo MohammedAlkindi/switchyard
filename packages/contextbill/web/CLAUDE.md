@@ -54,6 +54,32 @@ close Claude Code first.
 
 Still unmeasured: Safari and Firefox support for `webkitdirectory`.
 
+### The cross-transcript merge makes the corpus a boundary, not just the parser
+
+`aggregate` merges a request that a resumed session copied into a second transcript, so
+the total depends on **which files were in hand**, not only on each file's contents. That
+is new as of the cross-file merge and it changes what "the two readers agree" means.
+
+The CLI walks a directory. The browser gets whatever the user picked. Point them at the
+same set and they agree; point the tab at a subset and it will merge fewer copies and
+report a **higher** total than the CLI over the whole tree — correctly, because it cannot
+see the file the copy came from. That is not a drift between the readers and must not be
+"fixed" by weakening the merge.
+
+The merge is also the one part of the pipeline that reads a transcript's *identity*
+rather than only its usage: it picks which holder keeps a copied message by `startedAt`,
+then session `id`, then `project`. One reader derives those from the filesystem and the
+other from a picked file's `webkitRelativePath`, so they are exactly the fields that could
+drift while every per-file number stayed identical. A drift there could not move a total —
+a merge moves spend between holders without changing the sum — so it would surface only as
+the CLI and the dashboard disagreeing about **which** session was expensive.
+
+`fixtures/projects` carries no `message.id` at all, deliberately, so the original
+agreement test walks straight past the merge without exercising it. That is what
+`fixtures/crossfile/` and the second agreement test in `browser-scan.test.ts` are for.
+Do not add a `message.id` to `fixtures/projects` to cover this; it is the pricing anchor's
+corpus and a test asserts it stays id-free.
+
 ### Tests exist under `web/` now
 
 `lib/__tests__/browser-scan.test.ts`, run by the root `npm test` through the aliases in
