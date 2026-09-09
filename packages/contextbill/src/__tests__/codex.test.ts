@@ -328,48 +328,73 @@ describe('malformed and partial rollouts', () => {
   });
 });
 
-describe('pricing is absent, not folded in as free', () => {
+describe('pricing: what carries a rate, and what is reported instead', () => {
   const report = aggregate(stats, {
     table,
     ttl: '5m',
     cacheWriteMult: cacheWriteMultiplier(table, '5m'),
   });
 
-  it('names every Codex model as unpriced', () => {
-    // prices.json carries Anthropic first-party rates and no OpenAI ones. The
-    // existing unpriced path counts these and reports them; the HTML report
-    // prints "Unpriced models excluded from the total" above the figure.
-    expect(report.unpricedModelsSeen).toEqual(['gpt-5.5', 'gpt-5.6-sol']);
+  it('names the model that still has no rate, and only that one', () => {
+    // gpt-5.6-sol and gpt-5.6-terra are priced from OpenAI's published table.
+    // gpt-5.5 is deliberately absent — OpenAI charges no cache-write premium
+    // before GPT-5.6 and `cacheWriteMultiplier` is a single global, so pricing
+    // it would assert a premium OpenAI does not charge. See
+    // $comment-missing-gpt-5-5 in prices.json.
+    //
+    // This corpus is therefore PARTLY priced, which is the case worth pinning:
+    // the unpriced path has to stay loud even when most of the total is real
+    // money, or a reader takes a partial figure for a whole one.
+    expect(report.unpricedModelsSeen).toEqual(['gpt-5.5']);
   });
 
-  it('counts the tokens and the turns while the dollars stay zero', () => {
+  it('prices the Codex corpus at the published OpenAI rates', () => {
     expect(report.turns).toBe(6);
     expect(report.usage.input).toBe(27000);
     expect(report.usage.cacheRead).toBe(30000);
     expect(report.usage.output).toBe(1300);
-    // Zero because no rate exists, never because a rate of zero was applied. A
-    // guessed OpenAI rate would make this a confident wrong number instead.
-    expect(report.cost.total).toBe(0);
+
+    // Worked from prices.json, the way the anchor in pipeline.test.ts is.
+    // Priced usage is gpt-5.6-sol only: session A (16,000 fresh input, 20,000
+    // cached, 900 output) plus session B's two sol turns (6,000 / 10,000 /
+    // 300). Session B's single gpt-5.5 turn (5,000 input, 100 output) is NOT
+    // in this figure and is what unpricedModelsSeen above is naming.
+    //
+    //   input       22,000 x $4/M            = 0.088
+    //   cache read  30,000 x $4/M x 0.1      = 0.012
+    //   output       1,200 x $20/M           = 0.024
+    //                                          -----
+    //                                          0.124
+    expect(report.cost.total).toBeCloseTo(0.124, 12);
   });
 
-  it('charges no startup prefix at a rate that does not exist', () => {
-    expect(report.findings.startupPrefixUsd).toBe(0);
+  it('now charges a startup prefix, bounded by what the session could have paid', () => {
+    // Was asserted to be exactly zero, for the honest reason that no rate
+    // existed. With a rate it is real money, and the cap in aggregate.ts still
+    // has to hold: the prefix is a model (tokens x rate x re-reads), never more
+    // than the non-output spend it is a part of.
+    const nonOutput = report.cost.total - report.cost.output;
+    expect(report.findings.startupPrefixUsd).toBeGreaterThan(0);
+    expect(report.findings.startupPrefixUsd).toBeLessThanOrEqual(nonOutput + 1e-12);
   });
 });
 
 describe('the per-source summary', () => {
   const rows = summariseSources(stats, table, '5m');
 
-  it('reports Codex tokens beside an honestly blank dollar column', () => {
+  it('reports Codex dollars and still flags the turns it could not price', () => {
     expect(rows).toHaveLength(1);
     const codex = rows[0];
     expect(codex?.source).toBe('codex');
     expect(codex?.label).toBe('OpenAI Codex CLI');
     expect(codex?.turns).toBe(6);
-    expect(codex?.usd).toBe(0);
+    expect(codex?.usd).toBeCloseTo(0.124, 12);
+    // Five of the six turns price; session B's single gpt-5.5 turn does not.
+    // `fullyPriced` staying false on a row that now shows real money is the
+    // whole point — the CLI prints "(partly unpriced)" beside it.
     expect(codex?.fullyPriced).toBe(false);
-    expect(codex?.unpricedTurns).toBe(6);
-    expect(codex?.unpricedModels).toEqual(['gpt-5.5', 'gpt-5.6-sol']);
+    expect(codex?.unpricedTurns).toBe(1);
+    expect(codex?.unpricedModels).toEqual(['gpt-5.5']);
   });
 
   it('splits a mixed corpus by the agent that wrote each transcript', () => {
@@ -408,7 +433,8 @@ describe('the per-source summary', () => {
     // before Codex was read at all.
     expect(mixed[0]?.fullyPriced).toBe(true);
     expect(mixed[0]?.usd).toBeGreaterThan(0);
-    expect(mixed[1]?.usd).toBe(0);
+    expect(mixed[1]?.usd).toBeGreaterThan(0);
+    expect(mixed[1]?.fullyPriced).toBe(false);
   });
 });
 

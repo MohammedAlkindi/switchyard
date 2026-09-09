@@ -1,0 +1,1 @@
+{"parentUuid":null,"isSidechain":false,"uuid":"u-gw-one","timestamp":"2026-09-03T08:00:00.000Z","sessionId":"gateway-one","type":"assistant","message":{"id":"msg_gw","model":"claude-opus-5","role":"assistant","content":[],"usage":{"input_tokens":5,"cache_creation_input_tokens":0,"cache_read_input_tokens":100,"output_tokens":12}}}

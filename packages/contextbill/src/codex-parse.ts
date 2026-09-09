@@ -124,12 +124,38 @@ import type { ModelUsage, RawUsage, SessionStat, ToolCategory } from './types.js
  * PRICING
  * ---------------------------------------------------------------------------
  *
- * Nothing here prices anything. `prices.json` carries Anthropic first-party
- * rates and no OpenAI ones, so every Codex model falls through `priceAll` into
- * `unpricedModelsSeen` — tokens counted, dollars absent, and the report already
- * says so above its total. Inventing a rate to close that gap would make the
- * product confidently wrong with nothing failing, which is the one outcome worse
- * than a blank column.
+ * Nothing here prices anything — this file produces tokens and `cost.ts` turns
+ * them into dollars — but the mapping above is a pricing decision wearing a
+ * parser's clothes, because each bucket it fills is charged at a different rate.
+ * The three that matter, all read from OpenAI's own pages on 2026-09-07 and
+ * recorded with their sources in `$comment-openai` in `prices.json`:
+ *
+ *  - `reasoning_output_tokens` is billed AS OUTPUT. The reasoning guide says so
+ *    (https://developers.openai.com/api/docs/guides/reasoning), and the
+ *    arithmetic above shows Codex already counts it inside `output_tokens`.
+ *    Those two facts point the same way, which is why the field is read and
+ *    dropped: it is priced, at the output rate, as part of `output`. Adding it
+ *    would charge 8-50% of a session's reasoning twice.
+ *  - `cached_input_tokens` maps to `cacheRead`, which prices at
+ *    `cacheReadMultiplier` = 0.1x input. OpenAI publishes a cached-input rate
+ *    that is exactly a tenth of input for every model priced here, so the
+ *    global multiplier is right for them; `prices.test.ts` pins that agreement
+ *    rather than trusting it to hold.
+ *  - `cache_write_input_tokens` maps to `cacheWrite`, which prices at
+ *    `cacheWriteMultiplier['5m']` = 1.25x input. That is exactly what OpenAI
+ *    charges to write the cache on GPT-5.6 and later. It is NOT what `--cache-ttl=1h`
+ *    would charge: OpenAI has no 1h tier (30m is the only supported TTL), so
+ *    that flag would apply Anthropic's 2x to an OpenAI write. Cost today is
+ *    exactly zero — the field was present on 700 of 732 local events and read 0
+ *    on all 700 — and the real fix is a per-model multiplier the table cannot
+ *    express yet.
+ *
+ * Not every Codex model is priced, and that is deliberate rather than an
+ * oversight: `gpt-5.5` is held out because OpenAI charges no cache-write premium
+ * before GPT-5.6 and a single global multiplier cannot say so. It lands in
+ * `unpricedModelsSeen`, is counted, and is named above the total. Inventing a
+ * rate to close that gap would make the product confidently wrong with nothing
+ * failing, which is the one outcome worse than a blank column.
  */
 
 /** Raw counter shape as it appears under `payload.info`. */
@@ -279,6 +305,11 @@ function counter(raw: CodexTokenUsage | null | undefined): Counter | null {
   const input = num(raw.input_tokens);
   const output = num(raw.output_tokens);
   const rawTotal = num(raw.total_tokens);
+  // `reasoning_output_tokens` is deliberately NOT read here, and this is the
+  // line an editor would add it to. It is already inside `output_tokens` (see
+  // the header: total === input + output on all 732 corpus events) and OpenAI
+  // bills it at the output rate, so it is priced exactly once as part of
+  // `output`. Reading it into a bucket of its own would charge it twice.
   return {
     input,
     cached: Math.min(num(raw.cached_input_tokens), input),

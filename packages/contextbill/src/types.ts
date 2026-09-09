@@ -142,7 +142,16 @@ export interface PlanTable {
 }
 
 export interface PriceTable {
+  /**
+   * The Anthropic reading date, kept for tables written before the second
+   * vendor landed. It cannot describe both vendors — read `datedByProvider`.
+   */
   dated: string;
+  /**
+   * When the rates for each vendor were read, and from where. Optional so a
+   * hand-made or pre-2026-09-07 table still type-checks.
+   */
+  datedByProvider?: Record<string, { dated: string; source: string }>;
   currency: string;
   source: string;
   cacheWriteMultiplier: Record<string, number | string>;
@@ -213,6 +222,39 @@ export interface UnreadableFile {
  */
 export type TranscriptSource = 'claude-code' | 'codex';
 
+/**
+ * One billed assistant message, identified well enough to be recognised in a
+ * DIFFERENT transcript.
+ *
+ * A resumed session copies its parent's transcript lines forward verbatim, so
+ * the same request is on disk twice. `message.id` alone cannot prove that: an
+ * API gateway can hand the same id to two genuinely independent sessions, and
+ * merging those under-counts real spend. The per-line `uuid` closes it. It is
+ * minted by whoever wrote the line, a copy carries it over unchanged, and two
+ * sessions that never copied from each other cannot mint the same one — so
+ * (`id`, `uuid`) identifies a billed message across files while `id` alone only
+ * suggests it.
+ *
+ * `uuid` is the FIRST one written for the message, not the last. A message is
+ * streamed into the transcript over several lines, each with its own uuid, and
+ * a copy that ends earlier than the original still shares the opening line.
+ *
+ * `usage` is the collapsed figure — the maximum per field across that message's
+ * rewrites — so nothing a merge moves between transcripts can resurrect a
+ * rewrite that was already discarded.
+ */
+export interface BilledMessage {
+  id: string;
+  /** First line-level `uuid` written for this message. */
+  uuid: string;
+  usage: RawUsage;
+  /** Null when no line of the message named a model. */
+  model: string | null;
+  speed: 'standard' | 'fast';
+  /** Epoch ms of the message's earliest line, or null when it carried no clock. */
+  at: number | null;
+}
+
 /** Everything one transcript file yields. Kept small: one of these per transcript. */
 export interface SessionStat {
   /**
@@ -277,13 +319,26 @@ export interface SessionStat {
    * Distinct `message.id` values seen in this transcript, in first-appearance
    * order.
    *
-   * Deduplication is deliberately scoped to one file. A resumed session copies
-   * its parent's history into a new transcript, so the same id legitimately
-   * appears in two files; merging them is a different correction with different
-   * evidence behind it. This list is what lets the aggregator REPORT that
-   * overlap instead of silently applying it.
+   * Rewrite collapsing is scoped to one file, and stays that way: this list is
+   * what lets a corpus-level pass see which ids a transcript holds at all. It
+   * is the count behind the residual disclosure — ids held by more than one
+   * transcript that `billedMessages` could NOT prove were copies.
    */
   messageIds: string[];
+  /**
+   * The same messages again, carrying what it takes to recognise one in another
+   * transcript: the first line `uuid`, the collapsed usage, and the model.
+   *
+   * A message with an id but no `uuid` is absent here on purpose. There is
+   * nothing to prove a copy with, so it is never merged and stays counted where
+   * it is — the same under-correcting direction the id-less records take.
+   *
+   * Optional for the same reason `source` is: a Codex rollout carries no message
+   * ids at all, so its parser sets neither, and `stat.billedMessages ?? []` is
+   * the correct read everywhere. Read it as "what this file can offer a
+   * corpus-level pass", not as a second copy of `usage`.
+   */
+  billedMessages?: BilledMessage[];
 }
 
 /** A priced line item. */
@@ -393,23 +448,53 @@ export interface DeduplicationStats {
   /** Usage records with no `message.id`. Each was counted as its own turn. */
   unidentifiedRecords: number;
   /**
-   * Message ids that appear in more than one transcript. These are resumed
-   * sessions carrying their parent's history, and they are NOT deduplicated —
-   * the count is here so the double-count that remains is stated rather than
-   * hidden.
+   * Billed messages that were found in more than one transcript AND proved to
+   * be copies, so were counted once.
+   *
+   * The proof is the line `uuid`: a resumed session copies its parent's lines
+   * forward unchanged, and a uuid cannot be minted twice. See `BilledMessage`.
+   */
+  crossFileMessagesMerged: number;
+  /**
+   * Redundant COPIES removed. A message present in three transcripts
+   * contributes two, so this is what came off the totals, while
+   * `crossFileMessagesMerged` counts the messages behind it.
+   */
+  crossFileCopiesMerged: number;
+  /** Transcripts that lost at least one copied message. */
+  crossFileTranscriptsCorrected: number;
+  /**
+   * What those removed copies were worth — the double-count that is now gone.
+   *
+   * NOT an estimate, unlike `duplicatedUsd`: the removed copies are known per
+   * message, so they are priced as themselves at their own model and rate.
+   */
+  crossFileUsdMerged: number;
+  /**
+   * Message ids STILL held by more than one transcript after the merge above.
+   *
+   * These are the ones the merge refused: the id matched but no `uuid` did, so
+   * nothing proves the two records are the same request. The two known causes
+   * pull in opposite directions — an API gateway handing one id to two
+   * independent sessions (where merging would under-count real spend), and a
+   * streamed rewrite the writer scattered into a sibling subagent file (where
+   * merging would be right). Neither is distinguishable from the other, so the
+   * copies are left in place and the double-count that remains is stated rather
+   * than hidden.
    */
   sharedMessageIds: number;
-  /** Transcripts holding at least one such id. */
+  /** Transcripts holding at least one such unmerged id. */
   transcriptsSharingHistory: number;
   /**
-   * Redundant COPIES of those messages: an id present in three transcripts
-   * contributes two. `sharedMessageIds` counts the message, this counts the
-   * duplication, and the two differ whenever an id appears more than twice.
+   * Redundant COPIES of those unmerged messages: an id present in three
+   * transcripts contributes two. `sharedMessageIds` counts the message, this
+   * counts the duplication, and the two differ whenever an id appears more than
+   * twice.
    */
   duplicatedTurns: number;
   /**
    * What those redundant copies are worth, in dollars — the part of `cost.total`
-   * that is genuinely counted twice.
+   * that is still counted twice after the merge.
    *
    * An ESTIMATE, and it has to be: usage is aggregated per model before it is
    * priced, so no per-message dollar figure survives to be summed. Each
@@ -435,10 +520,27 @@ export interface DeduplicationStats {
  * the current month always is. A monthly figure read without that is a monthly
  * figure that understates by however much of the month is missing.
  *
- * A session is attributed whole to the month it STARTED in. Sessions that cross
- * a month boundary are rare and splitting one would need per-turn timestamps
- * the aggregator does not carry, so the approximation is stated rather than
- * hidden.
+ * A session that crosses a month boundary is SPLIT between the months, by the
+ * timestamp each of its `ModelUsage` rows carries. Those rows are bucketed to
+ * one UTC day and a UTC day never straddles a month boundary, so the dollars
+ * either side are separated exactly rather than apportioned by a rule.
+ *
+ * It was not always so, and the bias it left is worth keeping recorded because
+ * it ran in the one direction this feature promises never to err in. A session
+ * used to be booked whole to the month it STARTED in, so work done in month M+1
+ * was credited to M; and since `ratio` on `PlanUtilization` is computed over
+ * COMPLETE months only, value dragged backwards out of a partial month landed in
+ * the numerator of a headline that month is excluded from. The size was
+ * corpus-dependent and unbounded in principle — a session opening a minute
+ * before a month ends carried however much it went on to cost back across the
+ * boundary with it.
+ *
+ * Two things still do not divide, and both are deliberate. `sessions` counts a
+ * session once, in the month it opened: turns and dollars are quantities, a
+ * session is not. And a row whose transcript lines carried no readable
+ * timestamp falls back to that same month, because a neighbouring row's clock
+ * is not evidence of when it ran — the same rule `cost.ts` applies when it
+ * prices such a row.
  */
 export interface MonthCost {
   /** `YYYY-MM`, UTC. */
@@ -555,6 +657,13 @@ export interface SourceSummary {
 export interface Report {
   generatedAt: string;
   priceTableDate: string;
+  /**
+   * Reading date per vendor. The report names the vendors whose rates were
+   * actually applied, so it needs their dates rather than one table-wide one:
+   * quoting the Anthropic date beside a Codex total states a reading that
+   * never happened.
+   */
+  priceTableDatedByProvider?: Record<string, string>;
   cacheTtlAssumed: CacheTtl;
   transcriptCount: number;
   sessionCount: number;
@@ -599,4 +708,126 @@ export interface Report {
    * the only case where the totals alone are ambiguous.
    */
   bySource?: SourceSummary[];
+}
+
+/* -------------------------------------------------------------------------- *
+ * Subscription rate-limit windows
+ *
+ * Every other number in this file is derived from a transcript. These are not:
+ * Claude Code reads them off the `anthropic-ratelimit-unified-*` response
+ * headers and hands them to a statusline command on stdin, which makes them the
+ * only ground truth this tool can get about how much of a plan window is gone.
+ *
+ * The distinction between what was reported and what was extrapolated from it
+ * is kept STRUCTURAL rather than editorial: a measured figure lives on
+ * `RateLimitWindow` and a projected one lives on `LimitProjection`, and nothing
+ * carries both. Labelling would have been cheaper and would have rotted — the
+ * tools this feature competes with blur exactly this line, which is why their
+ * five-hour estimates disagree with the limits people actually hit.
+ * -------------------------------------------------------------------------- */
+
+/** The rate-limit windows the statusline payload can carry. */
+export type LimitWindowId = 'five_hour' | 'seven_day' | 'spend_limit';
+
+/**
+ * One window exactly as Claude Code reported it. Every field here is MEASURED.
+ *
+ * `windowMs` is the one derived value, and it is derived from the window's
+ * documented length rather than from any observation — `five_hour` is five
+ * hours. It is null for `spend_limit`, whose period is not documented anywhere
+ * this tool can cite, and a null there switches off every projection rather
+ * than inviting one.
+ */
+export interface RateLimitWindow {
+  id: LimitWindowId;
+  /** Full name, for the terminal block. */
+  label: string;
+  /** Two or three characters, for a prompt line. */
+  shortLabel: string;
+  /** Percent of the window consumed, 0-100. Above 100 once a limit is passed. */
+  usedPercent: number;
+  /** Epoch ms at which the window resets. The payload states this in seconds. */
+  resetsAtMs: number;
+  /** Documented length of the window, ms. Null when there is no documented one. */
+  windowMs: number | null;
+}
+
+/**
+ * What follows from a window if the pace so far continues. Every field here is
+ * PROJECTED, apart from `msToReset` and `stale`, which are arithmetic on two
+ * measured numbers and a clock.
+ *
+ * The projection is a straight line and nothing more: percent consumed divided
+ * by window time elapsed, extended to 100. Real usage is bursty, so this is a
+ * pace, not a forecast, and it is worth printing only because it is anchored to
+ * a measured percentage rather than to a guess about when the window opened.
+ */
+export interface LimitProjection {
+  /** Ms from now until the reset. Measured, up to the local clock. */
+  msToReset: number;
+  /** True when the reset has already passed, so the sample describes a dead window. */
+  stale: boolean;
+  /** Epoch ms the window opened, from `resetsAtMs - windowMs`. Null when unknown. */
+  startedAtMs: number | null;
+  /** Percentage points consumed per hour, averaged since the window opened. */
+  percentPerHour: number | null;
+  /**
+   * Epoch ms at which this pace reaches 100%.
+   *
+   * Null when there is nothing to extrapolate from: no documented window
+   * length, a stale sample, or a pace of zero — zero never reaches 100, and a
+   * date implying it would is worse than no date.
+   */
+  exhaustedAtMs: number | null;
+  /** True when exhaustion is projected to arrive before the reset does. */
+  exhaustsBeforeReset: boolean;
+}
+
+/** One window with its projection, kept in separate objects on purpose. */
+export interface LimitWindowView {
+  window: RateLimitWindow;
+  projection: LimitProjection;
+}
+
+/**
+ * What the local transcripts say was spent inside a window.
+ *
+ * Measured from transcripts, over an interval whose START is derived: the
+ * window's opening is `resetsAtMs - windowMs`, not something any transcript
+ * records. Selection is by file mtime, so a transcript that began before the
+ * window opened and was appended to inside it is counted in FULL — the same
+ * approximation `--scope today` makes, and it is stated for the same reason.
+ *
+ * This is deliberately NOT reconciled with `usedPercent`. The plan window is
+ * weighted by rules this tool cannot see; API-equivalent dollars are a
+ * different quantity in a different unit, and presenting one as a check on the
+ * other would be the confident wrong number this codebase is arranged to avoid.
+ */
+export interface LocalWindowSpend {
+  windowId: LimitWindowId;
+  /** Epoch ms the window opened. Derived, see above. */
+  sinceMs: number;
+  /** Transcript files touched since then. */
+  transcripts: number;
+  turns: number;
+  /** API-equivalent dollars across those transcripts. */
+  usd: number;
+  /** Those dollars over the hours elapsed since the window opened. */
+  usdPerHour: number;
+}
+
+/**
+ * The answer `--limits` prints: every window Claude Code reported, what the
+ * local corpus spent inside the binding one, and the instant it was all read.
+ *
+ * There is no "no windows" case to represent — the caller has nothing to build
+ * this from when the payload carried none, and says so instead of rendering an
+ * empty view that looks like a measurement of zero.
+ */
+export interface LimitReport {
+  /** Epoch ms the payload was read. Every projection is relative to this. */
+  observedAt: number;
+  windows: LimitWindowView[];
+  /** Local spend inside the binding window. Null when it has no known length. */
+  local: LocalWindowSpend | null;
 }

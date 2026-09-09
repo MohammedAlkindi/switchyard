@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -29,19 +29,21 @@ afterAll(() => {
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 
-/** Run the built CLI with `stdin` piped in. Never throws; the code is the point. */
+/**
+ * Run the built CLI with `stdin` piped in. Never throws; the code is the point.
+ *
+ * `spawnSync` rather than `execFileSync` because stderr is part of what is
+ * under test here. `execFileSync` only surfaces stderr by throwing, so on a
+ * zero exit it returned `err: ''` unconditionally and every `expect(r.err)
+ * .toBe('')` in this file passed without looking at anything.
+ */
 function run(args: readonly string[], stdin = ''): { code: number; out: string; err: string } {
-  try {
-    const out = execFileSync(process.execPath, [cli, ...args], {
-      encoding: 'utf8',
-      input: stdin,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    return { code: 0, out, err: '' };
-  } catch (err) {
-    const e = err as { status?: number; stdout?: string; stderr?: string };
-    return { code: e.status ?? -1, out: e.stdout ?? '', err: e.stderr ?? '' };
-  }
+  const r = spawnSync(process.execPath, [cli, ...args], {
+    encoding: 'utf8',
+    input: stdin,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  return { code: r.status ?? -1, out: r.stdout ?? '', err: r.stderr ?? '' };
 }
 
 describe('statusline flags', () => {
@@ -90,6 +92,8 @@ describe('formatStatusline', () => {
       tokens: 412_000,
       scope: 'session',
       unpricedModels: 0,
+      unreadable: 0,
+      limit: null,
     });
     expect(line).toBe('$1.23 API-equiv · 87 turns · 412K tok · session');
   });
@@ -103,6 +107,8 @@ describe('formatStatusline', () => {
       tokens: 0,
       scope: 'today',
       unpricedModels: 0,
+      unreadable: 0,
+      limit: null,
     });
     expect(line).toContain('active today');
     expect(line).not.toContain('· today');
@@ -115,6 +121,8 @@ describe('formatStatusline', () => {
       tokens: 5_000,
       scope: 'session',
       unpricedModels: 2,
+      unreadable: 0,
+      limit: null,
     });
     expect(line).toContain('2 unpriced');
   });
@@ -127,6 +135,8 @@ describe('formatStatusline', () => {
         tokens: 3_960_000_000,
         scope,
         unpricedModels: 3,
+        unreadable: 0,
+        limit: null,
       });
       expect(line).not.toContain('\n');
     }
@@ -204,5 +214,256 @@ describe('statusline end to end', () => {
     if (r.code === 0) expect(r.out).toContain('active today');
     else expect(r.out).toBe('');
     expect(r.err).toBe('');
+  });
+});
+
+describe('an unreadable transcript is not a transcript with nothing in it', () => {
+  /**
+   * The contract at the top of `runStatusline` is that it prints nothing and
+   * exits non-zero when it cannot answer. Before this, `statTranscript` called
+   * `scanFile` without the `onUnreadable` callback, so a read error came back
+   * as an EMPTY stat and the mode printed a confident "$0.00 API-equiv · 0
+   * turns" for a file it never opened — the one shape of wrong answer this
+   * codebase is arranged to prevent, in the one place a wrong answer is pasted
+   * into someone's prompt.
+   *
+   * `scan.ts` already hands the reason out; `scanCorpus` has used it since it
+   * was added. This path threw it away.
+   */
+  const unreadable = path.join(tmp, 'not-a-file');
+  fs.mkdirSync(unreadable, { recursive: true });
+
+  it('prints nothing and exits non-zero when the named transcript cannot be read', () => {
+    const empty = path.join(tmp, 'empty-root');
+    fs.mkdirSync(empty, { recursive: true });
+    const r = run(
+      ['--statusline', '--root', empty],
+      JSON.stringify({ session_id: 'x', transcript_path: unreadable }),
+    );
+    expect(r.out).toBe('');
+    expect(r.err).toBe('');
+    expect(r.code).not.toBe(0);
+  });
+
+  it('does not silently fall back to another session when the named one is unreadable', () => {
+    // The fallback exists for running the command by hand. Reaching for it
+    // after a supplied path failed would report a DIFFERENT session's numbers
+    // under this session's prompt, which is worse than reporting none.
+    const r = run(
+      ['--statusline', '--root', fixtures],
+      JSON.stringify({ session_id: 'x', transcript_path: unreadable }),
+    );
+    expect(r.out).toBe('');
+    expect(r.code).not.toBe(0);
+  });
+
+  it('states the files it could not read rather than folding them in as zero', () => {
+    const line = formatStatusline({
+      usd: 4,
+      turns: 10,
+      tokens: 5_000,
+      scope: 'today',
+      unpricedModels: 0,
+      unreadable: 2,
+      limit: null,
+    });
+    expect(line).toContain('2 unread');
+  });
+});
+
+describe('rate-limit window on the statusline', () => {
+  /**
+   * The only figure this tool prints that a transcript cannot produce. It rides
+   * in on the same stdin payload the transcript path does, so it costs nothing
+   * to read and it is the vendor's own count rather than a reconstruction.
+   */
+  const oneHour = 3_600_000;
+
+  /** A payload naming the fixture transcript plus a live five-hour window. */
+  function withWindow(usedPercentage: number, resetsInMs: number): string {
+    return JSON.stringify({
+      session_id: 'fixture',
+      transcript_path: oneTranscript,
+      rate_limits: {
+        five_hour: {
+          used_percentage: usedPercentage,
+          resets_at: Math.floor((Date.now() + resetsInMs) / 1000),
+        },
+      },
+    });
+  }
+
+  it('shows the measured percentage and the measured reset', () => {
+    const r = run(['--statusline', '--root', fixtures], withWindow(40, 3 * oneHour));
+    expect(r.code).toBe(0);
+    expect(r.out).toContain('5h 40% used');
+    expect(r.out).toContain('resets in');
+    // Nothing was extrapolated here, so nothing claims to have been.
+    expect(r.out).not.toContain('projected');
+    expect(r.out.split('\n').filter((l) => l !== '')).toHaveLength(1);
+  });
+
+  it('says nothing about limits when the payload carries none', () => {
+    // A plain run, an API-key session, or a subscriber before the first API
+    // response. The line must not invent a window from local timestamps.
+    const r = run(
+      ['--statusline', '--root', fixtures],
+      JSON.stringify({ session_id: 'fixture', transcript_path: oneTranscript }),
+    );
+    expect(r.code).toBe(0);
+    expect(r.out).not.toContain('used');
+    expect(r.out).not.toContain('resets in');
+  });
+
+  it('tags a projected exhaustion and leaves the measured half untagged', () => {
+    // 90% gone with four of five hours still to run: the pace reaches the cap
+    // well before the reset does, which is the state worth interrupting for.
+    const r = run(['--statusline', '--root', fixtures], withWindow(90, 4 * oneHour));
+    expect(r.code).toBe(0);
+    expect(r.out).toContain('5h 90% used');
+    expect(r.out).toMatch(/~\S+ to limit \(projected\)/);
+  });
+});
+
+describe('--limits', () => {
+  /**
+   * The full window view. It reads the same payload `--statusline` does, so it
+   * has the same hard requirement: with no payload there is no window, and the
+   * answer is to say so rather than to reconstruct one from local file times.
+   */
+  function payloadWith(usedPercentage: number, resetsInMs: number): string {
+    return JSON.stringify({
+      session_id: 'fixture',
+      transcript_path: oneTranscript,
+      rate_limits: {
+        five_hour: {
+          used_percentage: usedPercentage,
+          resets_at: Math.floor((Date.now() + resetsInMs) / 1000),
+        },
+      },
+    });
+  }
+
+  it('says it cannot see a window instead of estimating one', () => {
+    const r = run(['--limits', '--root', fixtures], '{"session_id":"x"}');
+    // Report-tool contract: exit 0, explain on stderr, print no answer.
+    expect(r.code).toBe(0);
+    expect(r.out).toBe('');
+    expect(r.err).toContain('cannot see');
+    expect(r.err).toContain('statusLine');
+  });
+
+  it('separates the measured window from the projected pace in the output', () => {
+    const r = run(['--limits', '--root', fixtures], payloadWith(60, 2 * 3_600_000));
+    expect(r.code).toBe(0);
+    expect(r.out).toContain('measured');
+    expect(r.out).toContain('projected');
+    expect(r.out).toContain('60% of the 5-hour session limit used');
+    // The basis sentence is not optional: without it the projection reads as a
+    // second measurement.
+    expect(r.out).toContain('straight line');
+  });
+
+  it('writes no report file and opens nothing', () => {
+    const out = path.join(tmp, 'limits-report.html');
+    const r = run(['--limits', '--root', fixtures, '--out', out], payloadWith(10, 3_600_000));
+    expect(r.code).toBe(0);
+    expect(fs.existsSync(out)).toBe(false);
+  });
+
+  it('emits the same figures as JSON, with the two kinds in separate objects', () => {
+    const r = run(['--limits', '--json', '--root', fixtures], payloadWith(75, 3_600_000));
+    expect(r.code).toBe(0);
+    const parsed = JSON.parse(r.out) as {
+      windows: Array<{
+        window: { id: string; usedPercent: number };
+        projection: { percentPerHour: number | null };
+      }>;
+    };
+    expect(parsed.windows[0]?.window.id).toBe('five_hour');
+    expect(parsed.windows[0]?.window.usedPercent).toBe(75);
+    // Measured on `window`, projected on `projection`: a consumer cannot read
+    // one for the other by accident.
+    expect(parsed.windows[0]).not.toHaveProperty('percentPerHour');
+    expect(parsed.windows[0]?.projection.percentPerHour).toBeGreaterThan(0);
+  });
+});
+
+describe('--statusline --scope today never waits on stdin', () => {
+  /**
+   * The worst failure this file can catch. `--statusline` runs on every prompt
+   * redraw, so a mode that blocks forever does not print a wrong number — it
+   * freezes the prompt.
+   *
+   * `readStdin` is `fs.readFileSync(0)`, which returns only at EOF. A TTY is
+   * guarded against, but a PIPE that the host opens and does not close is not:
+   * the read parks there for the life of the process. `--scope today` selects
+   * its transcripts from the filesystem and never needed the payload, so it had
+   * no reason to be exposed to that, and until this it was not — the read lived
+   * inside the session branch. Hoisting it to the top of `runStatusline` to
+   * share one read with the rate-limit segment handed the cheap scope the
+   * expensive scope's failure mode.
+   *
+   * The cost of the fix, stated because it is a real loss and not a free win:
+   * the rate-limit segment rides on that payload, so it is session-scope only.
+   * A segment that is sometimes absent beats a prompt that sometimes hangs.
+   */
+  it('exits instead of blocking on a pipe the host never closes', async () => {
+    const child = spawn(
+      process.execPath,
+      [cli, '--statusline', '--scope', 'today', '--root', fixtures],
+      { stdio: ['pipe', 'pipe', 'pipe'] },
+    );
+    // Drain both so a full pipe buffer can never be mistaken for the hang.
+    child.stdout.resume();
+    child.stderr.resume();
+    // A partial write and NO end(): exactly what a host that holds stdin open
+    // looks like from inside the process.
+    child.stdin.write('{"session_id":"x"');
+
+    const exited = await new Promise<boolean>((resolve) => {
+      const timer = setTimeout(() => {
+        child.kill('SIGKILL');
+        resolve(false);
+      }, 6_000);
+      child.on('exit', () => {
+        clearTimeout(timer);
+        resolve(true);
+      });
+    });
+
+    // Not the exit code: the fixture mtimes decide whether anything qualifies
+    // as active today, and both 0 and non-zero are correct answers. Exiting at
+    // all is the whole assertion.
+    expect(exited).toBe(true);
+    child.stdin.destroy();
+  }, 20_000);
+});
+
+describe('--limits --json always emits JSON', () => {
+  /**
+   * `--help` advertises that `--limits` combines with `--json`, and a JSON mode
+   * that prints nothing at all is not a quieter answer — it is a parse error in
+   * the caller. The no-window case is the one a script hits most often: an
+   * API-key session, Bedrock, Vertex, or a subscriber before the first API
+   * response of the session all reach it.
+   *
+   * The explanation still goes to stderr, where it always went, and the exit
+   * code is still 0. Only stdout changes, and it changes from unparseable to
+   * an empty window list — which is the answer.
+   */
+  it('emits an empty window list rather than nothing when no window is visible', () => {
+    const r = run(['--limits', '--json', '--root', fixtures], '{"session_id":"x"}');
+    expect(r.code).toBe(0);
+    const parsed = JSON.parse(r.out) as {
+      observedAt: number;
+      windows: unknown[];
+      local: unknown;
+    };
+    expect(parsed.windows).toEqual([]);
+    expect(parsed.local).toBeNull();
+    expect(typeof parsed.observedAt).toBe('number');
+    // Still said out loud, just not on the channel a caller pipes into a parser.
+    expect(r.err).toContain('cannot see');
   });
 });

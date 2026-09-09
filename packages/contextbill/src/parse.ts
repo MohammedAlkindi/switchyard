@@ -1,6 +1,6 @@
 import { classify, isMutatingTool, mcpServer } from './classify.js';
 import { zeroUsage } from './cost.js';
-import type { ModelUsage, RawUsage, SessionStat, ToolCategory } from './types.js';
+import type { BilledMessage, ModelUsage, RawUsage, SessionStat, ToolCategory } from './types.js';
 
 /**
  * Transcript parsing — pure, and deliberately free of Node built-ins.
@@ -34,6 +34,11 @@ import type { ModelUsage, RawUsage, SessionStat, ToolCategory } from './types.js
  *    real transcripts and 413,702 lines: 150,662 usage-bearing lines collapse
  *    to 65,474 messages, inflating input 3.44x, cache writes 2.83x, cache reads
  *    2.23x and output 2.16x, and the priced total 2.43x.
+ *  - Every message that carries both an id and a line `uuid` is also emitted on
+ *    `billedMessages`, which is the only thing a corpus-level pass can use to
+ *    tell a resumed session's copied history from two independent sessions that
+ *    happen to share an id. Nothing here acts on it: this file sees one
+ *    transcript and cannot know what any other one holds.
  */
 
 interface TranscriptUsage {
@@ -54,6 +59,16 @@ interface ContentBlock {
 
 interface TranscriptLine {
   timestamp?: string;
+  /**
+   * Line-level identifier, minted by whoever wrote the line.
+   *
+   * Distinct from `message.id`: one streamed message spans several lines and
+   * each gets its own `uuid`. It matters here because a resumed session copies
+   * its parent's lines forward with this value intact, which is what makes a
+   * copy provable across files. Typed as `unknown` and narrowed, like
+   * `message.id`, because a transcript is other people's JSON.
+   */
+  uuid?: unknown;
   message?: {
     id?: unknown;
     model?: string;
@@ -70,6 +85,18 @@ interface TranscriptLine {
  */
 interface UsageRecord {
   usage: RawUsage;
+  /** `message.id`, or null when the record carried none. */
+  id: string | null;
+  /**
+   * The `uuid` of the FIRST line written for this message, or null when that
+   * line carried none.
+   *
+   * Not raised by a later rewrite. A copy that stops earlier than the original
+   * still shares the opening line, so the opening line is the stable identity;
+   * taking the last would make the same message look different in the file that
+   * copied it.
+   */
+  uuid: string | null;
   /** Null when the line carried no model; such a record still counts as a turn. */
   model: string | null;
   speed: 'standard' | 'fast';
@@ -89,8 +116,13 @@ interface UsageRecord {
  * Built by hand rather than through `toISOString`, which throws on an instant it
  * cannot represent. This value is only ever compared for equality, so a strange
  * timestamp has to produce a stable string rather than an exception.
+ *
+ * Exported because it defines where one `byModel` row ends and the next begins.
+ * A corpus-level pass that subtracts a message from a transcript has to find the
+ * row that message was summed into, and re-deriving that boundary in a second
+ * place is how the two would eventually disagree about which row to touch.
  */
-function utcDayKey(at: number | null): string {
+export function utcDayKey(at: number | null): string {
   if (at === null) return '';
   const d = new Date(at);
   const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
@@ -150,6 +182,7 @@ export function parseTranscript(text: string, opts: ParseOptions): SessionStat {
     usageRewrites: 0,
     unidentifiedUsage: 0,
     messageIds: [],
+    billedMessages: [],
   };
 
   const pending: Record<string, string> = Object.create(null) as Record<string, string>;
@@ -229,6 +262,8 @@ export function parseTranscript(text: string, opts: ParseOptions): SessionStat {
 
     const rawId = parsed.message?.id;
     const id = typeof rawId === 'string' && rawId.length > 0 ? rawId : null;
+    const rawUuid = parsed.uuid;
+    const uuid = typeof rawUuid === 'string' && rawUuid.length > 0 ? rawUuid : null;
     const model = parsed.message?.model ?? null;
     const speed: 'standard' | 'fast' = u.speed === 'fast' ? 'fast' : 'standard';
 
@@ -237,13 +272,13 @@ export function parseTranscript(text: string, opts: ParseOptions): SessionStat {
       // the safe direction: dropping it loses spend that was really billed,
       // while keeping a rewrite that lost its id overstates by one message.
       stat.unidentifiedUsage += 1;
-      records.push({ usage: turn, model, speed, at: lineAt });
+      records.push({ usage: turn, id: null, uuid, model, speed, at: lineAt });
       continue;
     }
 
     const seen = byId.get(id);
     if (seen === undefined) {
-      const record: UsageRecord = { usage: turn, model, speed, at: lineAt };
+      const record: UsageRecord = { usage: turn, id, uuid, model, speed, at: lineAt };
       byId.set(id, record);
       records.push(record);
       stat.messageIds.push(id);
@@ -274,7 +309,25 @@ export function parseTranscript(text: string, opts: ParseOptions): SessionStat {
   // by line, so every consumer of `usage`, `byModel` and `turns` sees one entry
   // per billed message. `turns` in particular feeds the startup-prefix re-read
   // count in aggregate.ts, where a rewrite is not a re-read.
+  const billed: BilledMessage[] = [];
   for (const record of records) {
+    // Only a record that has BOTH an id and a line uuid can be recognised in
+    // another transcript. Anything else is invisible to the corpus pass and so
+    // is never merged away — the same safe direction the id-less records take.
+    if (record.id !== null && record.uuid !== null) {
+      billed.push({
+        id: record.id,
+        uuid: record.uuid,
+        // Copied, not aliased: `record.usage` is the object the totals below are
+        // summed from, and a corpus-level pass must not be able to reach in and
+        // change what this transcript reported.
+        usage: { ...record.usage },
+        model: record.model,
+        speed: record.speed,
+        at: record.at,
+      });
+    }
+
     stat.usage.input += record.usage.input;
     stat.usage.cacheWrite += record.usage.cacheWrite;
     stat.usage.cacheRead += record.usage.cacheRead;
@@ -316,5 +369,6 @@ export function parseTranscript(text: string, opts: ParseOptions): SessionStat {
   }
 
   stat.byModel = [...models.values()];
+  stat.billedMessages = billed;
   return stat;
 }

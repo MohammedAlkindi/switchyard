@@ -182,6 +182,18 @@ function priceEntry(
   const inRate = fast && rate.fastInput !== undefined ? rate.fastInput : rate.input;
   const outRate = fast && rate.fastOutput !== undefined ? rate.fastOutput : rate.output;
 
+  // Both multipliers are GLOBAL — one number for every model in the table,
+  // whichever vendor published it. That was uncontroversial while the table held
+  // one vendor and it is now a live constraint: it is what keeps Claude Fable 5.1
+  // (cache reads at 0.025x, not 0.1x) and OpenAI's gpt-5.5 (no cache-write
+  // premium at all) out of `prices.json` entirely, because the alternative is
+  // pricing them at a rate nobody charges. Both omissions are documented there.
+  //
+  // The fix is the same for both: an optional per-model multiplier on
+  // `ModelPrice`, preferred here over the global. It is not done in this pass
+  // because the field belongs in `types.ts`. Until then, a model whose cache
+  // rates do not match these globals must be LEFT OUT rather than approximated —
+  // an unpriced model is reported loudly, a mispriced one is not reported at all.
   const cw = cacheWriteMultiplier(table, ttl);
   const cr = table.cacheReadMultiplier;
   const u = entry.usage;

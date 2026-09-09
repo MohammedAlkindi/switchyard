@@ -4,6 +4,64 @@ import { LONG_SESSION_TURNS } from './waste.js';
 import type { Report } from './types.js';
 
 /**
+ * Which vendors' published rates a figure actually came out of.
+ *
+ * Derived from what was PRICED, never from which sources were asked for: a
+ * source can be requested and contribute nothing billable, and naming a vendor
+ * whose table produced no dollars is a sourcing claim about someone else's
+ * prices. Lives here rather than in cli.ts because the HTML report makes the
+ * same claim as the terminal and the two must never disagree — they did, and
+ * the HTML named Anthropic over a Codex total.
+ */
+export function pricedProviders(report: Report, sourceHint?: 'claude' | 'codex' | 'all'): string {
+  const names: string[] = [];
+  const rows = report.bySource;
+  if (rows === undefined) {
+    // No per-source breakdown means a plain Claude Code run, which is the one
+    // case where the old unconditional sentence was right.
+    names.push('Anthropic');
+  } else {
+    for (const row of rows) {
+      if (row.usd <= 0) continue;
+      const vendor = row.source === 'codex' ? 'OpenAI' : 'Anthropic';
+      if (!names.includes(vendor)) names.push(vendor);
+    }
+  }
+
+  // Nothing carried a rate at all — every model in the corpus was unpriced.
+  // Naming the tables that were consulted keeps the sentence true without
+  // claiming a figure came out of one of them.
+  if (names.length === 0) {
+    if (sourceHint !== 'codex') names.push('Anthropic');
+    if (sourceHint !== 'claude') names.push('OpenAI');
+  }
+
+  const [first, second] = names;
+  if (first === undefined) return 'Anthropic';
+  return second === undefined ? first : `${first} and ${second}`;
+}
+
+/**
+ * The reading date(s) to quote beside those vendors' rates. One date cannot
+ * describe two tables read four days apart, so when both are in play both are
+ * named.
+ */
+export function priceDates(report: Report): string {
+  const per = report.priceTableDatedByProvider;
+  const vendors = pricedProviders(report);
+  if (per === undefined) return report.priceTableDate;
+
+  const parts: string[] = [];
+  if (vendors.includes('Anthropic') && per['anthropic'] !== undefined) {
+    parts.push(vendors.includes('OpenAI') ? `Anthropic ${per['anthropic']}` : per['anthropic']);
+  }
+  if (vendors.includes('OpenAI') && per['openai'] !== undefined) {
+    parts.push(vendors.includes('Anthropic') ? `OpenAI ${per['openai']}` : per['openai']);
+  }
+  return parts.length === 0 ? report.priceTableDate : parts.join(', ');
+}
+
+/**
  * Renders a Report to a single self-contained HTML document.
  *
  * Pure: same Report in, same string out. No file I/O, no network, no external
@@ -268,8 +326,12 @@ ${undatedWarning}
     understatement.`
       : ''
   }
-  A session is counted in the month it started, so one running across midnight on the last of
-  the month lands entirely in the earlier month.
+  A session that runs across a month boundary is split between the two months rather than
+  booked whole to the one it opened in. Usage is recorded per model per UTC day, and a UTC
+  day never straddles a month boundary, so the dollars either side are separated exactly.
+  Two things do not divide: the session COUNT goes whole to the month the session opened,
+  and usage whose transcript lines carried no readable timestamp falls back to that same
+  month, because a neighbouring row's clock is not evidence of when it ran.
 </div>
 `;
 }
@@ -367,6 +429,18 @@ export function renderReport(r: Report): string {
         .join('\n')
     : '';
 
+  // Named only when there is something for it to exclude. `deadRuns` reads
+  // Claude Code transcripts alone — the size floor behind it was measured on
+  // those and has a cause specific to that writer, so a Codex rollout is
+  // skipped rather than judged against a threshold nobody cut for it. A reader
+  // looking at a report built from both has to be told the table is partial;
+  // one looking at a Claude-only report would only be told about an absence
+  // that cannot arise.
+  const deadRunScope = (r.bySource ?? []).some((s) => s.source !== 'claude-code')
+    ? ` Claude Code transcripts only. The size floor was measured on those, so rollouts
+       from other agents are skipped here rather than judged against it — a dead one
+       would not appear in the table below.`
+    : '';
   const deadRows = f.deadRuns.length
     ? f.deadRuns
         .map(
@@ -392,15 +466,47 @@ export function renderReport(r: Report): string {
   // gets a number that can be off by a large factor either way.
   const d = r.deduplication;
   const duplicateShare = r.cost.total > 0 ? (100 * d.duplicatedUsd) / r.cost.total : 0;
+  // The residual note describes what the merge REFUSED, so it must not repeat
+  // the merge's own explanation. Before the cross-file pass existed this text
+  // called every shared id "a resumed session carrying its parent's history
+  // forward" — which is now exactly backwards: a provable resume has already
+  // been merged, and what is left is the set nothing could prove either way.
   const sharedNote =
     d.sharedMessageIds > 0
-      ? ` <strong>${num(d.sharedMessageIds)} message(s) are held by more than one transcript</strong>,
-         across ${num(d.transcriptsSharingHistory)} files — a resumed session carrying its parent's
-         history forward. Those copies are NOT merged, so about
+      ? ` A further <strong>${num(d.sharedMessageIds)} message id(s) are still held by
+         more than one transcript</strong>, across ${num(d.transcriptsSharingHistory)} files, with no shared line
+         id to prove they are the same request. Two different things produce that and they pull in
+         opposite directions — one message's streamed rewrites split across sibling subagent files,
+         where merging would be right, and an API gateway handing one id to two genuinely
+         independent sessions, where merging would erase real spend. Nothing in a transcript
+         separates them, so they are left counted and about
          <strong>${esc(usd(d.duplicatedUsd))}</strong> of the total above, ${esc(pct(duplicateShare))},
          is counted twice. That figure prices the ${num(d.duplicatedTurns)} redundant copy(ies) at
          the mean cost per turn of the transcripts holding them: per-message dollars do not survive
          aggregation, so it is an estimate rather than a line item.`
+      : '';
+  // Stated separately from the rewrite collapse because it is a different
+  // correction with different evidence, and priced exactly rather than
+  // estimated: the removed copies are known per message, so each is charged at
+  // its own model and rate instead of at a per-turn average. Exact means what it
+  // says — `merge.removed` nets off any raise the surviving copy took, so the
+  // figure below is corpus-before minus corpus-after and not the gross value of
+  // the copies. Wording it as "billed to you twice" only holds while that is
+  // true; a gross figure would name dollars the total still carries.
+  const mergedNote =
+    d.crossFileMessagesMerged > 0
+      ? `<div class="note">
+  <strong>Resumed history is counted once.</strong>
+  Resuming a session copies the earlier transcript forward, so the same request is
+  on disk in more than one file. contextbill matched
+  ${num(d.crossFileMessagesMerged)} message(s) across transcripts on both the message
+  id and the line id that a copy carries over unchanged, and removed
+  ${num(d.crossFileCopiesMerged)} redundant copy(ies) from
+  ${num(d.crossFileTranscriptsCorrected)} file(s) — <strong>${esc(usd(d.crossFileUsdMerged))}</strong>
+  that would otherwise have been billed to you twice. A copied message is credited to
+  the earliest session holding it, which can move spend between sessions and projects
+  without changing the total.
+</div>`
       : '';
   const dedupNote =
     d.rewritesCollapsed > 0 || d.sharedMessageIds > 0
@@ -448,8 +554,9 @@ ${unpricedNote}
 
 <div class="note">
   <strong>These are API-equivalent figures, not an invoice.</strong>
-  Every dollar here is what this usage would cost metered at Anthropic's published
-  first-party API rates, dated <strong>${esc(r.priceTableDate)}</strong>. If you work on a
+  Every dollar here is what this usage would cost metered at the published
+  first-party ${esc(pricedProviders(r))} API rates, read
+  <strong>${esc(priceDates(r))}</strong>. If you work on a
   subscription you paid a flat fee instead, so treat these as a valuation of the
   usage and a way to compare sessions against each other — not as a restatement of
   what you were charged.
@@ -541,8 +648,10 @@ ${
 <h2>Runs that died on startup</h2>
 <div class="note">
   <strong>A scheduled agent that exits before working looks identical to one that never fired.</strong>
-  The task reports success either way. Transcript size is the only signal that
-  separates them after the fact: a real run is kilobytes, a corpse is a few hundred bytes.
+  The task reports success either way. Transcript size plus the number of billed requests is
+  what separates them after the fact: a run that did work is tens of kilobytes and answers
+  more than twice, while a corpse still leaves the injected session context behind and so
+  weighs around 15 KB rather than nothing.${deadRunScope}
 </div>
 ${
   deadRows
@@ -550,7 +659,7 @@ ${
   <thead><tr><th>Session</th><th>Project</th><th class="n">Turns</th><th class="n">Size</th><th class="n">Started</th></tr></thead>
   <tbody>${deadRows}</tbody>
 </table></div>`
-    : '<p class="empty">None — no transcripts look like dead starts.</p>'
+    : '<p class="empty">None — no Claude Code transcript looks like a dead start.</p>'
 }
 
 <h2>Most expensive sessions</h2>
@@ -582,12 +691,14 @@ ${
 </table>
 </div>
 
+${mergedNote}
 ${dedupNote}
 
 <footer>
   <p>Generated ${esc(r.generatedAt)} by contextbill.</p>
-  <p>Prices from the bundled table dated <strong>${esc(r.priceTableDate)}</strong>. Anthropic
-     first-party API rates; Bedrock and Vertex are priced separately and are not modelled.</p>
+  <p>Prices from the bundled table, read <strong>${esc(priceDates(r))}</strong>.
+     ${esc(pricedProviders(r))} first-party API rates; Amazon Bedrock, Google Vertex AI and
+     Microsoft Azure are partner-operated, priced separately, and are not modelled.</p>
   <p>Cache writes billed at the <strong>${esc(r.cacheTtlAssumed)}</strong> TTL rate. Transcripts do not
      record which TTL was used, so this is an assumption, not a measurement — if your client
      used 1-hour caching and this says <code>5m</code>, the real figure is higher. Re-run with

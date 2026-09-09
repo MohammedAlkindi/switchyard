@@ -75,6 +75,24 @@ export {
   TURN_BUCKETS,
 } from './waste.js';
 
+// Subscription rate-limit windows, read out of the statusline payload Claude
+// Code writes to stdin. Exported because the CLI already exposes this surface
+// and a consumer that could not reach it had to re-parse the payload itself —
+// a second reader of a shape this repo documents but does not control. Pure:
+// `limits.ts` imports nothing but `types.ts`, so it costs the browser bundle
+// nothing, and `library-entry.test.ts` holds that.
+export {
+  bindingWindow,
+  formatDuration,
+  formatLimitSegment,
+  LIMIT_WINDOW_MS,
+  limitViews,
+  projectWindow,
+  rateLimitsFromStdin,
+  statuslineLimit,
+} from './limits.js';
+export type { StatuslineLimit } from './limits.js';
+
 // The HTML renderer. Pure: Report in, string out, no file written.
 export { renderReport } from './report.js';
 

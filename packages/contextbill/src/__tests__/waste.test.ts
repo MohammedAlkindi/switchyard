@@ -42,12 +42,13 @@ function stat(over: Partial<SessionStat>): SessionStat {
 
 describe('bucketFor', () => {
   it('places turn counts on the right boundary', () => {
-    expect(bucketFor(1)).toBe('1-50');
-    expect(bucketFor(50)).toBe('1-50');
-    expect(bucketFor(51)).toBe('51-200');
-    expect(bucketFor(500)).toBe('201-500');
-    expect(bucketFor(1000)).toBe('501-1000');
-    expect(bucketFor(1001)).toBe('1000+');
+    expect(bucketFor(0)).toBe('0-10');
+    expect(bucketFor(10)).toBe('0-10');
+    expect(bucketFor(11)).toBe('11-50');
+    expect(bucketFor(50)).toBe('11-50');
+    expect(bucketFor(150)).toBe('51-150');
+    expect(bucketFor(400)).toBe('151-400');
+    expect(bucketFor(401)).toBe('400+');
   });
 });
 
@@ -75,8 +76,8 @@ describe('turnBuckets', () => {
       session({ turns: 10, usd: 25 }),
       session({ turns: 700, usd: 75 }),
     ]);
-    const short = buckets.find((b) => b.label === '1-50');
-    const long = buckets.find((b) => b.label === '501-1000');
+    const short = buckets.find((b) => b.label === '0-10');
+    const long = buckets.find((b) => b.label === '400+');
     expect(short?.share).toBeCloseTo(25, 6);
     expect(long?.share).toBeCloseTo(75, 6);
     expect(long?.sessions).toBe(1);
@@ -92,8 +93,11 @@ describe('turnBuckets', () => {
 
 describe('deadRuns', () => {
   it('flags tiny short transcripts', () => {
+    // 15,010 bytes is a measured corpse, not a round number: a Claude Code
+    // transcript carries its injected context on the first records, so even a
+    // run that dies on startup weighs ~15 KB. See waste-thresholds.test.ts.
     const result = deadRuns([
-      stat({ id: 'corpse', bytes: 300, turns: 1 }),
+      stat({ id: 'corpse', bytes: 15_010, turns: 1 }),
       stat({ id: 'healthy', bytes: 200_000, turns: 400 }),
     ]);
     expect(result.map((d) => d.id)).toEqual(['corpse']);
@@ -101,7 +105,7 @@ describe('deadRuns', () => {
 
   it('does not flag a small transcript that actually did work', () => {
     // Size alone is not the signal — a short but real session has turns.
-    expect(deadRuns([stat({ bytes: 3000, turns: 40 })])).toEqual([]);
+    expect(deadRuns([stat({ bytes: 20_000, turns: 40 })])).toEqual([]);
   });
 
   it('ignores subagents, which are legitimately small', () => {

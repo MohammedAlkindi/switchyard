@@ -1,16 +1,20 @@
 import { addCost, addUsage, normalizeModelId, priceAll, zeroCost, zeroUsage } from './cost.js';
+import { utcDayKey } from './parse.js';
 import { buildFindings } from './waste.js';
 import type {
+  BilledMessage,
   CacheTtl,
   CategoryCost,
   CostBreakdown,
   DeduplicationStats,
+  ModelUsage,
   MonthCost,
   PlanMonth,
   PlanPrice,
   PlanTable,
   PlanUtilization,
   PriceTable,
+  RawUsage,
   Report,
   SessionCost,
   SessionStat,
@@ -18,6 +22,17 @@ import type {
 
 const PER_MILLION = 1_000_000;
 const DAY_MS = 86_400_000;
+
+/**
+ * Separator for the composite keys built below.
+ *
+ * U+0000 cannot occur inside a model id or a uuid, so the key is unambiguous.
+ * `parse.ts` uses the same byte for the same reason; the two are never compared
+ * with each other, so this is a parallel choice rather than a shared constant.
+ * Written as an escape rather than a literal byte, which would make this file
+ * read as binary to grep and diff.
+ */
+const KEY_SEP = '\u0000';
 
 /**
  * The input rate to charge a session's startup prefix at.
@@ -82,13 +97,339 @@ export function startupPrefixCost(
 }
 
 /**
- * Count what the per-transcript deduplication removed, and what it left behind.
+ * What one cross-file pass removed.
  *
- * The cross-file half is the point. `parse.ts` scopes its id map to one file,
- * so a resumed session that copied its parent's history is still counted twice.
- * That is deliberate — merging across files would need evidence this codebase
- * does not have — but an uncounted double-count is indistinguishable from a
- * correct total, so it is measured here and stated in the report.
+ * `stats` is the corrected corpus, in the order it arrived. Everything else is
+ * what the report says about the correction.
+ */
+export interface CrossFileMerge {
+  stats: SessionStat[];
+  /** Messages found in more than one transcript and proved to be copies. */
+  messagesMerged: number;
+  /** Redundant copies removed. Three holders of one message contribute two. */
+  copiesMerged: number;
+  /** Transcripts that lost at least one copy. */
+  transcriptsCorrected: number;
+  /**
+   * The usage that came off the totals, bucketed by model, speed and UTC day so
+   * it can be priced at its own rate rather than at a corpus average.
+   *
+   * NET, not gross. A merged message is valued at the maximum per field of every
+   * holder, so when a dropped copy carries that maximum the surviving copy is
+   * RAISED to it and those tokens never leave the corpus. They are subtracted
+   * here. Pricing the dropped copies alone reported more removed than the totals
+   * lost — up to the whole of a raise — under a label that calls the figure
+   * exact. A row may therefore carry a negative field, which prices to a
+   * negative amount because pricing is linear in tokens; the list is a delta,
+   * not a corpus.
+   */
+  removed: ModelUsage[];
+}
+
+/** The identity a message is matched on across transcripts. See `BilledMessage`. */
+function crossFileKey(msg: BilledMessage): string {
+  return `${msg.id}${KEY_SEP}${msg.uuid}`;
+}
+
+/**
+ * The `byModel` bucket a message was summed into, as `parse.ts` keys it.
+ *
+ * Every record in one bucket shares a UTC day, so deriving the key from the
+ * message's own timestamp finds the row that message was summed into. Re-deriving
+ * that boundary here is why `utcDayKey` is exported rather than reimplemented.
+ */
+function modelRowKey(model: string, speed: string, at: number | null): string {
+  return `${model}${KEY_SEP}${speed}${KEY_SEP}${utcDayKey(at)}`;
+}
+
+function maxUsage(a: RawUsage, b: RawUsage): RawUsage {
+  return {
+    input: Math.max(a.input, b.input),
+    cacheWrite: Math.max(a.cacheWrite, b.cacheWrite),
+    cacheRead: Math.max(a.cacheRead, b.cacheRead),
+    output: Math.max(a.output, b.output),
+  };
+}
+
+function negate(u: RawUsage): RawUsage {
+  return { input: -u.input, cacheWrite: -u.cacheWrite, cacheRead: -u.cacheRead, output: -u.output };
+}
+
+/** Which of two transcripts keeps a message both of them hold. */
+function outranks(a: SessionStat, b: SessionStat): boolean {
+  const aAt = a.startedAt ?? Number.POSITIVE_INFINITY;
+  const bAt = b.startedAt ?? Number.POSITIVE_INFINITY;
+  if (aAt !== bAt) return aAt < bAt;
+  if (a.id !== b.id) return a.id < b.id;
+  return a.project < b.project;
+}
+
+/**
+ * Count each billed message once across the whole corpus.
+ *
+ * A resumed session copies its parent's transcript lines forward, so the same
+ * API request sits in two files and used to be counted twice. `parse.ts` cannot
+ * see that — it reads one transcript — so the correction has to happen here,
+ * where every transcript is in hand. It runs before anything is priced, and the
+ * CLI and the browser both reach it through `aggregate`, which is what keeps the
+ * two surfaces reporting the same number for the same directory.
+ *
+ * WHAT IS MERGED, and why merging on `message.id` alone would be wrong. Measured
+ * over a frozen copy of 2,355 real transcripts (443,478 lines, 166,027 of them
+ * usage-bearing) on 2026-09-08: 70,511 distinct message ids, of which 1,397
+ * appear in more than one file, across 51 transcripts. Two unrelated things
+ * produce that.
+ *
+ *  - A resume. The copied lines keep their `uuid`: 1,394 of the 1,397 have a
+ *    byte-identical FIRST uuid in every holder, and 1,386 have identical uuid
+ *    SETS. `sessionId` is NOT usable — it is rewritten to the new session on
+ *    every copied line, so it differed across holders for 1,384 of the 1,397
+ *    while the uuid did not.
+ *  - An id whose holders share no uuid at all. Three ids, all sibling subagent
+ *    transcripts of one parent session, and inspecting the lines shows one
+ *    message's streamed rewrites scattered across those files — the same request.
+ *    Merging those would be RIGHT, and there is no way to tell them apart from
+ *    the case where merging is wrong: an API gateway handing one id to two
+ *    genuinely independent sessions produces the same shape, and merging THAT
+ *    under-counts real spend.
+ *
+ * So the rule is `message.id` AND the first `uuid` must both match. A uuid is
+ * minted per line by whoever wrote the line, so two files sharing one is proof
+ * of a copy; not sharing one is proof of nothing. The unproved cases stay
+ * counted and are disclosed as the residual — an overstatement that is measured
+ * beats an understatement that is invisible.
+ *
+ * WHAT IS NOT TOUCHED. `startupPrefix` stays as parsed, including on a session
+ * whose first message this pass just took away. The prefix is the fixed context
+ * every turn of that session re-reads, and the copied first message is an honest
+ * witness of it; re-deriving it from the first message the session wrote itself
+ * would read a mid-conversation cache read as startup context and inflate the
+ * figure by the whole parent transcript. `bytes`, `toolBytes`, `connectorBytes`
+ * and the tool counters stay too: those bytes really were read back into that
+ * session's context window.
+ *
+ * ATTRIBUTION IS ARBITRARY, the total is not. A verbatim copy carries the
+ * parent's timestamps, so parent and child usually start at the same instant and
+ * nothing in either file says which one made the request. The message goes to
+ * the earliest-starting holder, tie-broken by session id then project —
+ * deterministic, order independent, and identical in both readers, but a
+ * coin-toss between holders all the same. It moves dollars between rows of
+ * `topSessions` and `byProject`; it cannot move the corpus total, which is exact.
+ */
+export function mergeResumedCopies(stats: readonly SessionStat[]): CrossFileMerge {
+  const holders = new Map<string, { stat: SessionStat; msg: BilledMessage }[]>();
+  for (const stat of stats) {
+    for (const msg of stat.billedMessages ?? []) {
+      const key = crossFileKey(msg);
+      const group = holders.get(key);
+      if (group === undefined) holders.set(key, [{ stat, msg }]);
+      else group.push({ stat, msg });
+    }
+  }
+
+  // Per transcript: the copies it loses, and the raise its own copy takes.
+  const drops = new Map<SessionStat, BilledMessage[]>();
+  const raises = new Map<SessionStat, Map<string, RawUsage>>();
+  const removedRows = new Map<string, ModelUsage>();
+  let messagesMerged = 0;
+  let copiesMerged = 0;
+
+  // `removed` is the NET of the merge, and both halves have to land in it or the
+  // figure the report prints as "billed to you twice" names dollars the total
+  // beside it still carries. A dropped copy adds its own usage here; a raise
+  // taken by the surviving copy subtracts, because the raise is added straight
+  // back to the corpus. Keyed by model, speed and UTC day exactly as `byModel`
+  // is, so each side is priced at the rate that applied to it rather than at a
+  // corpus average, and a raise nets against the copy it came from.
+  const addRemoved = (
+    model: string,
+    speed: 'standard' | 'fast',
+    at: number | null,
+    usage: RawUsage,
+    turns: number,
+  ): void => {
+    const key = modelRowKey(model, speed, at);
+    const row = removedRows.get(key);
+    if (row === undefined) {
+      removedRows.set(key, { model, speed, usage: { ...usage }, turns, at });
+      return;
+    }
+    row.usage = addUsage(row.usage, usage);
+    row.turns += turns;
+    if (at !== null && (row.at == null || at < row.at)) row.at = at;
+  };
+
+  for (const group of holders.values()) {
+    if (group.length < 2) continue;
+    let owner = group[0];
+    if (owner === undefined) continue;
+    let billed = owner.msg.usage;
+    for (const candidate of group.slice(1)) {
+      billed = maxUsage(billed, candidate.msg.usage);
+      if (outranks(candidate.stat, owner.stat)) owner = candidate;
+    }
+    messagesMerged += 1;
+
+    // The same law the per-file rewrite collapse uses: a message is worth the
+    // maximum per field of every line that restated it, wherever those lines
+    // ended up. A copy that caught one rewrite the original did not is still the
+    // same request, and the higher figure is the one that was billed.
+    const ownerUsage = owner.msg.usage;
+    if (
+      billed.input !== ownerUsage.input ||
+      billed.cacheWrite !== ownerUsage.cacheWrite ||
+      billed.cacheRead !== ownerUsage.cacheRead ||
+      billed.output !== ownerUsage.output
+    ) {
+      let perStat = raises.get(owner.stat);
+      if (perStat === undefined) {
+        perStat = new Map<string, RawUsage>();
+        raises.set(owner.stat, perStat);
+      }
+      perStat.set(crossFileKey(owner.msg), billed);
+
+      // The raise never leaves the corpus, so it is not part of what the merge
+      // removed. Subtracted at the OWNER's row — the row it is about to be
+      // added to below — and carrying no turn, because a raise moves tokens
+      // rather than requests. Skipped when the owner named no model, which is
+      // the one case `applyToRow` also skips: with no row to raise there is
+      // nothing added back and nothing to net off.
+      if (owner.msg.model !== null) {
+        addRemoved(
+          owner.msg.model,
+          owner.msg.speed,
+          owner.msg.at,
+          negate({
+            input: billed.input - ownerUsage.input,
+            cacheWrite: billed.cacheWrite - ownerUsage.cacheWrite,
+            cacheRead: billed.cacheRead - ownerUsage.cacheRead,
+            output: billed.output - ownerUsage.output,
+          }),
+          0,
+        );
+      }
+    }
+
+    for (const holder of group) {
+      if (holder === owner) continue;
+      copiesMerged += 1;
+      const dropped = drops.get(holder.stat);
+      if (dropped === undefined) drops.set(holder.stat, [holder.msg]);
+      else dropped.push(holder.msg);
+
+      if (holder.msg.model === null) continue;
+      addRemoved(holder.msg.model, holder.msg.speed, holder.msg.at, holder.msg.usage, 1);
+    }
+  }
+
+  const removed = [...removedRows.values()];
+  if (drops.size === 0 && raises.size === 0) {
+    return { stats: [...stats], messagesMerged, copiesMerged, transcriptsCorrected: 0, removed };
+  }
+
+  const corrected = stats.map((stat) => {
+    const dropped = drops.get(stat);
+    const raised = raises.get(stat);
+    if (dropped === undefined && raised === undefined) return stat;
+
+    // A new object every time. `scanAll` hands the same stats to more than one
+    // caller and the tests aggregate the same array twice; a pass that edited
+    // them in place would make the second read of a corpus differ from the first.
+    const rows = new Map<string, ModelUsage>();
+    for (const entry of stat.byModel) {
+      // `at` is optional on a row a caller built by hand, and an absent one
+      // means the same as a null one: no clock, so the empty day key. Mapping it
+      // here keeps a hand-built row and a parsed one landing in the same bucket.
+      rows.set(modelRowKey(entry.model, entry.speed, entry.at ?? null), {
+        ...entry,
+        usage: { ...entry.usage },
+      });
+    }
+
+    let usage = { ...stat.usage };
+    let turns = stat.turns;
+    const droppedKeys = new Set((dropped ?? []).map(crossFileKey));
+    const droppedIds = new Set((dropped ?? []).map((m) => m.id));
+
+    const applyToRow = (msg: BilledMessage, delta: RawUsage, turnDelta: number): void => {
+      if (msg.model === null) return;
+      const row = rows.get(modelRowKey(msg.model, msg.speed, msg.at));
+      if (row === undefined) return;
+      row.usage = addUsage(row.usage, delta);
+      row.turns += turnDelta;
+      // `at` is left alone even when the message that set it has just gone.
+      // Every record in a row shares a UTC day and rate periods start on a day
+      // boundary, so the row still prices at the rate it always did.
+    };
+
+    for (const msg of dropped ?? []) {
+      usage = addUsage(usage, negate(msg.usage));
+      turns -= 1;
+      applyToRow(msg, negate(msg.usage), -1);
+    }
+
+    const kept: BilledMessage[] = [];
+    for (const msg of stat.billedMessages ?? []) {
+      if (droppedKeys.has(crossFileKey(msg))) continue;
+      const raise = raised?.get(crossFileKey(msg));
+      if (raise === undefined) {
+        kept.push(msg);
+        continue;
+      }
+      const delta: RawUsage = {
+        input: raise.input - msg.usage.input,
+        cacheWrite: raise.cacheWrite - msg.usage.cacheWrite,
+        cacheRead: raise.cacheRead - msg.usage.cacheRead,
+        output: raise.output - msg.usage.output,
+      };
+      usage = addUsage(usage, delta);
+      applyToRow(msg, delta, 0);
+      kept.push({ ...msg, usage: { ...raise } });
+    }
+
+    return {
+      ...stat,
+      usage,
+      turns,
+      // A row that lost its last message is dropped rather than left at zero: a
+      // zero-turn model row would still name a model in `byModel` and in the
+      // dominant-rate vote that prices the startup prefix.
+      byModel: [...rows.values()].filter((row) => row.turns > 0),
+      messageIds: stat.messageIds.filter((id) => !droppedIds.has(id)),
+      billedMessages: kept,
+    };
+  });
+
+  return {
+    stats: corrected,
+    messagesMerged,
+    copiesMerged,
+    transcriptsCorrected: drops.size,
+    removed,
+  };
+}
+
+/**
+ * Count what deduplication removed, and what it deliberately left behind.
+ *
+ * Three separate corrections land here and they are reported separately on
+ * purpose, because a reader sizing the error needs to know which is which:
+ *
+ *  - Streamed rewrites, collapsed per transcript by `parse.ts`.
+ *  - Copies of one billed message held by several transcripts and PROVED to be
+ *    copies by a shared line uuid. `mergeResumedCopies` removed those, and
+ *    `crossFileUsdMerged` prices them exactly — the removed copies are known per
+ *    message, so unlike `duplicatedUsd` this is not an estimate. "Exactly" is
+ *    load-bearing and is what `merge.removed` being a NET delta buys: corpus
+ *    before minus corpus after is this figure, so the dollars named as removed
+ *    are the dollars the total beside them no longer carries.
+ *  - Ids still held by more than one transcript after that merge. Nothing proved
+ *    those are the same request, so they were left counted twice and are stated
+ *    rather than hidden.
+ *
+ * `stats` must be the CORRECTED corpus. Passing the pre-merge stats would count
+ * every merged copy in the residual as well, reporting the same double-count in
+ * both columns and claiming an error that was already removed.
  *
  * The residual is reported in DOLLARS as well as in ids, and takes `usdPerTurn`
  * for each transcript to do it. A count of message ids cannot be read as a share
@@ -101,6 +442,8 @@ export function startupPrefixCost(
 function deduplicationStats(
   stats: readonly SessionStat[],
   usdPerTurn: ReadonlyMap<SessionStat, number>,
+  merge: CrossFileMerge,
+  crossFileUsdMerged: number,
 ): DeduplicationStats {
   const holdersPerId = new Map<string, SessionStat[]>();
   let rewritesCollapsed = 0;
@@ -137,6 +480,10 @@ function deduplicationStats(
   return {
     rewritesCollapsed,
     unidentifiedRecords,
+    crossFileMessagesMerged: merge.messagesMerged,
+    crossFileCopiesMerged: merge.copiesMerged,
+    crossFileTranscriptsCorrected: merge.transcriptsCorrected,
+    crossFileUsdMerged,
     sharedMessageIds: shared.size,
     transcriptsSharingHistory,
     duplicatedTurns,
@@ -177,6 +524,11 @@ function nextMonthStart(key: string): number {
  * is. `daysCovered` is the overlap between the corpus span and the calendar
  * month, and `complete` is true only when the corpus brackets the whole month.
  *
+ * Rows arrive already split per month. A session that crossed a boundary was
+ * apportioned in `aggregate` by the UTC day each of its model rows carries, so
+ * nothing here has to decide which month a session belongs to — `sessions` is
+ * the only field a caller must not divide, and it arrives counted once.
+ *
  * Coverage is a statement about the corpus SPAN, not about the transcripts
  * inside it. A month whose middle week was deleted still reads complete; there
  * is nothing in a transcript directory that can distinguish a quiet week from a
@@ -192,7 +544,7 @@ function nextMonthStart(key: string): number {
  * finding rather than the absence of one.
  */
 function monthlyCosts(
-  rows: readonly { at: number; usd: number; turns: number; isSubagent: boolean }[],
+  rows: readonly { month: string; usd: number; turns: number; sessions: number }[],
   corpusStart: number | null,
   corpusEnd: number | null,
 ): MonthCost[] {
@@ -225,11 +577,14 @@ function monthlyCosts(
     }
   }
 
+  // One row per month a session touched, not one row per session: `aggregate`
+  // has already split a session that crossed a boundary, and it is the only
+  // place that holds both a session's per-day model rows and its dollars.
   for (const row of rows) {
-    const acc = blank(monthKey(row.at));
+    const acc = blank(row.month);
     acc.usd += row.usd;
     acc.turns += row.turns;
-    if (!row.isSubagent) acc.sessions += 1;
+    acc.sessions += row.sessions;
   }
 
   return [...totals.entries()]
@@ -329,9 +684,22 @@ export interface AggregateOptions {
   topN?: number;
 }
 
-export function aggregate(stats: readonly SessionStat[], opts: AggregateOptions): Report {
+export function aggregate(rawStats: readonly SessionStat[], opts: AggregateOptions): Report {
   const { table, ttl, cacheWriteMult } = opts;
   const topN = opts.topN ?? 20;
+
+  // Count each billed message once across the whole corpus BEFORE anything is
+  // priced, so every figure below — totals, per-model rows, per-project rows,
+  // the session table, the monthly series and the plan comparison — is built
+  // from the corrected numbers rather than corrected afterwards in one place and
+  // left wrong in the others. Both the CLI and the browser enter here, which is
+  // what keeps the two surfaces agreeing about one directory.
+  const merge = mergeResumedCopies(rawStats);
+  const stats = merge.stats;
+  // Priced as themselves, at each removed copy's own model, speed and rate
+  // period — not at a corpus average. `merge.removed` is bucketed exactly the
+  // way `byModel` is, so this is the same arithmetic the totals get.
+  const crossFileUsdMerged = priceAll(merge.removed, table, ttl).cost.total;
 
   let cost = zeroCost();
   let usage = zeroUsage();
@@ -356,7 +724,7 @@ export function aggregate(stats: readonly SessionStat[], opts: AggregateOptions)
   // Collected per transcript and bucketed after the loop, because a month's
   // coverage cannot be known until the corpus span is. A transcript with no
   // timestamp lands in `undatedUsd` rather than in a guessed month.
-  const dated: { at: number; usd: number; turns: number; isSubagent: boolean }[] = [];
+  const dated: { month: string; usd: number; turns: number; sessions: number }[] = [];
   let undatedUsd = 0;
 
   // What one turn of each transcript cost, which is what prices the residual
@@ -425,17 +793,61 @@ export function aggregate(stats: readonly SessionStat[], opts: AggregateOptions)
       connectorCalls.set(server, (connectorCalls.get(server) ?? 0) + calls);
     }
 
-    // A session is attributed whole to the month it STARTED in. Splitting one
-    // that crosses midnight on the last of the month would need per-turn
-    // timestamps this aggregator does not carry; the approximation is stated in
-    // the report rather than being invisible.
+    // A session is apportioned across calendar months by the timestamps its own
+    // model rows carry, not booked whole to the month it opened in.
+    //
+    // `parse.ts` and `codex-parse.ts` both bucket `byModel` per model, per
+    // speed, per UTC day, and a UTC day never straddles a month boundary — so a
+    // session running across midnight on the last of the month arrives here as
+    // separate rows on either side of it and the split is exact rather than
+    // apportioned by a rule. Pricing each group and summing is the same
+    // arithmetic as pricing the whole: `priceAll` prices row by row, so
+    // partitioning the rows cannot move the corpus total.
+    //
+    // It used to be booked whole to the start month, justified by a comment
+    // saying the split "would need per-turn timestamps this aggregator does not
+    // carry". That was true before `ModelUsage.at` existed and false after.
+    // The bias it left was one-directional and unbounded: a session opening a
+    // minute before a month ends carried however much it went on to cost back
+    // across the boundary, and because `planUtilization` takes its multiple over
+    // COMPLETE months only, value dragged out of a partial month landed in a
+    // numerator that month is excluded from — inflating the one figure this
+    // feature promises never to overstate.
+    //
+    // Two things deliberately do NOT divide. A row with no timestamp falls back
+    // to the month the session opened in, because a neighbouring row's clock is
+    // not evidence of when it ran — the same rule `cost.ts` applies when it
+    // prices such a row. And the SESSION count goes whole to the start month:
+    // turns and dollars are quantities, a session is not, and splitting the
+    // count would report one session as two.
     if (stat.startedAt !== null) {
-      dated.push({
-        at: stat.startedAt,
-        usd: priced.cost.total,
-        turns: stat.turns,
-        isSubagent: stat.isSubagent,
-      });
+      const startMonth = monthKey(stat.startedAt);
+      const rowsByMonth = new Map<string, ModelUsage[]>();
+      let rowTurns = 0;
+      for (const entry of stat.byModel) {
+        const month = entry.at == null ? startMonth : monthKey(entry.at);
+        const group = rowsByMonth.get(month);
+        if (group === undefined) rowsByMonth.set(month, [entry]);
+        else group.push(entry);
+        rowTurns += entry.turns;
+      }
+
+      // A billed message whose transcript never named a model produces no
+      // `byModel` row, so the rows can carry fewer turns than the session did.
+      // Those turns are real and go to the start month rather than being
+      // dropped: `turns` is what `usdPerTurn` and the length buckets read.
+      const orphanTurns = stat.turns - rowTurns;
+
+      for (const month of new Set([startMonth, ...rowsByMonth.keys()])) {
+        const group = rowsByMonth.get(month) ?? [];
+        dated.push({
+          month,
+          usd: group.length > 0 ? priceAll(group, table, ttl).cost.total : 0,
+          turns:
+            group.reduce((n, row) => n + row.turns, 0) + (month === startMonth ? orphanTurns : 0),
+          sessions: month === startMonth && !stat.isSubagent ? 1 : 0,
+        });
+      }
       earliest = earliest === null ? stat.startedAt : Math.min(earliest, stat.startedAt);
     } else {
       undatedUsd += priced.cost.total;
@@ -522,6 +934,13 @@ export function aggregate(stats: readonly SessionStat[], opts: AggregateOptions)
   return {
     generatedAt: new Date().toISOString(),
     priceTableDate: table.dated,
+    ...(table.datedByProvider === undefined
+      ? {}
+      : {
+          priceTableDatedByProvider: Object.fromEntries(
+            Object.entries(table.datedByProvider).map(([vendor, v]) => [vendor, v.dated]),
+          ),
+        }),
     cacheTtlAssumed: ttl,
     transcriptCount: stats.length,
     sessionCount: sessions.length,
@@ -536,7 +955,7 @@ export function aggregate(stats: readonly SessionStat[], opts: AggregateOptions)
     findings: buildFindings(stats, sessions, startupPrefixUsd),
     unpricedModelsSeen: [...unpricedSeen].sort(),
     spanDays,
-    deduplication: deduplicationStats(stats, usdPerTurn),
+    deduplication: deduplicationStats(stats, usdPerTurn, merge, crossFileUsdMerged),
     byMonth: monthlyCosts(dated, earliest, latest),
     undatedUsd,
   };

@@ -104,9 +104,41 @@ describe('library entry point', () => {
       'redactProject',
       'renderReport',
       'usd',
+      'rateLimitsFromStdin',
+      'projectWindow',
+      'bindingWindow',
+      'limitViews',
+      'statuslineLimit',
+      'formatLimitSegment',
+      'formatDuration',
     ] as const) {
       expect(typeof lib[name], `${name} should be exported as a function`).toBe('function');
     }
+  });
+
+  it('reaches the rate-limit surface the CLI exposes', () => {
+    // `limits.ts` is pure — it imports `types.ts` and nothing else — so the
+    // graph walk above already proves it bundles. What it does not prove is
+    // that a consumer can get at it: a module that is pure but unexported is
+    // one a caller has to reimplement, against a payload shape this repo reads
+    // out of the Claude Code binary and does not control. Two readers of that
+    // shape is the failure `parse.ts` is kept unsplit to avoid.
+    expect([...moduleGraph().keys()]).toContain('limits.ts');
+
+    const payload = JSON.stringify({
+      rate_limits: {
+        five_hour: { used_percentage: 40, resets_at: 1_800_000_000 },
+      },
+    });
+    const windows = lib.rateLimitsFromStdin(payload);
+    expect(windows).toHaveLength(1);
+    expect(windows[0]?.usedPercent).toBe(40);
+
+    // One second before the reset, so the window is live whatever the clock.
+    const now = 1_800_000_000 * 1000 - 1_000;
+    const limit = lib.statuslineLimit(windows, now);
+    expect(limit?.usedPercent).toBe(40);
+    expect(lib.formatLimitSegment(limit as lib.StatuslineLimit)[0]).toContain('40% used');
   });
 
   it('prices a transcript end to end through the exported functions alone', () => {

@@ -4,7 +4,14 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { cacheWriteMultiplier, normalizeModelId, priceAll, priceModelUsage, usd } from '../cost.js';
+import {
+  cacheWriteMultiplier,
+  normalizeModelId,
+  priceAll,
+  priceModelUsage,
+  rateInForce,
+  usd,
+} from '../cost.js';
 import type { ModelUsage, PriceTable } from '../types.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -117,5 +124,118 @@ describe('usd', () => {
     expect(usd(491.031)).toBe('$491.03');
     expect(usd(45210.4)).toBe('$45,210.40');
     expect(usd(23367.22911)).toBe('$23,367.23');
+  });
+});
+
+/**
+ * OpenAI rates, priced through exactly the same path as the Anthropic ones.
+ *
+ * Rates read 2026-09-07 from https://developers.openai.com/api/docs/pricing and
+ * each model's own page. Cache behaviour from
+ * https://developers.openai.com/api/docs/guides/prompt-caching: on GPT-5.6 and
+ * later a cache write costs 1.25x the uncached input rate and a cache read 0.1x
+ * — numerically the same two multipliers the table already carries for
+ * Anthropic's 5-minute TTL, which is why these entries are safe under a single
+ * global multiplier and gpt-5.5 (no cache-write premium at all) is not.
+ */
+describe('OpenAI rates', () => {
+  it('prices gpt-5.6-sol input, cache and output at the published rates', () => {
+    const priced = priceModelUsage(
+      entry('gpt-5.6-sol', { input: 1_000_000, cacheWrite: 1_000_000, cacheRead: 1_000_000, output: 1_000_000 }),
+      table,
+      '5m',
+    );
+    expect(priced).not.toBeNull();
+    // $4/M input, $20/M output, cache write 1.25 x 4 = $5/M, read 0.1 x 4 = $0.40/M.
+    expect(priced?.input).toBeCloseTo(4, 10);
+    expect(priced?.cacheWrite).toBeCloseTo(5, 10);
+    expect(priced?.cacheRead).toBeCloseTo(0.4, 10);
+    expect(priced?.output).toBeCloseTo(20, 10);
+    expect(priced?.total).toBeCloseTo(29.4, 10);
+  });
+
+  it('prices gpt-5.6-terra at its own, lower rates', () => {
+    const priced = priceModelUsage(
+      entry('gpt-5.6-terra', { input: 1_000_000, cacheRead: 1_000_000, output: 1_000_000 }),
+      table,
+      '5m',
+    );
+    // $2/M input, $12/M output, read 0.1 x 2 = $0.20/M.
+    expect(priced?.input).toBeCloseTo(2, 10);
+    expect(priced?.cacheRead).toBeCloseTo(0.2, 10);
+    expect(priced?.output).toBeCloseTo(12, 10);
+    expect(priced?.total).toBeCloseTo(14.2, 10);
+  });
+
+  it('discounts a cached input token to a tenth, never charges it as fresh', () => {
+    // Cached input is the largest token class on a real Codex corpus — 725 of
+    // 732 token_count events on this machine carried a non-zero
+    // cached_input_tokens. Pricing it as fresh input would be the single
+    // largest error available in this file.
+    const cached = priceModelUsage(entry('gpt-5.6-sol', { cacheRead: 1_000_000 }), table, '5m');
+    const fresh = priceModelUsage(entry('gpt-5.6-sol', { input: 1_000_000 }), table, '5m');
+    expect((cached?.total ?? 0) * 10).toBeCloseTo(fresh?.total ?? 0, 10);
+  });
+
+  it('charges reasoning tokens at the output rate, because they ARE output tokens', () => {
+    // https://developers.openai.com/api/docs/guides/reasoning: reasoning tokens
+    // "are billed as output tokens". Codex reports reasoning_output_tokens as a
+    // SUBSET of output_tokens, so codex-parse.ts deliberately never adds it —
+    // the tokens are already inside `output` and already priced here. This is
+    // the pricing-side half of that decision: 900 output tokens containing 270
+    // reasoning tokens cost 900 x $20/M, not 1,170 x $20/M.
+    const priced = priceModelUsage(entry('gpt-5.6-sol', { output: 900 }), table, '5m');
+    expect(priced?.output).toBeCloseTo((900 / 1e6) * 20, 12);
+    expect(priced?.output).not.toBeCloseTo(((900 + 270) / 1e6) * 20, 12);
+  });
+
+  it('counts gpt-5.5 separately rather than folding it in as free', () => {
+    // gpt-5.5 appears in real rollouts and is DELIBERATELY absent — see
+    // $comment-missing-gpt-5-5 in prices.json. The requirement is that an
+    // unpriced model is loud: null from the pricer, and named in `unpriced`.
+    expect(priceModelUsage(entry('gpt-5.5', { input: 1_000_000 }), table, '5m')).toBeNull();
+    const totals = priceAll(
+      [entry('gpt-5.5', { input: 1_000_000, output: 1_000_000 }), entry('gpt-5.6-sol', { input: 1_000_000 })],
+      table,
+      '5m',
+    );
+    expect(totals.unpriced).toEqual(['gpt-5.5']);
+    // Only sol's dollars are in the total. gpt-5.5's two million tokens
+    // contribute nothing, which is why the caller has to print `unpriced`.
+    expect(totals.cost.total).toBeCloseTo(4, 10);
+  });
+
+  it('routes OpenAI entries through rateInForce with no invented history', () => {
+    // The dated-period mechanism applies to every vendor equally. Neither
+    // OpenAI entry carries a period, because no PAST rate change is evidenced —
+    // gpt-5.6-sol's price is promotional "at least through" a future date,
+    // which says nothing about what was charged before. So every timestamp
+    // resolves to the flat rate, and nothing is ever flagged as assumed.
+    for (const [id, input, output] of [
+      ['gpt-5.6-sol', 4, 20],
+      ['gpt-5.6-terra', 2, 12],
+    ] as const) {
+      const price = table.models[id];
+      expect(price, `${id} is not in the table`).toBeDefined();
+      if (price === undefined) continue;
+      for (const at of [null, Date.UTC(2024, 0, 1), Date.UTC(2026, 8, 7)]) {
+        const rate = rateInForce(price, at);
+        expect(rate.input, `${id} @ ${String(at)}`).toBe(input);
+        expect(rate.output, `${id} @ ${String(at)}`).toBe(output);
+        expect(rate.from).toBeNull();
+        expect(rate.assumedEarliest).toBe(false);
+      }
+    }
+  });
+
+  it('gives OpenAI models no fast tier, because Codex records no speed', () => {
+    // A fast rate the transcript never claimed would price standard turns at a
+    // premium. Codex has no equivalent of usage.speed, so asking for `fast`
+    // must fall back to the standard rate rather than to a second set of
+    // numbers nobody published.
+    const standard = priceModelUsage(entry('gpt-5.6-sol', { input: 1_000_000 }), table, '5m');
+    const fast = priceModelUsage(entry('gpt-5.6-sol', { input: 1_000_000 }, 'fast'), table, '5m');
+    expect(table.models['gpt-5.6-sol']?.fastInput).toBeUndefined();
+    expect(fast?.total).toBeCloseTo(standard?.total ?? 0, 12);
   });
 });

@@ -17,6 +17,10 @@ const FIXTURES = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../fixtures/projects',
 );
+const CROSSFILE = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../fixtures/crossfile',
+);
 
 /**
  * A stand-in for a picked `File`.
@@ -197,5 +201,66 @@ describe('the two readers agree', () => {
     expect(fromWeb.byCategory).toEqual(fromCli.byCategory);
     expect(fromWeb.findings.medianStartupPrefix).toBe(fromCli.findings.medianStartupPrefix);
     expect(fromWeb.findings.startupPrefixUsd).toBe(fromCli.findings.startupPrefixUsd);
+  });
+
+  /**
+   * The same invariant over a corpus that actually exercises the cross-file
+   * merge.
+   *
+   * `fixtures/projects` carries no `message.id` at all — deliberately, so that
+   * adding one cannot drag the pricing anchor with it — which means the test
+   * above walks straight past `mergeResumedCopies` without touching it. The
+   * merge is the one part of the pipeline that reads a transcript's identity
+   * rather than only its usage: it picks which holder keeps a copied message by
+   * `startedAt`, then `id`, then `project`. Those three are derived from the
+   * FILESYSTEM by one reader and from a picked file's `webkitRelativePath` by
+   * the other, so they are exactly the fields that could drift between the two
+   * surfaces while every per-file number stayed identical.
+   *
+   * The totals could not drift — a merge moves spend between holders without
+   * changing the sum — so a drift here would surface only as the CLI and the
+   * dashboard disagreeing about WHICH session was expensive. That is the kind of
+   * silent disagreement this file exists to catch.
+   */
+  it('produces identical aggregates from a corpus with resumed history', async () => {
+    const cliStats = scanAll(CROSSFILE);
+
+    const picked: File[] = [];
+    const walk = (dir: string, rel: string): void => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        const next = rel.length > 0 ? `${rel}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) walk(full, next);
+        else if (entry.name.endsWith('.jsonl')) {
+          picked.push(pickedFile(`crossfile/${next}`, fs.readFileSync(full, 'utf8')));
+        }
+      }
+    };
+    walk(CROSSFILE, '');
+
+    const { stats: webStats } = await scanFiles(picked, '');
+
+    const opts = {
+      table: TABLE,
+      ttl: '5m' as const,
+      cacheWriteMult: cacheWriteMultiplier(TABLE, '5m'),
+      topN: 25,
+    };
+    const fromCli = aggregate(cliStats, opts);
+    const fromWeb = aggregate(webStats, opts);
+
+    // Guard the guard: if this corpus ever stopped exercising the merge, every
+    // assertion below would still pass and prove nothing.
+    expect(fromCli.deduplication.crossFileCopiesMerged).toBeGreaterThan(0);
+
+    expect(fromWeb.turns).toBe(fromCli.turns);
+    expect(fromWeb.cost).toEqual(fromCli.cost);
+    expect(fromWeb.usage).toEqual(fromCli.usage);
+    expect(fromWeb.byModel).toEqual(fromCli.byModel);
+    expect(fromWeb.deduplication).toEqual(fromCli.deduplication);
+    // The attribution half: same message credited to the same session in both.
+    expect(fromWeb.topSessions.map((s) => [s.id, s.turns, s.usd])).toEqual(
+      fromCli.topSessions.map((s) => [s.id, s.turns, s.usd]),
+    );
   });
 });

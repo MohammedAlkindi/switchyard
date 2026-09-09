@@ -9,7 +9,7 @@ import { parseArgs } from '../cli.js';
 import { cacheWriteMultiplier } from '../cost.js';
 import { renderReport } from '../report.js';
 import { scanAll } from '../scan.js';
-import type { PlanTable, PriceTable, SessionStat } from '../types.js';
+import type { ModelUsage, PlanTable, PriceTable, SessionStat } from '../types.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const table = JSON.parse(fs.readFileSync(path.join(root, 'prices.json'), 'utf8')) as PriceTable;
@@ -106,6 +106,129 @@ describe('byMonth', () => {
     expect(r.undatedUsd).toBeCloseTo(25, 9);
     const inMonths = r.byMonth.reduce((n, m) => n + m.usd, 0);
     expect(inMonths + r.undatedUsd).toBeCloseTo(r.cost.total, 9);
+  });
+});
+
+/**
+ * One model row worth exactly $25.00, stamped with the UTC day it ran on.
+ *
+ * `parse.ts` buckets `byModel` per model, per speed, per UTC day, so a session
+ * that runs across a month boundary arrives here as separate rows carrying
+ * separate timestamps. That is the evidence the month split is built on.
+ */
+function dayRow(at: string): ModelUsage {
+  return {
+    model: 'claude-opus-5',
+    speed: 'standard',
+    usage: { input: 0, cacheWrite: 0, cacheRead: 0, output: 1_000_000 },
+    turns: 1,
+    at: ms(at),
+  };
+}
+
+/** A session whose per-day rows are given explicitly. */
+function straddler(id: string, startedAt: string, endedAt: string, rows: ModelUsage[]): SessionStat {
+  const base = session(id, ms(startedAt), ms(endedAt));
+  const usage = rows.reduce(
+    (acc, r) => ({
+      input: acc.input + r.usage.input,
+      cacheWrite: acc.cacheWrite + r.usage.cacheWrite,
+      cacheRead: acc.cacheRead + r.usage.cacheRead,
+      output: acc.output + r.usage.output,
+    }),
+    { input: 0, cacheWrite: 0, cacheRead: 0, output: 0 },
+  );
+  return {
+    ...base,
+    usage,
+    byModel: rows,
+    turns: rows.reduce((n, r) => n + r.turns, 0),
+  };
+}
+
+/**
+ * A session that opens half an hour before July ends and does two thirds of its
+ * work in August. Booking it whole to July is the over-claim this describe
+ * block exists to stop: it moves real money backwards across a month boundary,
+ * and `planUtilization` takes its multiple over COMPLETE months only, so value
+ * shifted out of a partial month lands in a numerator the partial month is
+ * excluded from.
+ */
+function straddleCorpus(): SessionStat[] {
+  return [
+    straddler('straddle', '2026-07-31T23:30:00Z', '2026-08-02T12:00:00Z', [
+      dayRow('2026-07-31T23:30:00Z'),
+      dayRow('2026-08-01T09:00:00Z'),
+      dayRow('2026-08-02T09:00:00Z'),
+    ]),
+  ];
+}
+
+describe('a session that crosses a month boundary', () => {
+  it('credits each month the work that happened in it', () => {
+    // $75 of work: $25 on 31 July, $50 across 1-2 August. Booking the session
+    // whole to the month it started in reported $75 in July and $0 in August.
+    const r = report(straddleCorpus());
+    expect(r.byMonth.map((m) => m.month)).toEqual(['2026-07', '2026-08']);
+    expect(r.byMonth.map((m) => m.usd)).toEqual([25, 50]);
+  });
+
+  it('does not leave the later month reading zero across days of real usage', () => {
+    // The failure mode stated as a symptom: a month with three days of coverage
+    // showing $0.00 and 0 turns because the session that did the work opened in
+    // the previous one.
+    const august = report(straddleCorpus()).byMonth[1];
+    expect(august?.month).toBe('2026-08');
+    expect(august?.daysCovered).toBeGreaterThan(1);
+    expect(august?.usd).toBeGreaterThan(0);
+    expect(august?.turns).toBeGreaterThan(0);
+  });
+
+  it('splits turns by the day they were billed on', () => {
+    expect(report(straddleCorpus()).byMonth.map((m) => m.turns)).toEqual([1, 2]);
+  });
+
+  it('counts the session itself once, in the month it opened', () => {
+    // Turns and dollars divide; a session does not. Splitting the count would
+    // report one session as two and halve every per-session figure built on it.
+    expect(report(straddleCorpus()).byMonth.map((m) => m.sessions)).toEqual([1, 0]);
+  });
+
+  it('moves money between months without changing the corpus total', () => {
+    const r = report(straddleCorpus());
+    const inMonths = r.byMonth.reduce((n, m) => n + m.usd, 0);
+    expect(inMonths + r.undatedUsd).toBeCloseTo(r.cost.total, 9);
+    expect(r.cost.total).toBeCloseTo(75, 9);
+  });
+
+  it('falls back to the session start for a row that carries no timestamp', () => {
+    // A row with no clock is not evidence of a month. `parse.ts` leaves `at`
+    // null when the lines behind a row had no parseable timestamp, and guessing
+    // a different month for it would move real money on no evidence.
+    const rows: ModelUsage[] = [
+      dayRow('2026-08-01T09:00:00Z'),
+      { ...dayRow('2026-08-01T09:00:00Z'), at: null },
+    ];
+    const r = report([straddler('mixed', '2026-07-31T23:30:00Z', '2026-08-01T12:00:00Z', rows)]);
+    expect(r.byMonth.map((m) => [m.month, m.usd])).toEqual([
+      ['2026-07', 25],
+      ['2026-08', 25],
+    ]);
+  });
+
+  it('stops the multiple over-claiming against a complete month', () => {
+    // The direction that matters. July is complete here and August is not, so
+    // the multiple is taken over July alone. Crediting August's work to July
+    // inflates the numerator of a headline the August rows are excluded from.
+    const corpus = [
+      session('jul-anchor', ms('2026-07-01T00:00:00Z'), ms('2026-07-01T01:00:00Z')),
+      ...straddleCorpus(),
+    ];
+    const p = planUtilization(report(corpus), plans(), 'pro');
+    expect(p.completeMonths).toBe(1);
+    // July: the $25 anchor plus the straddler's one July day. Not $100.
+    expect(p.completeUsd).toBeCloseTo(50, 9);
+    expect(p.ratio).toBeCloseTo(50 / 20, 9);
   });
 });
 
