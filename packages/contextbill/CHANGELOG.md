@@ -6,7 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 version is `0.x`, a minor bump may contain breaking changes; those are listed first.
 
-## [Unreleased]
+## [0.4.0] - 2026-09-10
 
 Figures in this section come from one frozen copy of a 2,424-transcript,
 1,527,997,880-byte `~/.claude/projects`, measured 2026-09-09. Freezing matters: a live
