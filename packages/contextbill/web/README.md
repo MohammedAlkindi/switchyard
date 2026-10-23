@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# contextbill web
 
-## Getting Started
+The hosted version of contextbill, deployed at
+[contextbill.vercel.app](https://contextbill.vercel.app). You pick your
+`~/.claude/projects` folder in the browser, the page parses the transcripts locally, and
+only aggregate figures are saved to your account: totals and per-category, per-model, and
+per-session numbers. Prompts, completions, and raw transcript lines never leave the
+browser.
 
-First, run the development server:
+Stack: Next.js 16, React 19, and Supabase for sign-in and storage, with row-level
+security on every table.
+
+## How it uses the core package
+
+The parser and pricing code are the same ones the CLI runs. `tsconfig.json` maps
+`@core/*` to `../dist/*` and `@prices` to `../prices.json`, and `lib/browser-scan.ts`
+feeds picked files into the core `parseTranscript` and `aggregate`. A test in
+`lib/__tests__/browser-scan.test.ts` checks that the browser reader and the CLI reader
+produce identical aggregates for the same corpus.
+
+| Path | Purpose |
+| ---- | ------- |
+| `app/page.tsx` | Landing page |
+| `app/dashboard/new/page.tsx` | Folder picker and in-browser analysis |
+| `app/dashboard/[id]/page.tsx` | A saved report, with per-report deletion |
+| `app/privacy/page.tsx`, `app/terms/page.tsx` | Privacy policy and terms |
+| `lib/browser-scan.ts` | Reads picked files, retries a failed read once, and lists files it could not read |
+| `lib/supabase/` | Browser and server Supabase clients |
+
+## Run it locally
+
+From the repository root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install                    # installs the core and this workspace
+cp web/.env.example web/.env.local
+npm run dev --workspace=web    # builds the core first, then starts Next on port 3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env.local`. The
+key is the publishable key. The service-role key is not used anywhere in this app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Checks
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm test                       # from the root, includes the browser-scan tests
+npm run lint --workspace=web
+npm run build --workspace=web
+```
 
-## Learn More
+## Deployment
 
-To learn more about Next.js, take a look at the following resources:
+Vercel builds this folder on every push to `main`. The project settings that make the
+build work:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Setting | Value |
+| ------- | ----- |
+| Root Directory | `web` |
+| Include source files outside the Root Directory | enabled |
+| Install Command | `npm --prefix .. install` |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+There is no `vercel.json` at the repository root, and there should not be one.
