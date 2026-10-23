@@ -612,10 +612,52 @@ transcript harder.
   real work. A `Bash` call that writes a file deliberately does not count toward that
   flag: a false negative is cheap there, a false positive hides a real finding.
 - **Bedrock and Vertex pricing.** Partner-operated, priced separately, not modelled.
-- **What Codex usage cost.** `prices.json` holds no OpenAI rates, so `--source codex`
-  and `--source all` count Codex tokens and leave their dollars blank rather than
-  guessing. A mixed total covers every token and only the Anthropic dollars.
+- **What an unpriced Codex model cost.** `prices.json` prices `gpt-5.6-sol` and
+  `gpt-5.6-terra` only. Tokens from any other Codex model, `gpt-5.5` included, are
+  counted and named, and kept out of every dollar figure.
 - **Anything deleted.** Only transcripts still on disk are read.
+
+---
+
+## Statusline timing
+
+**There is no timing table, and that is deliberate.** One stood in the README until
+2026-09-09 with five rows and a stated method, and it has now failed to reproduce twice
+on the machine it was measured on. Re-measured 2026-09-09 against a frozen
+2,424-transcript, 1,527,997,880-byte corpus, median of five to seven runs:
+
+| Row | Published | Re-measured | |
+| --- | --------- | ----------- | - |
+| `node -e ""` floor | 0.17 s | **0.09 s** | 1.9x faster |
+| session scope, median transcript on stdin | 0.28 s | **0.15 s** | 1.9x faster |
+| session scope, largest transcript on stdin | 0.67 s | **0.46 s** | 1.5x faster |
+| session scope, no stdin | 0.41 s | **0.39 s** | 1.05x, over 29% more files |
+| full report | 20.1 s | **14.8 s** | 1.36x faster, on a 17% larger corpus |
+| `--scope today` | 2.19 s | not measurable | a frozen copy has no files modified today |
+
+**The floor is the row that settles it.** `node -e ""` runs no contextbill code at all,
+so it cannot have got faster because the tool changed. A machine-level constant moving by
+1.9x means the published table describes a machine state rather than a program, and every
+row above it inherits that. For the record, the re-measurement was itself taken on a busy
+machine — 26 node processes, 17 Claude Code processes, 48% CPU — so it is an upper bound
+and not the quiet-machine number either.
+
+A benchmark nobody can reproduce is worse than no benchmark, so it is gone rather than
+restated with today's equally circumstantial figures.
+
+Measure it on your own hardware instead, which is the only number that answers the
+question you actually have:
+
+```bash
+# one transcript, the shape a statusline actually runs
+echo '{"transcript_path":"/path/to/session.jsonl"}' | \
+  node -e 'const t=Date.now();require("child_process").execFileSync(process.execPath,["dist/cli.js","--statusline"],{input:require("fs").readFileSync(0)});console.error(Date.now()-t+"ms")'
+```
+
+Run it several times and take the median, compare it against `node -e ""` on the same
+machine in the same minute, and read the difference rather than the absolute — Node's
+own startup is the floor no CLI written in it beats, and it moves with load just as
+everything above it does.
 
 ---
 
@@ -638,7 +680,7 @@ The claims above are meant to be verifiable, including by someone who does not t
   of `message.id` entirely, so a stray fixture fails with a named reason rather than a
   mystery delta.
 - **Differential check.** `scan.ts` and `classify.ts` are ports of a reference measurement
-  script. Point both at the same **frozen** corpus and compare `turns` and the median
+  script. That script is not published in this repository. Point both at the same **frozen** corpus and compare `turns` and the median
   startup prefix; they must agree exactly. Freeze it first. A live transcript directory is
   appended to by running sessions, and the off-by-one that produces looks exactly like a
   port bug.

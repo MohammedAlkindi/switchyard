@@ -43,8 +43,9 @@ node dist/cli.js               # run the CLI
   instant and reviewable is a product property. `web/` may add dependencies freely; the
   root may not, and `files` in package.json keeps `web/` out of the npm tarball.
 - Strict mode, zero `any`. Interfaces live in `types.ts` before their consumers.
-- `cli.ts` is the only core module permitted to touch the filesystem or `process`.
-  Everything else is pure and testable without fixtures on disk.
+- `cli.ts` is the only core module permitted to touch `process`. `cli.ts` and `scan.ts`
+  are the only ones permitted to touch the filesystem. Everything else is pure and
+  testable without fixtures on disk.
 - Never commit with tests failing. Never claim a check passed that did not run.
 
 ## The name
@@ -54,8 +55,9 @@ product on `loadline.app` and `loadline.vercel.app`, in alpha with its own hoste
 Same word, adjacent category. Renamed 2026-08-26, before the first npm publish. Do not
 reintroduce the old name anywhere, including in examples.
 
-`contextbill` was unregistered on npm and `contextbill.dev` was unregistered when
-checked on 2026-08-26. Neither has been claimed yet.
+`contextbill` was unregistered on npm when checked on 2026-08-26 and has been published
+there since 0.1.0. `contextbill.dev` was unregistered on the same date and has not been
+claimed.
 
 ## Things that will bite you
 
@@ -174,7 +176,7 @@ runs 9, and each lints itself. Root config ignores `web/**` and `.vercel/**`.
 ## Verification bar
 
 `scan.ts` and `classify.ts` are ports of a reference measurement script
-(`~/.claude/scripts/usage-audit.js`). They are correct when, against a frozen corpus,
+(`usage-audit.js`, kept by the maintainer and not in this repository). They are correct when, against a frozen corpus,
 `turns` and the median startup prefix match that reference **exactly**. That check is
 worth more than any unit test here. Keep it runnable.
 
@@ -238,9 +240,9 @@ a green run behind it.
 2. Bump with `npm version <x.y.z> --no-git-tag-version` (never hand-edit the version), and
    add the `CHANGELOG.md` section in the same commit.
 3. Commit `chore(release): vX.Y.Z`, push, then tag **on main** with an annotated tag whose
-   message is Conventional-Commits shaped. `commit-guard.js` validates annotated-tag
-   message text as if it were a commit subject and will otherwise block it. That is a
-   false positive on a tag; fix the subject rather than bypassing the hook.
+   message is Conventional-Commits shaped. The maintainer's commit hook checks
+   annotated-tag messages as if they were commit subjects and blocks any other shape.
+   Fix the message rather than bypassing the hook.
 4. Create the GitHub Release bound to that exact tag, with the changelog section as its
    notes. Verify the tag rather than letting the tool mint one off the wrong commit.
 5. Publishing then happens in `.github/workflows/release.yml`, triggered by that release.

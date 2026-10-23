@@ -3,6 +3,11 @@
 Know what your AI agents cost at API rates. Analyze Claude Code usage locally and
 see where your tokens and dollars are going.
 
+A hosted version runs at [contextbill.vercel.app](https://contextbill.vercel.app). It
+parses transcripts in your browser and saves only aggregate figures and per-session
+metadata (project name, start time) to your account, never message content. The source
+is in [`web/`](web/).
+
 ```console
 $ npx contextbill
 
@@ -53,7 +58,7 @@ the cache-TTL default assumes, how the startup-prefix model is built and why it 
 and a blunt list of [what contextbill cannot know](METHODOLOGY.md#what-this-cannot-know). It
 is written so you can check the numbers rather than take them.
 
-No signup. No account. No API key. No network calls.
+The CLI needs no signup, no account and no API key, and it makes no network calls.
 
 ---
 
@@ -186,43 +191,9 @@ unscoped run reads everything — so the three differ by roughly the amount of d
 one opens, which is the only part of this that is a property of the tool rather than
 of a machine.
 
-**There is no timing table here, and that is deliberate.** One stood here until
-2026-09-09 with five rows and a stated method, and it has now failed to reproduce twice
-on the machine it was measured on. Re-measured 2026-09-09 against a frozen
-2,424-transcript, 1,527,997,880-byte corpus, median of five to seven runs:
-
-| Row | Published | Re-measured | |
-| --- | --------- | ----------- | - |
-| `node -e ""` floor | 0.17 s | **0.09 s** | 1.9x faster |
-| session scope, median transcript on stdin | 0.28 s | **0.15 s** | 1.9x faster |
-| session scope, largest transcript on stdin | 0.67 s | **0.46 s** | 1.5x faster |
-| session scope, no stdin | 0.41 s | **0.39 s** | 1.05x, over 29% more files |
-| full report | 20.1 s | **14.8 s** | 1.36x faster, on a 17% larger corpus |
-| `--scope today` | 2.19 s | not measurable | a frozen copy has no files modified today |
-
-**The floor is the row that settles it.** `node -e ""` runs no contextbill code at all,
-so it cannot have got faster because the tool changed. A machine-level constant moving by
-1.9x means the published table describes a machine state rather than a program, and every
-row above it inherits that. For the record, the re-measurement was itself taken on a busy
-machine — 26 node processes, 17 Claude Code processes, 48% CPU — so it is an upper bound
-and not the quiet-machine number either.
-
-A benchmark nobody can reproduce is worse than no benchmark, so it is gone rather than
-restated with today's equally circumstantial figures.
-
-Measure it on your own hardware instead, which is the only number that answers the
-question you actually have:
-
-```bash
-# one transcript, the shape a statusline actually runs
-echo '{"transcript_path":"/path/to/session.jsonl"}' | \
-  node -e 'const t=Date.now();require("child_process").execFileSync(process.execPath,["dist/cli.js","--statusline"],{input:require("fs").readFileSync(0)});console.error(Date.now()-t+"ms")'
-```
-
-Run it several times and take the median, compare it against `node -e ""` on the same
-machine in the same minute, and read the difference rather than the absolute — Node's
-own startup is the floor no CLI written in it beats, and it moves with load just as
-everything above it does.
+There is no timing table, on purpose. The one published earlier did not reproduce.
+[METHODOLOGY.md](METHODOLOGY.md#statusline-timing) records why it was withdrawn and how to
+time a statusline run on your own machine.
 
 `--scope today` is labelled **`active today`** in the output rather than `today`,
 because it filters on file modification time: a session that started yesterday and
@@ -408,7 +379,7 @@ What contextbill commits to instead:
 - **Accuracy you can check.** [METHODOLOGY.md](METHODOLOGY.md) states every rule with the file
   that implements it. The suite pins an exact end-to-end dollar figure worked out by hand from
   `prices.json`, so a pricing regression fails loudly. `scan.ts` and `classify.ts` can be
-  differential-checked against the reference script they were ported from. The
+  differential-checked against the unpublished reference script they were ported from. The
   streamed-rewrite correction is stated with its measured factors, not asserted: across 2,424
   transcripts and 459,783 lines, 171,974 usage-bearing lines collapse to 75,196 messages, and
   the priced total moves from $37,655.25 to $15,733.14 on the same text in one pass.
@@ -507,21 +478,26 @@ report.
 
 ## Architecture
 
-Zero runtime dependencies, Node built-ins only. Every module is pure except
-`cli.ts`, so the logic is testable without touching a disk.
+Zero runtime dependencies, Node built-ins only. Only `cli.ts` and `scan.ts` touch the
+disk. Every other module is pure, so the logic is testable without fixtures on disk and
+the parsers run unchanged in the browser.
 
 | File | Purpose |
 | ---- | ------- |
 | `src/types.ts` | Shared interfaces, defined before consumers |
-| `src/scan.ts` | Walks transcripts, extracts per-session token and tool stats |
+| `src/scan.ts` | Walks the transcript directories and reads each file. The only module besides `cli.ts` that imports `node:fs` |
+| `src/parse.ts` | One Claude Code transcript → per-session token and tool stats. Shared with the web app |
+| `src/codex-parse.ts` | The same for an OpenAI Codex CLI rollout |
+| `src/limits.ts` | Rate-limit windows from the statusline payload, and their projections |
 | `src/classify.ts` | Tool name → spend category |
 | `src/cost.ts` | Token counts + price table → dollars |
 | `src/aggregate.ts` | Session stats → whole-corpus report |
 | `src/waste.ts` | Waste and fleet-health heuristics |
 | `src/privacy.ts` | Strips machine-identifying path data |
 | `src/report.ts` | Report → self-contained HTML |
+| `src/safe-path.ts` | Same-origin check for login redirect targets, used by the web app |
 | `src/index.ts` | The published library entry. Re-exports the pure modules only |
-| `src/cli.ts` | Arg parsing and file I/O. The only impure module |
+| `src/cli.ts` | Arg parsing, stdin, and writing the report |
 
 ## Tests
 
@@ -537,7 +513,8 @@ worked by hand in a comment, so a pricing regression fails loudly rather than dr
 
 **Differential check.** `scan.ts` and `classify.ts` are ports of a reference
 measurement script, so they can be validated against it rather than only against
-themselves. Point both at the same **frozen** corpus and compare `turns` and the
+themselves. That script is the maintainer's own and is not published in this repository.
+Point both at the same **frozen** corpus and compare `turns` and the
 median startup prefix — they must agree exactly. Freeze it first: running against a
 live transcript directory produces off-by-one differences whenever another agent
 session appends a turn mid-comparison, which looks exactly like a port bug and is not

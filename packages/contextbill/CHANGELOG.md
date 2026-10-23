@@ -275,6 +275,8 @@ The CLI and its output are unaffected; these matter only if you import the packa
 Initial release. CLI with zero runtime dependencies that reads Claude Code transcripts,
 prices them, and writes a self-contained HTML report, plus the hosted app.
 
+[0.4.0]: https://github.com/MohammedAlkindi/contextbill/releases/tag/v0.4.0
+[0.3.0]: https://github.com/MohammedAlkindi/contextbill/releases/tag/v0.3.0
 [0.2.1]: https://github.com/MohammedAlkindi/contextbill/releases/tag/v0.2.1
 [0.2.0]: https://github.com/MohammedAlkindi/contextbill/releases/tag/v0.2.0
 [0.1.0]: https://github.com/MohammedAlkindi/contextbill/releases/tag/v0.1.0
