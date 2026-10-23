@@ -17,8 +17,8 @@ All four of build, test, lint, and typecheck must pass before any commit.
 ## Directory structure
 
 - `src/cli.ts` — commander entry point; maps CLI commands/flags to command functions and formats errors.
-- `src/commands/` — one file per CLI command (`spawn`, `list`, `status`, `check`, `diff`, `sync`, `exec`, `merge`, `pr`, `remove`, `clean`, `watch`, `doctor`, `completion`).
-- `src/lib/` — shared internals: `state.ts` (`.fleet/state.json` I/O), `config.ts` (`.fleetrc.json` defaults), `git.ts` (simple-git wrappers), `proc.ts` (child-process helpers for hooks/exec/gh), `lines.ts` (diff parsing for `check --lines`), `format.ts` (tables/colors), `errors.ts` (`FleetError`).
+- `src/commands/` — one file per CLI command (`init`, `spawn`, `list`, `status`, `check`, `diff`, `sync`, `validate`, `exec`, `merge`, `undo`, `pr`, `remove`, `clean`, `watch`, `dashboard`, `doctor`, `completion`, `mcp`).
+- `src/lib/` — shared internals: `state.ts` (`.fleet/state.json` I/O), `config.ts` (`.fleetrc.json` defaults), `git.ts` (simple-git wrappers), `proc.ts` (child-process helpers for hooks/exec/gh), `lines.ts` (diff parsing for `check --lines`), `format.ts` (tables/colors), `errors.ts` (`FleetError`), `lock.ts` (the `.fleet/lock` mutation lock), `mergetree.ts` (in-memory merge simulation for `check`), `undo.ts` (the record `fleet undo` reads), `validation.ts` (clean-worktree rules for `fleet validate`), `protocol.ts` (the `AGENTS.md` block `fleet init` writes), `mcp.ts` and `jsonrpc.ts` (the `fleet mcp` server).
 - `tests/` — vitest suites, one per command; `helpers.ts` builds throwaway git repos that every test runs against.
 - `docs/` — `architecture.md` (design rationale, state schema, limitations), `deployment.md` (release process).
 - `.github/workflows/` — CI: lint, typecheck, build, test on push/PR to `main`.
