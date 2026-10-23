@@ -58,8 +58,4 @@ Semver conventions for this package:
 - **minor** — new commands or new flags on existing commands, backwards-compatible.
 - **major** — anything that breaks existing usage: renamed/removed commands or flags, changed exit-code semantics, or a `state.json` schema change without a migration path (`version` field in the schema exists for this).
 
-Only the `dist/` output ships to npm (`files` in `package.json`); `prepare` rebuilds it on publish, so there is no manual build step to forget.
-
-## After the first publish
-
-The README's npm version/downloads badges are live and point at `@switchyardhq/switchyard`. shields.io renders "package not found" for them until the package's first publish — expected before the release, a problem after it. Once the publish lands, reload the README and confirm both badges resolve.
+Only `dist/`, `schema/`, and `skills/` ship to npm (`files` in `package.json`). `prepare` rebuilds `dist/` on publish, so there is no manual build step to forget.

@@ -7,7 +7,7 @@
 
 # Switchyard
 
-> One repo, many AI coding agents, zero collisions — Switchyard's `fleet` CLI gives every agent an isolated git worktree, with collision detection before you merge.
+> Switchyard's `fleet` CLI runs several AI coding agents on one git repository. Each agent gets its own worktree and branch, and `fleet check` reports files that more than one agent changed before anyone merges.
 
 [![npm version](https://img.shields.io/npm/v/@switchyardhq/switchyard)](https://www.npmjs.com/package/@switchyardhq/switchyard)
 [![npm downloads](https://img.shields.io/npm/dm/@switchyardhq/switchyard)](https://www.npmjs.com/package/@switchyardhq/switchyard)
@@ -16,16 +16,6 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/MohammedAlkindi/Switchyard/pulls)
 [![website](https://img.shields.io/badge/website-switchyardhq.vercel.app-45d183)](https://switchyardhq.vercel.app)
-
-<!-- The coverage badge is a static number: re-run `npm run test:coverage` and update it
-     when it drifts. Replace with a Codecov (or similar) badge once coverage upload is
-     wired into CI.
-     It understates real coverage. `src/cli.ts` and `src/commands/mcp.ts` both report 0%
-     because their tests (lock-race.test.ts, mcp-server.test.ts) drive them as real
-     subprocesses, which v8 instrumentation in the parent process cannot see. The
-     protocol logic those two files delegate to — src/lib/jsonrpc.ts and src/lib/mcp.ts —
-     is at 100%. -->
-
 
 <p align="center">
   <img src="assets/demo.gif" alt="30-second demo: fleet spawn isolates two agents, fleet list shows the whole fleet, fleet check catches the collision before anyone merges" width="830">
@@ -133,7 +123,7 @@ All commands work from the main checkout **or** from inside any agent worktree.
 
 ### Scripting and CI
 
-`list`, `status`, `check`, and `doctor` all take `--json` for machine-readable output, so agents and CI can consume Switchyard state directly — e.g. a merge gate:
+`init`, `list`, `status`, `check`, `validate`, and `doctor` take `--json` for machine-readable output, so agents and CI can consume Switchyard state directly — e.g. a merge gate:
 
 ```sh
 fleet check --json || exit 1                  # exit code alone is enough for CI
