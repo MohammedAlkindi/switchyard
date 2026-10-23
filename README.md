@@ -10,7 +10,6 @@
 > Switchyard's `fleet` CLI runs several AI coding agents on one git repository. Each agent gets its own worktree and branch, and `fleet check` reports files that more than one agent changed before anyone merges.
 
 [![npm version](https://img.shields.io/npm/v/@switchyardhq/switchyard)](https://www.npmjs.com/package/@switchyardhq/switchyard)
-[![npm downloads](https://img.shields.io/npm/dm/@switchyardhq/switchyard)](https://www.npmjs.com/package/@switchyardhq/switchyard)
 [![license](https://img.shields.io/github/license/MohammedAlkindi/Switchyard)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/MohammedAlkindi/Switchyard/ci.yml?branch=main&label=CI)](https://github.com/MohammedAlkindi/Switchyard/actions/workflows/ci.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
