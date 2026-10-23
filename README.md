@@ -72,11 +72,6 @@ npm install -g @switchyardhq/switchyard
 
 Requires Node.js >= 18.17 and git >= 2.31. The installed command is `fleet`.
 
-> `fleet validate` and `fleet dashboard` are on `main` and ship in the next
-> release — they are not in the published `0.4.0`. Everything else below works
-> on the npm build. To use them today, install from source:
-> `git clone https://github.com/MohammedAlkindi/Switchyard && cd Switchyard && npm install && npm link`.
-
 ## Quickstart
 
 ```sh
