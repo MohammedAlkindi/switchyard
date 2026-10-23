@@ -50,7 +50,7 @@ git push origin main --follow-tags
 > the release workflow never fires, and nothing publishes — with no error to tell you.
 > Either tag annotated, or push it explicitly with `git push origin v0.2.0`.
 
-Pushing the `v*` tag triggers the release workflow (`.github/workflows/release.yml`): it re-runs lint, typecheck, and the test suite, verifies the tag matches `package.json`, and publishes to npm with [provenance](https://docs.npmjs.com/generating-provenance-statements). It authenticates with the `NPM_TOKEN` repository secret — a granular npm automation token with publish rights on `@switchyardhq/switchyard`; rotate it from npmjs.com → Access Tokens if it leaks or expires. A manual `npm publish` from a clean checkout still works as a fallback (`prepublishOnly` runs the same checks), but the workflow is the normal path — it can't publish uncommitted work.
+Pushing the `v*` tag triggers the release workflow (`.github/workflows/release.yml`): it re-runs lint, typecheck, and the test suite, verifies the tag matches `package.json`, and publishes to npm with [provenance](https://docs.npmjs.com/generating-provenance-statements). It authenticates through npm trusted publishing: npmjs.com trusts this repository's `release.yml`, so no token is stored. If trusted publishing is not configured, it falls back to the `NPM_TOKEN` repository secret, a granular npm token with publish rights on `@switchyardhq/switchyard`. Those tokens expire, so rotate it from npmjs.com → Access Tokens when a publish fails with E404. A manual `npm publish` from a clean checkout still works as a fallback (`prepublishOnly` runs the same checks), but the workflow is the normal path — it can't publish uncommitted work.
 
 Semver conventions for this package:
 
