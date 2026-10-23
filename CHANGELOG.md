@@ -9,6 +9,8 @@ this package.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-23
+
 ### Added
 
 - `fleet validate` (and `--all`, `--json`): run a repo-configured `validate`
@@ -39,9 +41,6 @@ this package.
 
 ### Fixed
 
-- Website command roster now identifies `fleet validate` and `fleet dashboard`
-  as main-only commands that will ship in the next release instead of implying
-  they are included in npm v0.4.0.
 - Shell completions now list `init` and `undo`, which were missing from the
   generated scripts.
 - State and undo records can no longer direct Git operations at worktrees
@@ -218,7 +217,8 @@ this package.
   even though unscoped `switchyard` is taken). The installed binary is
   `fleet`.
 
-[Unreleased]: https://github.com/MohammedAlkindi/Switchyard/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/MohammedAlkindi/Switchyard/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/MohammedAlkindi/Switchyard/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MohammedAlkindi/Switchyard/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/MohammedAlkindi/Switchyard/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MohammedAlkindi/Switchyard/compare/v0.1.0...v0.2.0

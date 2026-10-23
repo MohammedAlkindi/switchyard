@@ -188,7 +188,7 @@ rewritten `src/api/routes.ts`:
 {"jsonrpc":"2.0","id":1,"result":{
   "protocolVersion":"2025-11-25",
   "capabilities":{"tools":{}},
-  "serverInfo":{"name":"switchyard","title":"Switchyard","version":"0.4.0"},
+  "serverInfo":{"name":"switchyard","title":"Switchyard","version":"0.5.0"},
   "instructions":"... These tools are read-only by design. Spawning agents,
                   merging, and removing worktrees are human actions in this
                   release — there are no tools for them. Ask for
