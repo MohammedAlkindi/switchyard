@@ -263,7 +263,8 @@ An optional `.fleetrc.json` at the repo root (committed or not — the user's ch
   "autoClean": false,
   "copyOnSpawn": [".env"],
   "postSpawn": "npm ci",
-  "preMerge": "npm test"
+  "preMerge": "npm run lint",
+  "validate": "npm test"
 }
 ```
 
@@ -275,6 +276,7 @@ An optional `.fleetrc.json` at the repo root (committed or not — the user's ch
 | `copyOnSpawn` | string[] (repo-root-relative) | `fleet spawn` copies these into every new worktree (gitignored essentials: `.env`, local config). Absolute paths and `..` segments are rejected at parse time | none |
 | `postSpawn` | string (shell command) | `fleet spawn` runs it inside the new worktree after copying. Failure is reported, worktree kept | none |
 | `preMerge` | string (shell command) | `fleet merge` runs it inside the agent's worktree after the collision gate; non-zero exit aborts before the merge starts | none |
+| `validate` | string (shell command) | `fleet validate` runs it inside the agent's worktree and records the result for that commit. When set, `fleet merge` requires a passing record at the agent's tip and runs the command if the record is missing or stale | none |
 
 Precedence is always CLI flag > `.fleetrc.json` > built-in default. Unknown keys and wrong types are hard errors (typo protection), a missing file is not. Note the distinction around merge cleanup: removing the merged agent itself is `fleet merge`'s default behavior (opt out per-invocation with `--no-clean`); `autoClean` only controls the *additional* sweep of other fully merged agents.
 
@@ -283,6 +285,6 @@ Precedence is always CLI flag > `.fleetrc.json` > built-in default. Unknown keys
 - **Single-repo scope.** State lives per-repository; there is no cross-repo view of agents.
 - **No submodule support.** Worktrees of repos with submodules are untested and likely broken; don't rely on them.
 - **No remote/multi-machine coordination.** `state.json` is local disk only — two machines managing the same clone don't see each other's agents. Nothing syncs, nothing locks.
-- **Collision detection is file-level by default.** Two agents editing disjoint parts of one file is still flagged — deliberately, since file-level overlap is where merge pain starts. `fleet check --lines` opts into line-range intersection, with the merge-base caveat described above.
+- **Collision detection is file-level on git older than 2.38, or with `--files-only`.** In that mode two agents editing disjoint parts of one file are still flagged. `fleet check --lines` opts into line-range intersection, with the merge-base caveat described above. On git 2.38 or newer the default merge simulation stops blocking on overlaps that merge cleanly.
 - **The MCP surface is read-only.** Agents can observe the fleet but not join it: there is no tool to spawn, merge, remove, or clean. If early use shows agents ignoring the tools because they cannot act on what they see, that is the signal to promote `fleet_spawn` — a contained change, and one far easier to widen than to narrow once agents depend on it.
 - **`clean --stale` judges idleness by the branch's last commit date.** Uncommitted-but-untouched-for-weeks worktrees are protected by the dirty check instead (never removed), since file mtimes are too easy to disturb to trust for deletion.
