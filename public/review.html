@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="theme-color" content="#f5f6f3" />
+    <meta name="theme-color" content="#ffffff" />
     <title>Fleet review | Switchyard</title>
     <meta
       name="description"
@@ -22,71 +22,104 @@
   </head>
   <body>
     <a class="skip" href="#main">Skip to review</a>
-    <div class="review-shell">
-      <header class="review-header">
-        <a class="brand" href="/" translate="no"
-          ><span class="brand-icon" aria-hidden="true">⑂</span> Switchyard</a
-        ><a class="text-link" href="/#setup">Local CLI setup ↗</a>
-      </header>
-      <main id="main" tabindex="-1">
-        <div class="review-intro">
-          <div>
-            <p class="eyebrow">Fleet review / evidence to next step</p>
-            <h1>Bring the work<br /><em>into focus.</em></h1>
-            <p class="lede">
-              Inspect the snapshot. Coordinate the overlaps. Leave with a review
-              plan.
-            </p>
-          </div>
-          <div class="actions">
-            <button class="button" id="load-demo">Load example</button
-            ><button class="button primary" id="open-import">
-              Open local reports
-            </button>
-          </div>
+    <header class="app-header">
+      <a class="brand" href="/" translate="no"
+        ><svg
+          class="brand-icon"
+          width="20"
+          height="20"
+          viewBox="0 0 20 20"
+          aria-hidden="true"
+        >
+          <path
+            d="M5 3v10a4 4 0 0 0 4 4h6M15 3v4a4 4 0 0 1-4 4H5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          />
+          <circle cx="5" cy="3" r="2" />
+          <circle cx="15" cy="3" r="2" />
+          <circle cx="15" cy="17" r="2" /></svg
+        >Switchyard</a
+      >
+      <nav aria-label="Workspace">
+        <a href="review.html" aria-current="page">Review</a
+        ><a href="/#setup">Setup</a
+        ><a href="https://github.com/MohammedAlkindi/switchyard"
+          >Docs <span aria-hidden="true">↗</span></a
+        >
+      </nav>
+      <button class="button primary" id="open-import">
+        Open local reports
+      </button>
+    </header>
+    <main class="review-shell" id="main" tabindex="-1">
+      <div class="review-intro">
+        <div>
+          <h1>Fleet review</h1>
+          <p class="lede">
+            Inspect agent changes before bringing them together.
+          </p>
         </div>
-        <p class="notice" id="data-notice" role="status">
-          Loading the synthetic example…
-        </p>
-        <div id="workspace" aria-busy="true"></div>
-        <section class="plan-panel" aria-labelledby="plan-title">
+        <button class="button quiet" id="load-demo">Load example</button>
+      </div>
+      <p class="source-line" id="data-notice" role="status">
+        Loading the example…
+      </p>
+      <div id="workspace" aria-busy="true"></div>
+      <details class="plan-panel" id="plan-panel">
+        <summary>
+          <span id="plan-title">Review plan</span
+          ><span class="meta" id="plan-count" role="status"
+            >No agents selected.</span
+          ><span class="disclosure" aria-hidden="true">+</span>
+        </summary>
+        <div class="plan-content">
           <div>
-            <p class="eyebrow">03 / Prepare a handoff</p>
-            <h2 id="plan-title">Your review plan</h2>
-            <p id="plan-count" role="status">No agents selected.</p>
+            <p>Select agents to prepare a handoff.</p>
             <p class="meta">
-              Selection is a handoff choice, not merge approval. Reports and
-              notes stay in this tab; download the plan before leaving.
+              Selections and notes stay in this tab. Download the plan before
+              leaving.
             </p>
           </div>
           <div>
             <label for="handoff-note"
-              >Your handoff note
-              <span class="meta">Optional · separate from evidence</span></label
+              >Your handoff note <span class="meta">Optional</span></label
             ><textarea
               id="handoff-note"
               name="handoff-note"
               autocomplete="off"
               maxlength="2000"
               rows="3"
-              placeholder="Who needs to coordinate, and what should they check?…"
+              placeholder="What should the next person check?…"
             ></textarea
             ><button class="button primary" id="download-plan" disabled>
               Download review plan
             </button>
             <p id="download-status" role="status"></p>
           </div>
-        </section>
-        <p class="footer-note">
-          This viewer executes no Git, shell, agent or merge commands. Re-export
-          both reports after changes.
+        </div>
+      </details>
+      <details class="report-help">
+        <summary>About this report</summary>
+        <div>
+          <p>
+            The example uses synthetic data from a throwaway Git repository.
+            Imported reports are read in this tab and never uploaded or stored.
+            Refresh both exports after changes.
+          </p>
+          <p>
+            Validation applies to a recorded commit and command. A review
+            candidate is not merge approval. This viewer executes no repository
+            commands.
+          </p>
           <a
             href="https://github.com/MohammedAlkindi/switchyard/blob/main/docs/architecture.md"
-            >Read the detection limits ↗</a
+            >Detection limits ↗</a
           >
-        </p>
-      </main>
-    </div>
+        </div>
+      </details>
+    </main>
     <dialog id="import-dialog" aria-labelledby="import-title">
       <button
         class="dialog-close button"
