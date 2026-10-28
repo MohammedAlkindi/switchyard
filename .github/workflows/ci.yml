@@ -42,6 +42,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Build public review and check generated assets
+        run: |
+          npm run build:site
+          git diff --exit-code -- public/main.js public/report.js public/review.js public/index.html
+
       # Catches packaging breakage the unit tests can't see: a bad shebang,
       # an unresolvable import in the compiled output, or a files-array typo.
       - name: Smoke-test the built CLI

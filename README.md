@@ -7,7 +7,7 @@
 
 # Switchyard
 
-> Switchyard's `fleet` CLI runs several AI coding agents on one git repository. Each agent gets its own worktree and branch, and `fleet check` reports files that more than one agent changed before anyone merges.
+> Switchyard's `fleet` CLI coordinates coding agents working on one Git repository. Each agent gets its own worktree and branch, and `fleet check` reports files that more than one agent changed before anyone merges.
 
 [![npm version](https://img.shields.io/npm/v/@switchyardhq/switchyard)](https://www.npmjs.com/package/@switchyardhq/switchyard)
 [![license](https://img.shields.io/github/license/MohammedAlkindi/Switchyard)](LICENSE)
@@ -298,3 +298,36 @@ PRs are welcome. Clone, `npm install`, `npm test` — every command is tested ag
 ## License
 
 MIT © Mohammed Alkindi — see [LICENSE](LICENSE).
+
+
+## Browser fleet review
+
+[Open the fleet review](https://switchyardhq.vercel.app/review.html) to inspect
+an example generated from real temporary Git worktrees, or open your own reports:
+
+```sh
+fleet list --json > agents.json
+fleet check --json > collisions.json
+```
+
+Export both from the same repository without making intervening changes. The
+check may exit 1 for collisions and still write a valid report. Choose both
+files in **Open local reports**. The viewer uses the existing 0.5.0 JSON format;
+no CLI update or account connection is required. It reads files only in the
+browser, sends no report data, and does not persist reports or notes in browser
+storage. Reloading clears imported data. Limit: 100 agents, 1 MB per report.
+
+Inspect an agent to see branch divergence, worktree changes, validation state,
+shared-file verdicts and suggested local checks. **Review candidate** only means
+no recorded blockers in this snapshot; it is not merge approval. Validation
+can become stale, and file-only detection cannot predict committed conflicts.
+Select agents, write a handoff note and download a Markdown review plan. Notes
+and plan selections are separate from Git evidence. The viewer executes no
+commands and does not run workers, validation, sync or merges.
+
+Build the static website with `npm run build:site`. Browser TypeScript and
+version copy are compiled during deployment; CI rejects generated JavaScript
+drift. To regenerate the synthetic example, run
+`npx --yes tsx scripts/generate-example.ts`. This script uses
+`tests/helpers.ts` to create and clean up a throwaway Git repository; it does
+not read this repository's fleet state or start any AI workers.

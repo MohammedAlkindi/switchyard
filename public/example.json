@@ -1,0 +1,63 @@
+{
+  "agents": [
+    {
+      "name": "api",
+      "branch": "fleet/api",
+      "baseBranch": "main",
+      "worktreePath": ".fleet/worktrees/api",
+      "worktreeMissing": false,
+      "ahead": 1,
+      "behind": 0,
+      "uncommitted": 0,
+      "lastActivity": "2026-10-28T05:03:12.000Z",
+      "validation": "passed",
+      "validatedAt": "2026-10-28T05:03:14.369Z"
+    },
+    {
+      "name": "auth",
+      "branch": "fleet/auth",
+      "baseBranch": "main",
+      "worktreePath": ".fleet/worktrees/auth",
+      "worktreeMissing": false,
+      "ahead": 2,
+      "behind": 0,
+      "uncommitted": 0,
+      "lastActivity": "2026-10-28T05:03:15.000Z",
+      "validation": "stale",
+      "validatedAt": "2026-10-28T05:03:14.751Z"
+    },
+    {
+      "name": "docs",
+      "branch": "fleet/docs",
+      "baseBranch": "main",
+      "worktreePath": ".fleet/worktrees/docs",
+      "worktreeMissing": false,
+      "ahead": 1,
+      "behind": 0,
+      "uncommitted": 0,
+      "lastActivity": "2026-10-28T05:03:13.000Z",
+      "validation": "passed",
+      "validatedAt": "2026-10-28T05:03:15.173Z"
+    }
+  ],
+  "check": {
+    "collisions": [
+      {
+        "file": "src.txt",
+        "agents": [
+          "api",
+          "auth"
+        ],
+        "verdict": "conflicts"
+      }
+    ],
+    "prediction": "merge-tree",
+    "agentsChecked": 3,
+    "agentFiles": {
+      "api": 1,
+      "auth": 2,
+      "docs": 1
+    },
+    "cleanMerges": []
+  }
+}
