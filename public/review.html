@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f5f6f3" />
+    <title>Fleet review | Switchyard</title>
+    <meta
+      name="description"
+      content="Inspect agent worktrees, collision evidence and validation states. Build a deliberate review plan from a synthetic example or local fleet JSON reports."
+    />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link
+      rel="preload"
+      href="fonts/dm-sans-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="review.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to review</a>
+    <div class="review-shell">
+      <header class="review-header">
+        <a class="brand" href="/" translate="no"
+          ><span class="brand-icon" aria-hidden="true">⑂</span> Switchyard</a
+        ><a class="text-link" href="/#setup">Local CLI setup ↗</a>
+      </header>
+      <main id="main" tabindex="-1">
+        <div class="review-intro">
+          <div>
+            <p class="eyebrow">Fleet review / evidence to next step</p>
+            <h1>Bring the work<br /><em>into focus.</em></h1>
+            <p class="lede">
+              Inspect the snapshot. Coordinate the overlaps. Leave with a review
+              plan.
+            </p>
+          </div>
+          <div class="actions">
+            <button class="button" id="load-demo">Load example</button
+            ><button class="button primary" id="open-import">
+              Open local reports
+            </button>
+          </div>
+        </div>
+        <p class="notice" id="data-notice" role="status">
+          Loading the synthetic example…
+        </p>
+        <div id="workspace" aria-busy="true"></div>
+        <section class="plan-panel" aria-labelledby="plan-title">
+          <div>
+            <p class="eyebrow">03 / Prepare a handoff</p>
+            <h2 id="plan-title">Your review plan</h2>
+            <p id="plan-count" role="status">No agents selected.</p>
+            <p class="meta">
+              Selection is a handoff choice, not merge approval. Reports and
+              notes stay in this tab; download the plan before leaving.
+            </p>
+          </div>
+          <div>
+            <label for="handoff-note"
+              >Your handoff note
+              <span class="meta">Optional · separate from evidence</span></label
+            ><textarea
+              id="handoff-note"
+              name="handoff-note"
+              autocomplete="off"
+              maxlength="2000"
+              rows="3"
+              placeholder="Who needs to coordinate, and what should they check?…"
+            ></textarea
+            ><button class="button primary" id="download-plan" disabled>
+              Download review plan
+            </button>
+            <p id="download-status" role="status"></p>
+          </div>
+        </section>
+        <p class="footer-note">
+          This viewer executes no Git, shell, agent or merge commands. Re-export
+          both reports after changes.
+          <a
+            href="https://github.com/MohammedAlkindi/switchyard/blob/main/docs/architecture.md"
+            >Read the detection limits ↗</a
+          >
+        </p>
+      </main>
+    </div>
+    <dialog id="import-dialog" aria-labelledby="import-title">
+      <button
+        class="dialog-close button"
+        data-close="import-dialog"
+        aria-label="Close report import"
+      >
+        ×
+      </button>
+      <p class="eyebrow">Use your repository’s evidence</p>
+      <h2 id="import-title">Open local fleet reports</h2>
+      <p>
+        Run these commands together in the same repository using Switchyard
+        0.5.0 or later. A collision check may exit 1 and still write a valid
+        report.
+      </p>
+      <div class="code-panel">
+        <div class="code-head">
+          <span>Export from your terminal</span
+          ><button class="copy" data-copy-target="export-commands">
+            Copy commands
+          </button>
+        </div>
+        <pre id="export-commands"><code>fleet list --json > agents.json
+fleet check --json > collisions.json</code></pre>
+      </div>
+      <p class="notice">
+        Files are read in this browser only. Reports contain branch names and
+        paths. Nothing is uploaded or stored by this viewer.
+      </p>
+      <form id="import-form">
+        <label for="agents-file">Agent report · agents.json</label
+        ><input
+          id="agents-file"
+          name="agents-file"
+          type="file"
+          accept=".json,application/json"
+          required
+        /><label for="check-file">Collision report · collisions.json</label
+        ><input
+          id="check-file"
+          name="check-file"
+          type="file"
+          accept=".json,application/json"
+          required
+        />
+        <p class="error" id="import-error" role="alert"></p>
+        <button class="button primary" type="submit">Inspect reports</button>
+      </form>
+    </dialog>
+    <dialog id="evidence-dialog" aria-labelledby="evidence-title">
+      <button
+        class="dialog-close button"
+        data-close="evidence-dialog"
+        aria-label="Close agent evidence"
+      >
+        ×
+      </button>
+      <div id="evidence-body"></div>
+    </dialog>
+    <p id="copy-status" class="sr-only" role="status"></p>
+  </body>
+</html>

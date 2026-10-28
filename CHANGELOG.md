@@ -9,6 +9,15 @@ this package.
 
 ## [Unreleased]
 
+### Website
+
+- Rebuilt the public site around a read-only fleet review: browser-local import
+  of existing list/check JSON exports, per-agent conflict and validation evidence,
+  filters, plan selection and Markdown handoff download. The synthetic example
+  comes from real temporary Git worktrees. Reports and notes never leave the tab.
+  This website release does not change the CLI or publish a new npm version.
+
+
 ## [0.5.0] - 2026-10-23
 
 ### Added
