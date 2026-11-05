@@ -27,10 +27,10 @@
         "./*"
       ],
       "@core/*": [
-        "../dist/*"
+        "../../packages/contextbill/dist/*"
       ],
       "@prices": [
-        "../prices.json"
+        "../../packages/contextbill/prices.json"
       ]
     }
   },

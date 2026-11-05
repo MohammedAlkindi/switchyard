@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, URL } from "node:url";
@@ -14,7 +15,7 @@ await writeFile(page, html.replace(marker, `$1v${version}$2`));
 execFileSync(
   process.execPath,
   [
-    fileURLToPath(new URL("node_modules/typescript/bin/tsc", root)),
+    fs.existsSync(fileURLToPath(new URL("node_modules/typescript/bin/tsc", root))) ? fileURLToPath(new URL("node_modules/typescript/bin/tsc", root)) : fileURLToPath(new URL("../../node_modules/typescript/bin/tsc", root)),
     "-p",
     fileURLToPath(new URL("public/tsconfig.json", root)),
   ],

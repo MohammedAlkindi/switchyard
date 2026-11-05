@@ -8,8 +8,8 @@ import {
   parseReports,
   gateFor,
   planMarkdown,
-} from "../public/report.js";
-import type { Report } from "../public/report.js";
+} from "../../../apps/site/public/report.js";
+import type { Report } from "../../../apps/site/public/report.js";
 import { makeTempRepo, worktreePath } from "./helpers.js";
 import { makeReviewFixture } from "./review-fixture.js";
 let report: Report;
@@ -49,7 +49,7 @@ describe("browser review uses actual fleet evidence", () => {
   });
   it("accepts the committed public example through exactly the same parser", () => {
     const data = JSON.parse(
-      readFileSync(new URL("../public/example.json", import.meta.url), "utf8"),
+      readFileSync(new URL("../../../apps/site/public/example.json", import.meta.url), "utf8"),
     ) as { agents: unknown; check: unknown };
     const example = parseReports(data.agents, data.check);
     expect(example.agents.map((a) => [a.name, a.validation])).toEqual(

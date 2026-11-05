@@ -16,7 +16,8 @@
   "author": "Mohammed Alkindi <alkndymhmd692@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MohammedAlkindi/switchyard.git"
+    "url": "git+https://github.com/MohammedAlkindi/switchyard.git",
+    "directory": "packages/switchyard"
   },
   "bugs": "https://github.com/MohammedAlkindi/switchyard/issues",
   "homepage": "https://switchyardhq.vercel.app",

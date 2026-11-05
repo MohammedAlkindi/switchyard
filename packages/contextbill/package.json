@@ -52,13 +52,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MohammedAlkindi/contextbill.git"
+    "url": "git+https://github.com/MohammedAlkindi/switchyard.git",
+    "directory": "packages/contextbill"
   },
   "homepage": "https://github.com/MohammedAlkindi/contextbill#readme",
   "bugs": {
-    "url": "https://github.com/MohammedAlkindi/contextbill/issues"
-  },
-  "workspaces": [
-    "web"
-  ]
+    "url": "https://github.com/MohammedAlkindi/switchyard/issues"
+  }
 }

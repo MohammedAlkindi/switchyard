@@ -6,22 +6,19 @@ on:
   pull_request:
     branches: [main]
 
-# Newer pushes supersede in-flight runs of the same branch/PR; keep every
-# run on main so its history stays complete.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  ci:
+  switchyard:
     runs-on: ${{ matrix.os }}
     strategy:
-      # A git-behavior bug on one OS shouldn't hide results from the others.
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         node-version: [18, 20, 22, 24]
-    name: ${{ matrix.os }} / node ${{ matrix.node-version }}
+    name: switchyard / ${{ matrix.os }} / node ${{ matrix.node-version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -33,27 +30,116 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
+      - name: Build contextbill prerequisite
+        run: npm run build --workspace=packages/contextbill
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Lint switchyard
+        run: npm run lint --workspace=packages/switchyard
 
-      - name: Build
-        run: npm run build
+      - name: Typecheck switchyard
+        run: npm run typecheck --workspace=packages/switchyard
 
-      - name: Build public review and check generated assets
+      - name: Build switchyard
+        run: npm run build --workspace=packages/switchyard
+
+      - name: Build site and check generated assets
         run: |
-          npm run build:site
-          git diff --exit-code -- public/main.js public/report.js public/review.js public/index.html
+          npm run build --workspace=apps/site
+          git diff --exit-code -- apps/site/public/main.js apps/site/public/report.js apps/site/public/review.js apps/site/public/index.html
 
-      # Catches packaging breakage the unit tests can't see: a bad shebang,
-      # an unresolvable import in the compiled output, or a files-array typo.
       - name: Smoke-test the built CLI
-        run: node dist/cli.js --version
+        run: node packages/switchyard/dist/cli.js --version
 
       - name: Preview npm pack contents
+        working-directory: packages/switchyard
         run: npm pack --dry-run
 
-      - name: Test
-        run: npm test
+      - name: Test switchyard
+        run: npm run test --workspace=packages/switchyard
+
+  contextbill-core:
+    name: contextbill / core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace=packages/contextbill
+      - run: npm run lint --workspace=packages/contextbill
+      - run: npm run test --workspace=packages/contextbill
+
+  contextbill-engines:
+    name: contextbill / oldest node 18
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace=packages/contextbill
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: verify CLI on node 18
+        working-directory: packages/contextbill
+        run: |
+          node --version
+          node dist/cli.js --root fixtures/projects --json > out.json
+          node -e "
+            const r = JSON.parse(require('fs').readFileSync('out.json','utf8'));
+            const expected = 0.017854;
+            if (Math.abs(r.cost.total - expected) > 1e-9) {
+              throw new Error('expected ' + expected + ', got ' + r.cost.total);
+            }
+            if (r.turns !== 7) throw new Error('expected 7 turns, got ' + r.turns);
+            console.log('node 18 ok: $' + r.cost.total + ' across ' + r.turns + ' turns');
+          "
+
+  contextbill-web:
+    name: contextbill / web build
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key-for-build-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace=packages/contextbill
+      - run: npm run lint --workspace=apps/web
+      - run: npm run build --workspace=apps/web
+      - run: npm run test --workspace=apps/web
+
+  contextbill-pack:
+    name: contextbill / tarball contents
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace=packages/contextbill
+      - name: verify tarball
+        working-directory: packages/contextbill
+        run: |
+          npm pack --dry-run --json > pack.json
+          node -e "
+            const files = JSON.parse(require('fs').readFileSync('pack.json','utf8'))[0].files.map(f => f.path);
+            const must = ['prices.json', 'dist/cli.js', 'README.md', 'LICENSE'];
+            const missing = must.filter(f => !files.includes(f));
+            if (missing.length) throw new Error('tarball is missing: ' + missing.join(', '));
+            const leaked = files.filter(f => f.startsWith('web/') || f.endsWith('.test.ts'));
+            if (leaked.length) throw new Error('tarball should not contain: ' + leaked.join(', '));
+            console.log('tarball ok:', files.length, 'files');
+          "

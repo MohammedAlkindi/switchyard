@@ -15,11 +15,11 @@ import { describePath, scanFiles } from '../browser-scan';
 const TABLE = priceTable as unknown as PriceTable;
 const FIXTURES = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  '../../../fixtures/projects',
+  '../../../../packages/contextbill/fixtures/projects',
 );
 const CROSSFILE = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  '../../../fixtures/crossfile',
+  '../../../../packages/contextbill/fixtures/crossfile',
 );
 
 /**

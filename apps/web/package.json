@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "prebuild": "npm --prefix .. run build",
-    "predev": "npm --prefix .. run build"
+    "prebuild": "npm --prefix ../../packages/contextbill run build",
+    "predev": "npm --prefix ../../packages/contextbill run build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
