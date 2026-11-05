@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: How a number is computed
+    url: https://github.com/MohammedAlkindi/contextbill/blob/main/METHODOLOGY.md
+    about: Deduplication, pricing, the startup-prefix model, and what contextbill cannot know.
+  - name: Contributing guide
+    url: https://github.com/MohammedAlkindi/contextbill/blob/main/CONTRIBUTING.md
+    about: Setup, the checks a pull request must pass, and the constraints that will fail review.

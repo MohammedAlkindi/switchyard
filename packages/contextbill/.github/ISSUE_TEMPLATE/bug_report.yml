@@ -1,0 +1,107 @@
+name: Bug report
+description: Something is broken, or a number looks wrong
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting.
+
+        **Please do not paste a real transcript or a report generated from one.** Transcripts
+        contain private conversation data, and project slugs encode your OS account name and
+        directory tree. A hand-trimmed snippet with the token counts and model ids left in is
+        usually enough, and `--show-paths` is off by default for the same reason.
+
+        If a number looks wrong, [METHODOLOGY.md](https://github.com/MohammedAlkindi/contextbill/blob/main/METHODOLOGY.md)
+        explains how each figure is computed. Its "What this cannot know" section covers the
+        cases that look like bugs and are not — the cache-TTL assumption, resumed sessions
+        counted twice, and API-equivalent value not being an invoice.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you run, and what did it do?
+      placeholder: |
+        $ npx contextbill --cache-ttl=1h
+        ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+      description: |
+        For a wrong-number report, the figure you got against the figure you expected, and how
+        you arrived at the expected one.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: contextbill version
+      description: "`npx contextbill --version`, or the commit if you built from source."
+      placeholder: "0.2.1"
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      description: "`node --version`. Supported range is >= 18."
+      placeholder: "v22.11.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: flags
+    attributes:
+      label: Flags passed
+      description: The full command line, with any paths redacted.
+      placeholder: "--root ~/.claude/projects --cache-ttl=1h --top 40"
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did you hit this?
+      options:
+        - CLI (npx contextbill)
+        - Statusline (--statusline)
+        - Library import
+        - Web app (contextbill.vercel.app)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: corpus
+    attributes:
+      label: Corpus shape (optional)
+      description: |
+        Only if it is relevant — roughly how many transcripts, and anything unusual about them
+        (resumed sessions, subagents, Codex rollouts, a copied-in corpus from another machine).
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have not pasted a real transcript, or a report generated from one.
+          required: true
+        - label: I have checked METHODOLOGY.md if this is about a number.
+          required: false

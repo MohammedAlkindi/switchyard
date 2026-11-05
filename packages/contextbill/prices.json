@@ -1,0 +1,314 @@
+{
+  "$comment": [
+    "Per-million-token prices in USD. EVERY dollar figure contextbill reports derives from",
+    "this file, so it is versioned, dated, and cited in the report footer.",
+    "",
+    "TWO VENDORS ARE PRICED HERE, and each is dated separately in `datedByProvider`",
+    "below. Anthropic rates come from https://platform.claude.com/docs/en/about-claude/pricing",
+    "and OpenAI rates from https://developers.openai.com/api/docs/pricing. They move on",
+    "different schedules and are read from different pages, so one date covering both",
+    "would let a fresh reading of one page vouch for a page nobody opened -- the same",
+    "argument that gives `plans` its own date.",
+    "",
+    "The Anthropic entries are Claude API / Microsoft Foundry / Claude Platform on AWS",
+    "rates. Amazon Bedrock and Google Vertex AI are partner-operated and priced",
+    "separately -- contextbill does not model them. The OpenAI entries are the",
+    "first-party API rates Codex bills against; see `$comment-openai` below for what",
+    "they do and do not cover.",
+    "",
+    "Figures here are what usage WOULD cost metered at these rates. Most Claude Code usage",
+    "is on a subscription, which bills a flat fee, so a contextbill total values the usage",
+    "rather than restating an invoice. Every surface says so.",
+    "",
+    "If you are reading a report and the numbers look wrong, check `dated` below first.",
+    "A test fails once this table is more than 60 days old. `dated` is deliberately the",
+    "OLDEST reading in `datedByProvider`, not the newest: if it tracked the newest, adding",
+    "a fresh reading for one vendor would reset the staleness clock on a vendor nobody had",
+    "looked at for months, and the one check that catches drift would go green for free.",
+    "",
+    "2026-09-03: every model rate and both cache multipliers below were re-read against the",
+    "source above and NONE had moved. `dated` is bumped because the table was re-verified on",
+    "that date, not because a price changed -- bumping it without re-reading is the one thing",
+    "that turns this field into a lie."
+  ],
+  "dated": "2026-09-03",
+  "currency": "USD",
+  "unit": "per_million_tokens",
+  "source": "Anthropic and OpenAI first-party API published rates; see datedByProvider",
+
+  "datedByProvider": {
+    "anthropic": {
+      "dated": "2026-09-03",
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    "openai": {
+      "dated": "2026-09-07",
+      "source": "https://developers.openai.com/api/docs/pricing, each model's own page under https://developers.openai.com/api/docs/models/, and https://developers.openai.com/api/docs/guides/prompt-caching for the cache multipliers"
+    }
+  },
+
+  "cacheWriteMultiplier": {
+    "$comment": [
+      "Cache writes are billed as a multiple of the model's base input rate.",
+      "5-minute TTL writes at 1.25x; 1-hour TTL writes at 2x.",
+      "",
+      "TRANSCRIPTS DO NOT RECORD WHICH TTL WAS USED. `cache_creation_input_tokens` is a",
+      "single number with no TTL field, so contextbill cannot infer it and does not guess.",
+      "Default is the 5-minute rate, which is the conservative choice: if your client",
+      "actually used 1-hour caching, the reported cost is an UNDERSTATEMENT, never an",
+      "overstatement. Override with --cache-ttl=1h. The report always names which was used."
+    ],
+    "5m": 1.25,
+    "1h": 2.0,
+    "default": "5m"
+  },
+  "cacheReadMultiplier": 0.1,
+
+  "$comment-retired-models": [
+    "The table below also prices retired models, because old transcripts still mention",
+    "them. Without an entry they land in unpricedModels and drop out of the total, which",
+    "understates any corpus with history. Keys are post-normalizeModelId: the dated suffix",
+    "is stripped before lookup, so `claude-opus-4-1-20250805` resolves to `claude-opus-4-1`.",
+    "This note sits outside `models` deliberately -- a `$comment` key inside that map would",
+    "be indistinguishable from a model to anything that iterates it."
+  ],
+
+  "$comment-missing-fable-5-1": [
+    "Claude Fable 5.1 and Claude Mythos 5.1 are published ($10 input / $50 output, same as",
+    "the 5.0 entries below) and are DELIBERATELY ABSENT. Their cache hits bill at 0.025x the",
+    "base input rate, not the 0.1x every other model uses, and `cacheReadMultiplier` above is",
+    "a single global number with no per-model override. Adding them would price their cache",
+    "reads FOUR TIMES too high, confidently, with nothing failing -- and cache reads are the",
+    "largest token class on a real corpus, so that error would dominate any total containing",
+    "them. Left unpriced, they land in `unpricedModelsSeen` and are reported loudly instead.",
+    "Adding them correctly means giving a model entry its own optional cacheReadMultiplier",
+    "and teaching cost.ts to prefer it; do that first, then add the two entries."
+  ],
+
+  "$comment-rate-periods": [
+    "A model entry may carry a `periods` array so usage is priced at the rate in force when",
+    "it happened rather than at today's rate. Without it, a vendor price change silently",
+    "reprices history and last quarter's report changes value on a re-run.",
+    "",
+    "Shape: `periods: [{ from: 'YYYY-MM-DD', input, output, fastInput?, fastOutput?, note }]`,",
+    "`from` inclusive and UTC, each period running until the next one's `from`. The LAST",
+    "period must restate the flat `input`/`output` beside it -- those stay the current rate,",
+    "so anything that has not been taught about periods still prices at today's rate. A price",
+    "change is a NEW period; never edit an existing one, because that is the silent repricing",
+    "the mechanism exists to prevent.",
+    "",
+    "NO MODEL BELOW CARRIES A PERIOD, and that is a finding rather than an omission. A period",
+    "is a claim about what a vendor charged on a date, and this repo can evidence no such",
+    "change yet. The one candidate was Sonnet 5: the table read $3/$15 until 2026-08-28 and",
+    "now reads $2/$10. That was THIS TABLE being wrong, not a rate that moved -- the scheduled",
+    "increase to $3/$15 was cancelled, so $2/$10 was the price the whole time and $3/$15 was",
+    "never charged to anyone. Writing it as a dated period would put a rate into the history",
+    "that never existed, and every turn before 2026-08-28 would then be priced 50% high with",
+    "full confidence. An invented historical rate is worse than no history.",
+    "",
+    "Add a period only with a dated published source in its `note`, and re-derive the pricing",
+    "anchor in pipeline.test.ts by hand in the same commit if fixture timestamps cross it."
+  ],
+
+  "$comment-openai": [
+    "OpenAI rates, added 2026-09-07 so that `--source codex` reports dollars rather than a",
+    "blank column. Read from the pages in `datedByProvider.openai` on that date; every",
+    "entry repeats its own URL and reading date in its `note`, and prices.test.ts fails if",
+    "one does not. No rate here was written from memory.",
+    "",
+    "ONLY THE MODELS CODEX ROLLOUTS ACTUALLY NAME are priced. Reading every rollout under",
+    "~/.codex/sessions on 2026-09-07 found exactly three model ids -- gpt-5.6-sol,",
+    "gpt-5.6-terra and gpt-5.5. Adding the rest of the catalogue would carry unverifiable",
+    "claims forever for usage nobody has.",
+    "",
+    "HOW THE TWO CODEX-SPECIFIC TOKEN FIELDS BILL, and both were checked rather than",
+    "assumed, because getting either backwards changes every number:",
+    "",
+    "  reasoning_output_tokens -- billed AS OUTPUT TOKENS. The reasoning guide says so",
+    "  outright (https://developers.openai.com/api/docs/guides/reasoning: reasoning tokens",
+    "  'are billed as output tokens'), and Codex reports them as a SUBSET already inside",
+    "  output_tokens -- total_tokens === input_tokens + output_tokens on every WELL-FORMED",
+    "  record of the 732 in the local corpus. That qualifier is codex-parse.ts's own and is",
+    "  dropped here at your peril: FOUR records violate the identity, reading input_tokens 0",
+    "  and output_tokens 0 against a non-zero total_tokens. Each sat on an event whose",
+    "  cumulative counter had not advanced, so the parser's gate discards all four before",
+    "  anything reads them -- which is why the exceptions cost nothing, not why there are",
+    "  none. So reasoning tokens are never added and this table needs no separate rate;",
+    "  adding them would inflate output by 8-50%.",
+    "",
+    "  cached_input_tokens -- discounted, and by exactly a tenth. Every OpenAI model priced",
+    "  below publishes a cached-input rate that is precisely 0.1x its input rate ($4 -> $0.40,",
+    "  $2 -> $0.20), which is the same figure `cacheReadMultiplier` already applies to every",
+    "  Anthropic model. That agreement between two vendors is a coincidence, not a law, so",
+    "  prices.test.ts pins each published cached rate against input x cacheReadMultiplier and",
+    "  fails if OpenAI ever prints one that is not a tenth.",
+    "",
+    "CACHE WRITES agree with the 5m default and disagree with the 1h override. OpenAI charges",
+    "1.25x the uncached input rate to write the cache on GPT-5.6 and later, which is exactly",
+    "`cacheWriteMultiplier['5m']`. But OpenAI has no TTL tiers to choose between -- the only",
+    "supported prompt_cache_options.ttl on these models is 30m -- so `--cache-ttl=1h` would",
+    "apply Anthropic's 2x to an OpenAI cache write, which nobody charges. The dollar effect",
+    "today is exactly zero: cache_write_input_tokens was present on 700 of 732 local",
+    "token_count events and read 0 on every one of them. It is recorded rather than fixed",
+    "because the fix is a per-model cache multiplier, which this table cannot express -- the",
+    "same missing mechanism that keeps gpt-5.5 out, below.",
+    "",
+    "THE LONG-CONTEXT TIER IS NOT MODELLED, and it understates. Prompts over 272K input",
+    "tokens bill at 2x input and 1.5x output for the whole request. contextbill aggregates",
+    "usage per model per UTC day before pricing, so per-request prompt size is gone by then",
+    "and there is nothing to test the threshold against. A corpus that crosses it is",
+    "under-reported, which is this file's standing bias. It did not fire locally: Codex",
+    "reported a 258,400-token context window on all 732 events and the largest single-turn",
+    "input was 228,238, both under 272,000.",
+    "",
+    "NO OPENAI ENTRY CARRIES A DATED PERIOD, for the same reason no Anthropic one does --",
+    "see $comment-rate-periods. gpt-5.6-sol's price is described as promotional 'at least",
+    "through November 21, 2026', which is a FUTURE end date and says nothing about what was",
+    "charged before. Writing today's numbers as a period would put a rate into the history",
+    "on no evidence. Re-read that page on 2026-11-21: if the price moves, that IS a dated",
+    "change and becomes a new period."
+  ],
+
+  "$comment-missing-gpt-5-5": [
+    "gpt-5.5 appears in real Codex rollouts and is DELIBERATELY ABSENT, exactly as Fable 5.1",
+    "is above and for the same structural reason. OpenAI charges a 1.25x cache-write premium",
+    "on GPT-5.6 and later and NO cache-write premium on models before it, while",
+    "`cacheWriteMultiplier` is a single global with no per-model override. Adding gpt-5.5",
+    "would assert a premium OpenAI does not charge, silently, with nothing failing. Its",
+    "cached-input rate ($0.50 against $5.00 input) is a clean 0.1x, so reads would be fine;",
+    "it is writes alone that cannot be expressed.",
+    "",
+    "Left out, its tokens land in `unpricedModelsSeen` and the report says so above the",
+    "total -- loud and understated, rather than quiet and overstated. codex.test.ts pins",
+    "that the fixture corpus stays partly unpriced because of it.",
+    "",
+    "Adding it correctly means giving a model entry its own optional cacheWriteMultiplier",
+    "and teaching cost.ts to prefer it -- the same fix Fable 5.1 needs for cacheReadMultiplier,",
+    "so one change unblocks three models. prices.test.ts already fails if gpt-5.5 is priced",
+    "without one."
+  ],
+
+  "models": {
+    "claude-fable-5": { "input": 10.0, "output": 50.0 },
+    "claude-mythos-5": { "input": 10.0, "output": 50.0 },
+    "claude-opus-5": {
+      "input": 5.0,
+      "output": 25.0,
+      "fastInput": 10.0,
+      "fastOutput": 50.0,
+      "note": "Fast mode (usage.speed === 'fast') bills at the premium rate."
+    },
+    "claude-opus-4-8": {
+      "input": 5.0,
+      "output": 25.0,
+      "fastInput": 10.0,
+      "fastOutput": 50.0,
+      "note": "Fast mode (usage.speed === 'fast') bills at the premium rate."
+    },
+    "claude-opus-4-7": { "input": 5.0, "output": 25.0 },
+    "claude-opus-4-6": { "input": 5.0, "output": 25.0 },
+    "claude-opus-4-5": { "input": 5.0, "output": 25.0 },
+    "claude-sonnet-5": {
+      "input": 2.0,
+      "output": 10.0,
+      "note": "$2/$10 launched as introductory pricing through 2026-08-31. The scheduled increase to $3/$15 was cancelled and $2/$10 is now the standard price. Deliberately NOT a dated period: this table carried $3/$15 by mistake until 2026-08-28, and that increase never took effect, so there is no earlier rate to date."
+    },
+    "claude-sonnet-4-6": { "input": 3.0, "output": 15.0 },
+    "claude-sonnet-4-5": { "input": 3.0, "output": 15.0 },
+    "claude-haiku-4-5": { "input": 1.0, "output": 5.0 },
+
+    "claude-opus-4-1": { "input": 15.0, "output": 75.0 },
+    "claude-opus-4": { "input": 15.0, "output": 75.0 },
+    "claude-sonnet-4": { "input": 3.0, "output": 15.0 },
+    "claude-3-5-haiku": { "input": 0.8, "output": 4.0 },
+
+    "gpt-5.6-sol": {
+      "input": 4.0,
+      "output": 20.0,
+      "note": "OpenAI Codex default model. $4/M input, $20/M output; published cached input $0.40/M, which is exactly 0.1x input and therefore priced correctly by the global cacheReadMultiplier. Source: https://developers.openai.com/api/docs/models/gpt-5.6-sol, read 2026-09-07. OpenAI calls this price promotional and available 'at least through November 21, 2026' -- a future end date, so there is no past rate change to record as a period. Re-read that page on 2026-11-21."
+    },
+    "gpt-5.6-terra": {
+      "input": 2.0,
+      "output": 12.0,
+      "note": "$2/M input, $12/M output; published cached input $0.20/M, again exactly 0.1x input. Source: https://developers.openai.com/api/docs/models/gpt-5.6-terra, read 2026-09-07. No promotional pricing is stated for this model, so nothing here has a known expiry."
+    }
+  },
+
+  "unpricedModels": {
+    "$comment": [
+      "Model IDs that appear in transcripts but carry no billable rate. Counted",
+      "separately and shown in the report rather than silently priced at zero."
+    ],
+    "ids": ["<synthetic>"]
+  },
+
+  "$comment-plans": [
+    "Subscription plan prices for --plan. These are a VENDOR FACT, not a measurement.",
+    "contextbill cannot observe what anyone pays, so every figure under `plans` is",
+    "copied from a published page on the date in `plans.dated` and is worth exactly",
+    "as much as that date. `plans` carries its own `dated` and `source` because plan",
+    "prices and API rates move on different schedules and for different reasons.",
+    "",
+    "A plan whose current price cannot be evidenced is OMITTED rather than estimated.",
+    "That is safe because the omission is loud: --plan rejects any id absent from",
+    "`plans.entries` and prints the ids that are present.",
+    "",
+    "`usdPerMonth` is the MONTHLY-billed price. Where an annual-billed price also",
+    "exists it is recorded beside it and is always the lower of the two. The",
+    "break-even multiple is computed against the monthly-billed price deliberately:",
+    "it is the larger denominator, so it yields the SMALLER multiple. Every choice in",
+    "this feature breaks toward under-claiming.",
+    "",
+    "`entries` is nested rather than sitting at the top of `plans` for the same reason",
+    "the retired-models note sits outside `models`: a $comment key inside the map",
+    "would be indistinguishable from a plan to anything that iterates it."
+  ],
+
+  "plans": {
+    "dated": "2026-09-03",
+    "source": "https://claude.com/pricing, re-read 2026-09-03. Max tier split from https://support.claude.com/en/articles/11049741-what-is-the-max-plan, re-read the same day, because the pricing page shows Max only as \"From $100\" and does not separate 5x from 20x.",
+    "currency": "USD",
+    "entries": {
+      "pro": {
+        "label": "Claude Pro",
+        "billing": "flat",
+        "usdPerMonth": 20,
+        "usdPerMonthAnnual": 17,
+        "note": "claude.com/pricing: \"$17\" per month on an annual subscription, \"$20 if billed monthly\"."
+      },
+      "max5": {
+        "label": "Claude Max 5x",
+        "billing": "flat",
+        "usdPerMonth": 100,
+        "note": "Anthropic's help centre article on the Max plan gives Max 5x as $100/month and states Max is available as a monthly subscription only, so there is no annual rate to record."
+      },
+      "max20": {
+        "label": "Claude Max 20x",
+        "billing": "flat",
+        "usdPerMonth": 200,
+        "note": "Same help-centre article: Max 20x is $200/month, monthly billing only. The public pricing page prints only \"From $100\" for Max and does not distinguish the tiers, which is why the article is cited instead."
+      },
+      "team": {
+        "label": "Claude Team, standard seat",
+        "billing": "flat",
+        "perSeat": true,
+        "usdPerMonth": 25,
+        "usdPerMonthAnnual": 20,
+        "note": "claude.com/pricing, re-read 2026-09-03: the Team standard seat is \"$20\" per month billed annually and \"$25 if billed monthly\", for teams of 2 to 150. usdPerMonth is the $25 monthly-billed figure, which is the LARGER denominator and so yields the SMALLER break-even multiple. Priced per seat. contextbill measures one machine, so this compares one person's usage against one seat. Which seat type carries Claude Code depends on how the organisation is configured and contextbill cannot see that -- if you are on a premium seat use --plan team-premium, or the multiple below is five times too large."
+      },
+      "team-premium": {
+        "label": "Claude Team, premium seat",
+        "billing": "flat",
+        "perSeat": true,
+        "usdPerMonth": 125,
+        "usdPerMonthAnnual": 100,
+        "note": "claude.com/pricing, re-read 2026-09-03: the Team premium seat is $100 per month billed annually and $125 if billed monthly. usdPerMonth is the $125 monthly-billed figure, for the same under-claiming reason as the standard seat. Priced per seat, same caveat as the standard seat."
+      },
+      "api": {
+        "label": "Claude API, pay as you go",
+        "billing": "metered",
+        "note": "No subscription fee: usage is billed per token at the rates in `models` above. There is no flat price to divide by, so no break-even multiple exists and none is reported. This is the one plan where the total is an estimate of an invoice rather than a valuation against a fee -- and it is still an estimate, because the cache-write TTL is an assumption."
+      }
+    }
+  }
+}

@@ -1,0 +1,105 @@
+# contextbill
+
+> Local-first cost analysis for coding agents. Reads the transcripts already on your
+> disk and prices them at published first-party API rates: which sessions ran expensive,
+> which produced nothing, and how much of the total is fixed context loaded on every
+> turn. The command line reads Claude Code transcripts and, on request, OpenAI
+> Codex CLI rollouts; the hosted app reads Claude Code transcripts only.
+
+contextbill exists because per-seat billing reports one number a month, which is
+enough to know you spent money and not enough to know where. It ships in two
+forms that share one analysis engine, so both produce the same figures for the
+same input.
+
+## What it does
+
+- Prices every turn against a dated rate table, split by model, and by whether
+  tokens were input, output, a cache write or a cache read. The table carries
+  first-party rates from two vendors, each with its own reading date: Anthropic
+  (read 2026-09-03) and OpenAI (read 2026-09-07).
+- Separates the startup prefix (system prompt, tool catalog, connector
+  definitions, instruction files) from the work you actually asked for. That
+  prefix is written to cache once and re-read on every subsequent turn, so a
+  long session pays for it repeatedly. On the corpus it was built against —
+  2,424 transcripts, measured 2026-09-09 — it was 19.6% of the bill.
+- Attributes spend to categories such as browser automation, shell, file
+  operations and connector catalogs, so the expensive habit is identifiable.
+- Corrects two ways the same request gets counted twice, and states the size of
+  each correction rather than asserting it. Claude Code rewrites a streamed
+  message into the transcript several times and each line restates that
+  message's cumulative usage, so summing lines multiplied the total by 2.39x on
+  that corpus. A resumed session then copies its parent's history into a new
+  file, which double-counted a further $1,250.33 of $15,733.14 until those
+  copies were merged across transcripts.
+- Reports subscription rate-limit windows, on the command line only, with
+  `--limits`. Those come from the API response headers by way of Claude Code, so
+  they are the vendor's own count rather than a local estimate; everything
+  derived from them is labelled as projected. contextbill never infers a window
+  from local files, and says it cannot see one rather than guessing.
+- Keeps saved reports so a number can be compared against itself over time.
+
+## What it reads
+
+Command line:
+
+- `~/.claude/projects` by default: Claude Code transcripts, opened read-only.
+- `~/.codex/sessions` **only when asked** with `--source codex` or `--source all`:
+  OpenAI Codex CLI rollouts. A default run never opens that tree or any path
+  outside the Claude Code root.
+
+Hosted web app:
+
+- Claude Code transcripts only, from a directory the user picks, parsed in the
+  browser tab. It has no Codex reader.
+
+Both, from every file: token counts, model ids, timestamps, tool names and the
+byte size of tool results. Never prompts or completions.
+
+## The two surfaces
+
+- **Command line**: `npx contextbill`. Zero runtime dependencies, no network
+  access of any kind, writes a self-contained HTML report. Nothing is uploaded.
+- **Hosted web app**: https://contextbill.vercel.app. Transcripts are parsed in
+  the browser tab. Only aggregates reach the server: totals, per-model spend,
+  per-category spend and per-session counts. Message content is never
+  transmitted, and the database has no column that could store it.
+
+## Privacy
+
+- https://contextbill.vercel.app/privacy. What is stored, what is not, and why
+  there is no cookie consent banner (the only cookie is the auth session).
+- Project folder names encode an operating system username, so they are redacted
+  before any report is saved.
+- Row-level security in Postgres restricts every row to the account that created
+  it.
+
+## Links
+
+- Home: https://contextbill.vercel.app
+- Source: https://github.com/MohammedAlkindi/contextbill
+- Package: https://www.npmjs.com/package/contextbill
+- Privacy: https://contextbill.vercel.app/privacy
+- Terms: https://contextbill.vercel.app/terms
+
+## Accuracy note
+
+Every figure is an estimate, not an invoice. Three limits, largest first.
+
+Figures are API-equivalent: every dollar is what that usage would cost metered
+at the vendor's published first-party API rates, Anthropic's for Claude Code and
+OpenAI's for Codex. Most Claude Code usage is on a subscription, which bills a
+flat fee, so the totals value the usage rather than restate what anyone was
+charged. Bedrock, Vertex and Azure OpenAI are partner-operated, priced separately
+again, and are not modelled.
+
+A model with no entry in the rate table is counted, named, and kept out of every
+dollar figure rather than folded in at zero. Two are deliberately unpriced today
+because the table cannot yet express a per-model cache multiplier, so a total
+covering them is understated and says so.
+
+A transcript records how many tokens were written to cache but not which cache
+lifetime was billed, so contextbill assumes the cheaper one and tends to
+understate rather than overstate.
+
+The startup-prefix figure is a model of how fixed overhead is apportioned, not a
+line item any provider bills separately.

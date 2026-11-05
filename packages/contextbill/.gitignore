@@ -1,0 +1,23 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# Generated reports describe a real machine and must never be committed.
+*-report.html
+*.report.html
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+
+.vercel
+.env*
