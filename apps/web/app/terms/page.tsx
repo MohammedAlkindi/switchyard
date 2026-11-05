@@ -111,7 +111,7 @@ export default function TermsPage() {
         <h2>Contact</h2>
         <p>
           Open an issue on{' '}
-          <a href="https://github.com/MohammedAlkindi/contextbill/issues">GitHub</a>.
+          <a href="https://github.com/MohammedAlkindi/switchyard/issues">GitHub</a>.
         </p>
 
         <p className="legal-nav">

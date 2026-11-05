@@ -7,8 +7,8 @@ same thing, and the README is the short version.
 ## Getting set up
 
 ```bash
-git clone https://github.com/MohammedAlkindi/contextbill.git
-cd contextbill
+git clone https://github.com/MohammedAlkindi/switchyard.git
+cd switchyard
 npm install          # installs both workspaces (root and web/)
 npm run build        # tsc -> dist/
 node dist/cli.js     # run the CLI against your own transcripts
@@ -115,7 +115,7 @@ Small, single-purpose pull requests get reviewed faster than large ones.
 
 ## Reporting a bug
 
-Use the [issue templates](https://github.com/MohammedAlkindi/contextbill/issues/new/choose).
+Use the [issue templates](https://github.com/MohammedAlkindi/switchyard/issues).
 For a wrong-number report, the version, the flags you passed, and the figure you expected
 against the figure you got are what make it actionable. **Never paste a real transcript or a
 report generated from one** — they contain private conversation data and machine-identifying

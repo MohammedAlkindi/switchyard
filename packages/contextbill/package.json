@@ -55,7 +55,7 @@
     "url": "git+https://github.com/MohammedAlkindi/switchyard.git",
     "directory": "packages/contextbill"
   },
-  "homepage": "https://github.com/MohammedAlkindi/contextbill#readme",
+  "homepage": "https://github.com/MohammedAlkindi/switchyard/tree/main/packages/contextbill#readme",
   "bugs": {
     "url": "https://github.com/MohammedAlkindi/switchyard/issues"
   }

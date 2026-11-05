@@ -26,7 +26,7 @@ export function SiteHeader({ signedIn = false }: { signedIn?: boolean }) {
         <nav className="topnav" aria-label="Primary">
           <Link className="nav-anchor" href="/#how">How it works</Link>
           <Link className="nav-anchor" href="/#privacy">Privacy</Link>
-          <a href="https://github.com/MohammedAlkindi/contextbill">GitHub</a>
+          <a href="https://github.com/MohammedAlkindi/switchyard/tree/main/packages/contextbill">GitHub</a>
           <Link className="btn secondary" href={signedIn ? '/dashboard' : '/login'}>
             {signedIn ? 'Dashboard' : 'Sign in'}
           </Link>
@@ -54,7 +54,7 @@ export function SiteFooter() {
           <Link href="/#how">How it works</Link>
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
-          <a href="https://github.com/MohammedAlkindi/contextbill">GitHub</a>
+          <a href="https://github.com/MohammedAlkindi/switchyard/tree/main/packages/contextbill">GitHub</a>
           <a href="https://www.npmjs.com/package/contextbill">npm</a>
         </nav>
         <span className="foot-note">

@@ -138,7 +138,7 @@ const STRUCTURED_DATA = {
   description:
     'Local-first cost analysis for Claude Code. Reads transcripts already on your disk and reports what they cost.',
   url: 'https://contextbill.vercel.app',
-  softwareHelp: 'https://github.com/MohammedAlkindi/contextbill',
+  softwareHelp: 'https://github.com/MohammedAlkindi/switchyard/tree/main/packages/contextbill',
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
   author: { '@type': 'Person', name: 'Mohammed Alkindi' },
 };
@@ -231,7 +231,7 @@ export default async function LandingPage() {
             </p>
             <div className="row">
               <ArrowCta href={ctaHref}>{ctaLabel}</ArrowCta>
-              <a className="btn secondary" href="https://github.com/MohammedAlkindi/contextbill">
+              <a className="btn secondary" href="https://github.com/MohammedAlkindi/switchyard/tree/main/packages/contextbill">
                 View the source
               </a>
             </div>

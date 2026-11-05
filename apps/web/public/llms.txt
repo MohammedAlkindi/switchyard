@@ -76,7 +76,7 @@ byte size of tool results. Never prompts or completions.
 ## Links
 
 - Home: https://contextbill.vercel.app
-- Source: https://github.com/MohammedAlkindi/contextbill
+- Source: https://github.com/MohammedAlkindi/switchyard/tree/main/packages/contextbill
 - Package: https://www.npmjs.com/package/contextbill
 - Privacy: https://contextbill.vercel.app/privacy
 - Terms: https://contextbill.vercel.app/terms

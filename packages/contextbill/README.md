@@ -80,9 +80,9 @@ npx contextbill
 Or from source:
 
 ```bash
-git clone https://github.com/MohammedAlkindi/contextbill.git
-cd contextbill && npm install && npm run build
-node dist/cli.js
+git clone https://github.com/MohammedAlkindi/switchyard.git
+cd switchyard && npm install && npm run build --workspace=packages/contextbill
+node packages/contextbill/dist/cli.js
 ```
 
 | Flag | Default | Meaning |

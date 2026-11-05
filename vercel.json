@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "node apps/site/scripts/build-site.mjs",
+  "outputDirectory": "apps/site/public",
+  "framework": null,
+  "cleanUrls": true
+}

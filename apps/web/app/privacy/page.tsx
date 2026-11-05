@@ -162,7 +162,7 @@ export default function PrivacyPage() {
         </p>
         <p>
           To delete the account itself along with every report under it, open an issue on{' '}
-          <a href="https://github.com/MohammedAlkindi/contextbill/issues">GitHub</a> and
+          <a href="https://github.com/MohammedAlkindi/switchyard/issues">GitHub</a> and
           say which account it concerns. If you would rather not have an account at all, the
           command line tool runs the same analysis with no network access and no sign in.
         </p>
@@ -177,13 +177,13 @@ export default function PrivacyPage() {
         <p>
           If this policy changes, the date at the top changes with it. The site is open
           source, so the full history of this page is public in the{' '}
-          <a href="https://github.com/MohammedAlkindi/contextbill">repository</a>.
+          <a href="https://github.com/MohammedAlkindi/switchyard/tree/main/packages/contextbill">repository</a>.
         </p>
 
         <h2>Contact</h2>
         <p>
           Open an issue on{' '}
-          <a href="https://github.com/MohammedAlkindi/contextbill/issues">GitHub</a>. For
+          <a href="https://github.com/MohammedAlkindi/switchyard/issues">GitHub</a>. For
           anything you would rather not discuss in public, mark it as such in the issue and
           we will find another channel.
         </p>
