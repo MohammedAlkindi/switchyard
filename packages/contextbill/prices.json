@@ -31,22 +31,20 @@
     "that date, not because a price changed -- bumping it without re-reading is the one thing",
     "that turns this field into a lie."
   ],
-  "dated": "2026-09-03",
+  "dated": "2026-11-04",
   "currency": "USD",
   "unit": "per_million_tokens",
   "source": "Anthropic and OpenAI first-party API published rates; see datedByProvider",
-
   "datedByProvider": {
     "anthropic": {
-      "dated": "2026-09-03",
+      "dated": "2026-11-04",
       "source": "https://platform.claude.com/docs/en/about-claude/pricing"
     },
     "openai": {
-      "dated": "2026-09-07",
+      "dated": "2026-11-04",
       "source": "https://developers.openai.com/api/docs/pricing, each model's own page under https://developers.openai.com/api/docs/models/, and https://developers.openai.com/api/docs/guides/prompt-caching for the cache multipliers"
     }
   },
-
   "cacheWriteMultiplier": {
     "$comment": [
       "Cache writes are billed as a multiple of the model's base input rate.",
@@ -59,11 +57,10 @@
       "overstatement. Override with --cache-ttl=1h. The report always names which was used."
     ],
     "5m": 1.25,
-    "1h": 2.0,
+    "1h": 2,
     "default": "5m"
   },
   "cacheReadMultiplier": 0.1,
-
   "$comment-retired-models": [
     "The table below also prices retired models, because old transcripts still mention",
     "them. Without an entry they land in unpricedModels and drop out of the total, which",
@@ -72,7 +69,6 @@
     "This note sits outside `models` deliberately -- a `$comment` key inside that map would",
     "be indistinguishable from a model to anything that iterates it."
   ],
-
   "$comment-missing-fable-5-1": [
     "Claude Fable 5.1 and Claude Mythos 5.1 are published ($10 input / $50 output, same as",
     "the 5.0 entries below) and are DELIBERATELY ABSENT. Their cache hits bill at 0.025x the",
@@ -84,7 +80,6 @@
     "Adding them correctly means giving a model entry its own optional cacheReadMultiplier",
     "and teaching cost.ts to prefer it; do that first, then add the two entries."
   ],
-
   "$comment-rate-periods": [
     "A model entry may carry a `periods` array so usage is priced at the rate in force when",
     "it happened rather than at today's rate. Without it, a vendor price change silently",
@@ -109,7 +104,6 @@
     "Add a period only with a dated published source in its `note`, and re-derive the pricing",
     "anchor in pipeline.test.ts by hand in the same commit if fixture timestamps cross it."
   ],
-
   "$comment-openai": [
     "OpenAI rates, added 2026-09-07 so that `--source codex` reports dollars rather than a",
     "blank column. Read from the pages in `datedByProvider.openai` on that date; every",
@@ -168,7 +162,6 @@
     "on no evidence. Re-read that page on 2026-11-21: if the price moves, that IS a dated",
     "change and becomes a new period."
   ],
-
   "$comment-missing-gpt-5-5": [
     "gpt-5.5 appears in real Codex rollouts and is DELIBERATELY ABSENT, exactly as Fable 5.1",
     "is above and for the same structural reason. OpenAI charges a 1.25x cache-write premium",
@@ -187,61 +180,94 @@
     "so one change unblocks three models. prices.test.ts already fails if gpt-5.5 is priced",
     "without one."
   ],
-
   "models": {
-    "claude-fable-5": { "input": 10.0, "output": 50.0 },
-    "claude-mythos-5": { "input": 10.0, "output": 50.0 },
+    "claude-fable-5": {
+      "input": 10,
+      "output": 50
+    },
+    "claude-mythos-5": {
+      "input": 10,
+      "output": 50
+    },
     "claude-opus-5": {
-      "input": 5.0,
-      "output": 25.0,
-      "fastInput": 10.0,
-      "fastOutput": 50.0,
+      "input": 5,
+      "output": 25,
+      "fastInput": 10,
+      "fastOutput": 50,
       "note": "Fast mode (usage.speed === 'fast') bills at the premium rate."
     },
     "claude-opus-4-8": {
-      "input": 5.0,
-      "output": 25.0,
-      "fastInput": 10.0,
-      "fastOutput": 50.0,
+      "input": 5,
+      "output": 25,
+      "fastInput": 10,
+      "fastOutput": 50,
       "note": "Fast mode (usage.speed === 'fast') bills at the premium rate."
     },
-    "claude-opus-4-7": { "input": 5.0, "output": 25.0 },
-    "claude-opus-4-6": { "input": 5.0, "output": 25.0 },
-    "claude-opus-4-5": { "input": 5.0, "output": 25.0 },
+    "claude-opus-4-7": {
+      "input": 5,
+      "output": 25
+    },
+    "claude-opus-4-6": {
+      "input": 5,
+      "output": 25
+    },
+    "claude-opus-4-5": {
+      "input": 5,
+      "output": 25
+    },
     "claude-sonnet-5": {
-      "input": 2.0,
-      "output": 10.0,
+      "input": 2,
+      "output": 10,
       "note": "$2/$10 launched as introductory pricing through 2026-08-31. The scheduled increase to $3/$15 was cancelled and $2/$10 is now the standard price. Deliberately NOT a dated period: this table carried $3/$15 by mistake until 2026-08-28, and that increase never took effect, so there is no earlier rate to date."
     },
-    "claude-sonnet-4-6": { "input": 3.0, "output": 15.0 },
-    "claude-sonnet-4-5": { "input": 3.0, "output": 15.0 },
-    "claude-haiku-4-5": { "input": 1.0, "output": 5.0 },
-
-    "claude-opus-4-1": { "input": 15.0, "output": 75.0 },
-    "claude-opus-4": { "input": 15.0, "output": 75.0 },
-    "claude-sonnet-4": { "input": 3.0, "output": 15.0 },
-    "claude-3-5-haiku": { "input": 0.8, "output": 4.0 },
-
+    "claude-sonnet-4-6": {
+      "input": 3,
+      "output": 15
+    },
+    "claude-sonnet-4-5": {
+      "input": 3,
+      "output": 15
+    },
+    "claude-haiku-4-5": {
+      "input": 1,
+      "output": 5
+    },
+    "claude-opus-4-1": {
+      "input": 15,
+      "output": 75
+    },
+    "claude-opus-4": {
+      "input": 15,
+      "output": 75
+    },
+    "claude-sonnet-4": {
+      "input": 3,
+      "output": 15
+    },
+    "claude-3-5-haiku": {
+      "input": 0.8,
+      "output": 4
+    },
     "gpt-5.6-sol": {
-      "input": 4.0,
-      "output": 20.0,
+      "input": 4,
+      "output": 20,
       "note": "OpenAI Codex default model. $4/M input, $20/M output; published cached input $0.40/M, which is exactly 0.1x input and therefore priced correctly by the global cacheReadMultiplier. Source: https://developers.openai.com/api/docs/models/gpt-5.6-sol, read 2026-09-07. OpenAI calls this price promotional and available 'at least through November 21, 2026' -- a future end date, so there is no past rate change to record as a period. Re-read that page on 2026-11-21."
     },
     "gpt-5.6-terra": {
-      "input": 2.0,
-      "output": 12.0,
+      "input": 2,
+      "output": 12,
       "note": "$2/M input, $12/M output; published cached input $0.20/M, again exactly 0.1x input. Source: https://developers.openai.com/api/docs/models/gpt-5.6-terra, read 2026-09-07. No promotional pricing is stated for this model, so nothing here has a known expiry."
     }
   },
-
   "unpricedModels": {
     "$comment": [
       "Model IDs that appear in transcripts but carry no billable rate. Counted",
       "separately and shown in the report rather than silently priced at zero."
     ],
-    "ids": ["<synthetic>"]
+    "ids": [
+      "<synthetic>"
+    ]
   },
-
   "$comment-plans": [
     "Subscription plan prices for --plan. These are a VENDOR FACT, not a measurement.",
     "contextbill cannot observe what anyone pays, so every figure under `plans` is",
@@ -263,9 +289,8 @@
     "the retired-models note sits outside `models`: a $comment key inside the map",
     "would be indistinguishable from a plan to anything that iterates it."
   ],
-
   "plans": {
-    "dated": "2026-09-03",
+    "dated": "2026-11-04",
     "source": "https://claude.com/pricing, re-read 2026-09-03. Max tier split from https://support.claude.com/en/articles/11049741-what-is-the-max-plan, re-read the same day, because the pricing page shows Max only as \"From $100\" and does not separate 5x from 20x.",
     "currency": "USD",
     "entries": {
