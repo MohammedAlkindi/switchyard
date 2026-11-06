@@ -1,0 +1,11 @@
+{
+  "name": "@switchyardhq/cortexai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop AI workspace and local proxy gateway for Switchyard",
+  "scripts": {
+    "start": "python main.py",
+    "serve": "uvicorn api.server:create_api_app --port 8000",
+    "test": "pytest tests/ -v"
+  }
+}

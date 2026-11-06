@@ -291,6 +291,15 @@ A malformed config file is a hard error with the offending key named; a missing 
 
 `fleet spawn` runs `git worktree add` under the hood: each agent gets a real, separate directory with its own checkout of a dedicated `fleet/<agent>` branch, so one agent's `git reset` physically cannot touch another agent's files. A single gitignored `.fleet/state.json` in the main repo maps each agent to its branch, base, and worktree, and `fleet check` uses it to diff every agent branch against its base (`git diff base...branch`, plus uncommitted edits) and cross-reference the changed files. Switchyard also adds `.fleet/` to `.git/info/exclude` automatically, so it never dirties the repos it manages. Design rationale and limitations live in [docs/architecture.md](docs/architecture.md).
 
+## Monorepo Packages
+
+Switchyard is organized as a unified workspace for multi-agent software engineering:
+- **`packages/switchyard`** (`@switchyardhq/switchyard`): The core `fleet` CLI for worktree isolation, agent tracking, and merge collision detection.
+- **`packages/contextbill`** (`@switchyardhq/contextbill`): Local-first token cost and context-window billing engine.
+- **`packages/cortexai`** (`@switchyardhq/cortexai`): Desktop AI workspace and local proxy gateway (`/v1/completions`) routing to Claude, OpenAI, and local models with unified billing.
+- **`apps/web`**: Web dashboard for transcript analysis and fleet reporting.
+- **`apps/site`**: Marketing website and browser fleet review deployed at [switchyardhq.vercel.app](https://switchyardhq.vercel.app).
+
 ## Contributing
 
 PRs are welcome. Clone, `npm install`, `npm test` — every command is tested against real throwaway git repositories, and any change to a command must come with such a test (no git mocks; see [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) for the ground rules). Commits follow [Conventional Commits](https://www.conventionalcommits.org/). Read [docs/architecture.md](docs/architecture.md) before structural changes, and [docs/deployment.md](docs/deployment.md) for the release process.

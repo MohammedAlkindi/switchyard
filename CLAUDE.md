@@ -27,4 +27,10 @@ Run `npm test` (vitest) before and after changes. `npm run lint` and `npm run ty
 
 ## Where things live
 
+- `packages/switchyard`: Core `fleet` CLI for worktree isolation and collision detection.
+- `packages/contextbill`: Token cost accounting and context-window billing parser.
+- `packages/cortexai`: Desktop AI workspace and local proxy gateway server.
+- `apps/web`: Next.js web application for transcript analysis and fleet reporting.
+- `apps/site`: Marketing site deployed to `switchyardhq.vercel.app`.
+
 Read `docs/architecture.md` before making structural changes — it explains why worktrees (not just branches) are the isolation mechanism, the `.fleet/state.json` schema, and the v1 limitations. Release process is in `docs/deployment.md`.
