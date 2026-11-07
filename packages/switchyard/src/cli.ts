@@ -9,6 +9,7 @@ import { dashboard } from './commands/dashboard.js';
 import { diff } from './commands/diff.js';
 import { doctor } from './commands/doctor.js';
 import { exec } from './commands/exec.js';
+import { gateway } from './commands/gateway.js';
 import { init, initCheck } from './commands/init.js';
 import { list } from './commands/list.js';
 import { mcp } from './commands/mcp.js';
@@ -85,7 +86,8 @@ program
   .description('create an isolated worktree + branch (fleet/<name>) for an agent')
   .argument('<agent-name>', 'name for the agent, e.g. claude, codex, cursor')
   .option('--from <branch>', 'base branch to spawn from (default: current branch)')
-  .action((name: string, opts: { from?: string }) => run(() => spawn(name, opts)));
+  .option('--gateway', 'configure .env.fleet to point agent traffic through local model proxy')
+  .action((name: string, opts: { from?: string; gateway?: boolean }) => run(() => spawn(name, opts)));
 
 program
   .command('list')
@@ -211,6 +213,15 @@ program
   .action((opts: { interval?: number; once?: boolean }) => run(() => dashboard(opts)));
 
 program
+  .command('gateway')
+  .alias('serve')
+  .description('start the CortexAI local model proxy and fleet gateway (:8000)')
+  .option('--port <number>', 'port to listen on', (val) => parseInt(val, 10), 8000)
+  .option('--host <string>', 'host to bind to', '127.0.0.1')
+  .option('--status', 'check if the gateway is running and inspect health')
+  .action((opts: { port?: number; host?: string; status?: boolean }) => run(() => gateway(opts)));
+
+program
   .command('merge')
   .description("merge an agent's branch into the current branch, then clean up the agent")
   .argument('<agent-name>', 'agent to merge')
@@ -276,6 +287,7 @@ program.addHelpText(
     '  fleet init --check              verify that setup in CI; exits 1 on drift\n' +
     '  fleet spawn claude              spawn an agent off the current branch\n' +
     '  fleet spawn codex --from main   spawn a second agent off main\n' +
+    '  fleet gateway                   launch local model proxy (:8000)\n' +
     '  fleet check --lines             any files touched by both, line-precise?\n' +
     '  fleet sync claude               catch fleet/claude up with its base\n' +
     '  fleet sync --all                catch every agent up after a merge\n' +

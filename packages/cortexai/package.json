@@ -5,7 +5,8 @@
   "description": "Desktop AI workspace and local proxy gateway for Switchyard",
   "scripts": {
     "start": "python main.py",
-    "serve": "uvicorn api.server:create_api_app --port 8000",
-    "test": "pytest tests/ -v"
+    "serve": "uvicorn api.server:app --port 8000",
+    "test": "node -e \"console.log('@switchyardhq/cortexai: run py -3.13 -m pytest tests/')\"",
+    "test:python": "py -3.13 -m pytest tests/test_api_server.py tests/test_billing_manager.py -v"
   }
 }

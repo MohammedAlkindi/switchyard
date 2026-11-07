@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { readConfig } from '../lib/config.js';
 import { FleetError } from '../lib/errors.js';
@@ -20,6 +20,8 @@ import type { AgentRecord } from '../lib/state.js';
 export interface SpawnOptions {
   /** Base branch to spawn from. Defaults to the current branch. */
   from?: string;
+  /** Whether to write gateway environment (.env.fleet) pointing agent to local proxy. */
+  gateway?: boolean;
   cwd?: string;
 }
 
@@ -148,6 +150,21 @@ async function spawnLocked(
     console.log(`  copied:   ${entry}`);
   }
 
+  // Gateway environment file if requested
+  if (options.gateway) {
+    const envPath = path.join(worktreeAbs, '.env.fleet');
+    const content = [
+      '# Switchyard Fleet Gateway Environment',
+      'OPENAI_BASE_URL="http://127.0.0.1:8000/v1"',
+      'ANTHROPIC_BASE_URL="http://127.0.0.1:8000/v1"',
+      `FLEET_AGENT="${name}"`,
+      `FLEET_WORKTREE="${worktreeAbs}"`,
+      '',
+    ].join('\n');
+    writeFileSync(envPath, content, 'utf8');
+    console.log(dim(`  gateway:  written ${envPath}`));
+  }
+
   let postSpawnExitCode: number | undefined;
   if (config.postSpawn) {
     console.log(dim(`  postSpawn: ${config.postSpawn}`));
@@ -162,6 +179,9 @@ async function spawnLocked(
   console.log('');
   console.log('Point your agent at it:');
   console.log(`  cd ${worktreeAbs}`);
+  if (options.gateway) {
+    console.log(dim('  export OPENAI_BASE_URL="http://127.0.0.1:8000/v1"'));
+  }
 
   return { record, worktreePath: worktreeAbs, copied, postSpawnExitCode };
 }

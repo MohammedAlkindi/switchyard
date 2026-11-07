@@ -2,7 +2,13 @@ import sys
 import types
 
 import pytest
-from PyQt5.QtWidgets import QApplication
+
+try:
+    from PyQt5.QtWidgets import QApplication
+    HAS_PYQT = True
+except ImportError:
+    HAS_PYQT = False
+    QApplication = None
 
 # Provide a minimal theme stub so tests can import ui.theme without a running display
 # when the real module is unavailable. If the real module already loaded, skip.
@@ -43,5 +49,8 @@ if "ui.theme" not in sys.modules:
 
 @pytest.fixture(scope="session", autouse=True)
 def qapp():
+    if not HAS_PYQT:
+        yield None
+        return
     app = QApplication.instance() or QApplication([])
     yield app
