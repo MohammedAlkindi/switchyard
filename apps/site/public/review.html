@@ -22,104 +22,120 @@
   </head>
   <body>
     <a class="skip" href="#main">Skip to review</a>
-    <header class="app-header">
-      <a class="brand" href="/" translate="no"
-        ><svg
-          class="brand-icon"
-          width="20"
-          height="20"
-          viewBox="0 0 20 20"
-          aria-hidden="true"
-        >
-          <path
-            d="M5 3v10a4 4 0 0 0 4 4h6M15 3v4a4 4 0 0 1-4 4H5"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          />
-          <circle cx="5" cy="3" r="2" />
-          <circle cx="15" cy="3" r="2" />
-          <circle cx="15" cy="17" r="2" /></svg
-        >Switchyard</a
-      >
-      <nav aria-label="Workspace">
-        <a href="review.html" aria-current="page">Review</a
-        ><a href="/#setup">Setup</a
-        ><a href="https://github.com/MohammedAlkindi/switchyard"
-          >Docs <span aria-hidden="true">↗</span></a
-        >
-      </nav>
-      <button class="button primary" id="open-import">
-        Open local reports
-      </button>
-    </header>
-    <main class="review-shell" id="main" tabindex="-1">
-      <div class="review-intro">
-        <div>
-          <h1>Fleet review</h1>
-          <p class="lede">
-            Inspect agent changes before bringing them together.
-          </p>
-        </div>
-        <button class="button quiet" id="load-demo">Load example</button>
-      </div>
-      <p class="source-line" id="data-notice" role="status">
-        Loading the example…
-      </p>
-      <div id="workspace" aria-busy="true"></div>
-      <details class="plan-panel" id="plan-panel">
-        <summary>
-          <span id="plan-title">Review plan</span
-          ><span class="meta" id="plan-count" role="status"
-            >No agents selected.</span
-          ><span class="disclosure" aria-hidden="true">+</span>
-        </summary>
-        <div class="plan-content">
+    <div class="site-shell">
+      <header class="app-header">
+        <a class="brand" href="/" translate="no">
+          <svg
+            class="brand-icon"
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            aria-hidden="true"
+          >
+            <path
+              d="M5 3v10a4 4 0 0 0 4 4h6M15 3v4a4 4 0 0 1-4 4H5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <circle cx="5" cy="3" r="2" />
+            <circle cx="15" cy="3" r="2" />
+            <circle cx="15" cy="17" r="2" />
+          </svg>
+          Switchyard
+          <span class="version-chip" id="version-chip">v0.5.0</span>
+        </a>
+        <nav aria-label="Workspace">
+          <a href="docs.html">Docs</a>
+          <a href="review.html" aria-current="page">Review</a>
+          <a href="/#setup">Setup</a>
+          <a href="https://github.com/MohammedAlkindi/switchyard" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+        </nav>
+        <button class="button primary" id="open-import">
+          Open local reports
+        </button>
+      </header>
+
+      <main class="review-shell" id="main" tabindex="-1">
+        <div class="review-intro">
           <div>
-            <p>Select agents to prepare a handoff.</p>
-            <p class="meta">
-              Selections and notes stay in this tab. Download the plan before
-              leaving.
+            <h1>Fleet review</h1>
+            <p class="lede">
+              Inspect agent changes before bringing them together.
             </p>
           </div>
-          <div>
-            <label for="handoff-note"
-              >Your handoff note <span class="meta">Optional</span></label
-            ><textarea
-              id="handoff-note"
-              name="handoff-note"
-              autocomplete="off"
-              maxlength="2000"
-              rows="3"
-              placeholder="What should the next person check?…"
-            ></textarea
-            ><button class="button primary" id="download-plan" disabled>
-              Download review plan
-            </button>
-            <p id="download-status" role="status"></p>
+          <button class="button quiet" id="load-demo">Load example</button>
+        </div>
+        <p class="source-line" id="data-notice" role="status">
+          Loading the example…
+        </p>
+        <div id="workspace" aria-busy="true"></div>
+        <details class="plan-panel" id="plan-panel">
+          <summary>
+            <span id="plan-title">Review plan</span>
+            <span class="meta" id="plan-count" role="status">No agents selected.</span>
+            <span class="disclosure" aria-hidden="true">+</span>
+          </summary>
+          <div class="plan-content">
+            <div>
+              <p>Select agents to prepare a handoff.</p>
+              <p class="meta">
+                Selections and notes stay in this tab. Download the plan before leaving.
+              </p>
+            </div>
+            <div>
+              <label for="handoff-note">
+                Your handoff note <span class="meta">Optional</span>
+              </label>
+              <textarea
+                id="handoff-note"
+                name="handoff-note"
+                autocomplete="off"
+                maxlength="2000"
+                rows="3"
+                placeholder="What should the next person check?…"
+              ></textarea>
+              <button class="button primary" id="download-plan" disabled>
+                Download review plan
+              </button>
+              <p id="download-status" role="status"></p>
+            </div>
           </div>
+        </details>
+        <details class="report-help">
+          <summary>About this report</summary>
+          <div>
+            <p>
+              The example uses synthetic data from a throwaway Git repository.
+              Imported reports are read in this tab and never uploaded or stored.
+              Refresh both exports after changes.
+            </p>
+            <p>
+              Validation applies to a recorded commit and command. A review
+              candidate is not merge approval. This viewer executes no repository
+              commands.
+            </p>
+            <a
+              href="docs.html#collision-engine"
+              >Detection limits &amp; methodology ↗</a
+            >
+          </div>
+        </details>
+      </main>
+
+      <footer class="footer">
+        <a class="brand" href="/">Switchyard</a>
+        <p>100% Local-first. Zero telemetry. Deliberate integration.</p>
+        <div class="footer-links">
+          <a href="docs.html">Documentation</a>
+          <a href="review.html" aria-current="page">Review</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="terms.html">Terms</a>
+          <a href="https://github.com/MohammedAlkindi/switchyard" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
         </div>
-      </details>
-      <details class="report-help">
-        <summary>About this report</summary>
-        <div>
-          <p>
-            The example uses synthetic data from a throwaway Git repository.
-            Imported reports are read in this tab and never uploaded or stored.
-            Refresh both exports after changes.
-          </p>
-          <p>
-            Validation applies to a recorded commit and command. A review
-            candidate is not merge approval. This viewer executes no repository
-            commands.
-          </p>
-          <a
-            href="https://github.com/MohammedAlkindi/switchyard/blob/main/docs/architecture.md"
-            >Detection limits ↗</a
-          >
-        </div>
-      </details>
-    </main>
+      </footer>
+    </div>
+
     <dialog id="import-dialog" aria-labelledby="import-title">
       <button
         class="dialog-close button"
@@ -137,8 +153,8 @@
       </p>
       <div class="code-panel">
         <div class="code-head">
-          <span>Export from your terminal</span
-          ><button class="copy" data-copy-target="export-commands">
+          <span>Export from your terminal</span>
+          <button class="copy" data-copy-target="export-commands">
             Copy commands
           </button>
         </div>
@@ -150,15 +166,16 @@ fleet check --json > collisions.json</code></pre>
         paths. Nothing is uploaded or stored by this viewer.
       </p>
       <form id="import-form">
-        <label for="agents-file">Agent report · agents.json</label
-        ><input
+        <label for="agents-file">Agent report · agents.json</label>
+        <input
           id="agents-file"
           name="agents-file"
           type="file"
           accept=".json,application/json"
           required
-        /><label for="check-file">Collision report · collisions.json</label
-        ><input
+        />
+        <label for="check-file">Collision report · collisions.json</label>
+        <input
           id="check-file"
           name="check-file"
           type="file"
@@ -169,6 +186,7 @@ fleet check --json > collisions.json</code></pre>
         <button class="button primary" type="submit">Inspect reports</button>
       </form>
     </dialog>
+
     <dialog id="evidence-dialog" aria-labelledby="evidence-title">
       <button
         class="dialog-close button"

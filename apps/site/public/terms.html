@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#fafaf9" />
+    <title>Terms of Service | Switchyard</title>
+    <meta
+      name="description"
+      content="Terms of service and licensing for Switchyard, a local-first multi-agent development platform."
+    />
+    <link rel="canonical" href="https://switchyardhq.vercel.app/terms.html" />
+    <meta property="og:title" content="Terms of Service | Switchyard" />
+    <meta
+      property="og:description"
+      content="Terms of service and licensing for Switchyard, a local-first multi-agent development platform."
+    />
+    <meta property="og:url" content="https://switchyardhq.vercel.app/terms.html" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link
+      rel="preload"
+      href="fonts/instrument-serif-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <div class="site-shell">
+      <header class="topbar">
+        <a class="brand" href="/" translate="no">
+          <svg
+            class="brand-icon"
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            aria-hidden="true"
+          >
+            <path
+              d="M5 3v10a4 4 0 0 0 4 4h6M15 3v4a4 4 0 0 1-4 4H5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <circle cx="5" cy="3" r="2" />
+            <circle cx="15" cy="3" r="2" />
+            <circle cx="15" cy="17" r="2" />
+          </svg>
+          Switchyard
+          <span class="version-chip" id="version-chip">v0.5.0</span>
+        </a>
+        <nav aria-label="Primary">
+          <a href="docs.html">Documentation</a>
+          <a href="/#pillars">Pillars</a>
+          <a href="/#architecture">Architecture</a>
+          <a href="review.html">Review</a>
+          <a href="https://github.com/MohammedAlkindi/switchyard" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+        </nav>
+      </header>
+
+      <main class="legal-shell" id="main" tabindex="-1">
+        <h1>Terms of Service</h1>
+        <div class="legal-meta">
+          <span>Effective Date: November 7, 2026</span> · 
+          <span>Version: 1.0.0</span> · 
+          <span>MIT Licensed Software</span>
+        </div>
+
+        <article class="legal-content">
+          <h2>1. Agreement to Terms</h2>
+          <p>
+            By installing, downloading, executing, or using Switchyard (including the CLI utilities <code>fleet</code>, <code>contextbill</code>, the local gateway, and related web viewers), you agree to be bound by these Terms of Service and the accompanying MIT License.
+          </p>
+
+          <h2>2. Open Source License (MIT)</h2>
+          <p>
+            Switchyard is free and open-source software provided under the terms of the MIT License:
+          </p>
+          <div class="callout callout-note">
+            <div class="callout-title">MIT License Excerpt</div>
+            <p>
+              Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the conditions stated in the LICENSE file.
+            </p>
+          </div>
+
+          <h2>3. Autonomous Agent Operation & User Responsibility</h2>
+          <p>
+            Switchyard provides orchestration, Git worktree isolation, collision checking, and local proxying for autonomous coding agents (such as Claude Code, Cursor, Codex, or custom LLM agent harnesses). You acknowledge and agree that:
+          </p>
+          <ul>
+            <li><strong>Agent Authority:</strong> You are solely responsible for configuring, authorizing, supervising, and managing the code modification permissions granted to AI agents running inside Switchyard-managed worktrees.</li>
+            <li><strong>Merge Gates:</strong> While Switchyard provides collision detection (<code>fleet check</code>) and validation checks (<code>fleet validate</code>), you maintain ultimate responsibility for reviewing and verifying any code merged into your main production branches.</li>
+            <li><strong>API Consumption & Billing:</strong> You are responsible for all token consumption and associated fees incurred through your designated upstream LLM providers (e.g. Anthropic, OpenAI, Google Cloud). Contextbill calculations provide estimation and observability based on published pricing models, but actual billing is determined solely by your respective provider accounts.</li>
+          </ul>
+
+          <h2>4. No Telemetry or Service Warranty</h2>
+          <p>
+            Because Switchyard is a local-first, self-hosted software package, we do not monitor or maintain your local installation. The software is provided "AS IS", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement.
+          </p>
+
+          <h2>5. Limitation of Liability</h2>
+          <p>
+            In no event shall the authors, contributors, or copyright holders (including Mohammed Alkindi) be liable for any claim, damages, or other liability, whether in an action of contract, tort, or otherwise, arising from, out of, or in connection with the Software or the use or other dealings in the Software, including but not limited to lost profits, loss of data, repository corruption, or unintended agent actions.
+          </p>
+
+          <h2>6. Third-Party Model Providers</h2>
+          <p>
+            When routing API traffic through the local Fleet Gateway, you agree to comply with all acceptable use policies, safety requirements, and terms of service established by the respective model providers whose APIs you access.
+          </p>
+
+          <h2>7. Updates & Inquiries</h2>
+          <p>
+            These terms may be updated from time to time alongside major repository releases. All modifications will be published directly in the project repository. For legal or licensing inquiries, please open an issue in the official GitHub repository.
+          </p>
+        </article>
+      </main>
+
+      <footer class="footer">
+        <a class="brand" href="/">Switchyard</a>
+        <p>100% Local-first. Zero telemetry. Deliberate integration.</p>
+        <div class="footer-links">
+          <a href="docs.html">Documentation</a>
+          <a href="review.html">Review</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="terms.html" aria-current="page">Terms</a>
+          <a href="https://github.com/MohammedAlkindi/switchyard" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>

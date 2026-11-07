@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { SiteFooter } from '../site-chrome';
 import SignOutButton from './sign-out-button';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'Reports',
   // robots.txt already disallows /dashboard. This is the per-page belt to

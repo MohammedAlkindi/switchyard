@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#fafaf9" />
+    <title>Documentation | Switchyard</title>
+    <meta
+      name="description"
+      content="Comprehensive architecture guide, CLI reference, context economics, and local gateway documentation for Switchyard."
+    />
+    <link rel="canonical" href="https://switchyardhq.vercel.app/docs.html" />
+    <meta property="og:title" content="Documentation | Switchyard" />
+    <meta
+      property="og:description"
+      content="Comprehensive architecture guide, CLI reference, context economics, and local gateway documentation for Switchyard."
+    />
+    <meta property="og:url" content="https://switchyardhq.vercel.app/docs.html" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link
+      rel="preload"
+      href="fonts/instrument-serif-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="docs.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#docs-content">Skip to documentation</a>
+    <div class="site-shell">
+      <header class="topbar">
+        <a class="brand" href="/" translate="no">
+          <svg
+            class="brand-icon"
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            aria-hidden="true"
+          >
+            <path
+              d="M5 3v10a4 4 0 0 0 4 4h6M15 3v4a4 4 0 0 1-4 4H5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <circle cx="5" cy="3" r="2" />
+            <circle cx="15" cy="3" r="2" />
+            <circle cx="15" cy="17" r="2" />
+          </svg>
+          Switchyard
+          <span class="version-chip" id="version-chip">v0.5.0</span>
+        </a>
+        <nav aria-label="Primary">
+          <a href="docs.html" aria-current="page">Documentation</a>
+          <a href="/#pillars">Pillars</a>
+          <a href="/#architecture">Architecture</a>
+          <a href="review.html">Review</a>
+          <a href="https://github.com/MohammedAlkindi/switchyard" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+        </nav>
+      </header>
+
+      <div class="docs-shell">
+        <div class="docs-layout">
+          <!-- Sidebar Navigation -->
+          <aside class="docs-sidebar" aria-label="Documentation navigation">
+            <input
+              type="search"
+              id="docs-search"
+              class="docs-search-input"
+              placeholder="Filter topics..."
+              aria-label="Filter documentation topics"
+            />
+
+            <div class="docs-nav-group">
+              <span class="docs-group-title">Overview</span>
+              <ul class="docs-nav-links">
+                <li><a class="docs-nav-link" href="#introduction">Introduction &amp; Philosophy</a></li>
+                <li><a class="docs-nav-link" href="#three-pillars">The Three Pillars</a></li>
+                <li><a class="docs-nav-link" href="#quickstart">Quickstart Guide</a></li>
+              </ul>
+            </div>
+
+            <div class="docs-nav-group">
+              <span class="docs-group-title">Fleet Engine</span>
+              <ul class="docs-nav-links">
+                <li><a class="docs-nav-link" href="#worktree-isolation">Worktree Isolation</a></li>
+                <li><a class="docs-nav-link" href="#collision-engine">Collision Detection</a></li>
+                <li><a class="docs-nav-link" href="#fleet-cli">CLI Command Reference</a></li>
+                <li><a class="docs-nav-link" href="#mcp-server">Model Context Protocol (MCP)</a></li>
+              </ul>
+            </div>
+
+            <div class="docs-nav-group">
+              <span class="docs-group-title">Context Economics</span>
+              <ul class="docs-nav-links">
+                <li><a class="docs-nav-link" href="#contextbill-overview">Token Accounting</a></li>
+                <li><a class="docs-nav-link" href="#pricing-methodology">60-Day Pricing Table</a></li>
+                <li><a class="docs-nav-link" href="#cache-multipliers">Prompt Caching Math</a></li>
+                <li><a class="docs-nav-link" href="#waste-detection">Context Bloat &amp; Waste</a></li>
+              </ul>
+            </div>
+
+            <div class="docs-nav-group">
+              <span class="docs-group-title">Gateway &amp; Studio</span>
+              <ul class="docs-nav-links">
+                <li><a class="docs-nav-link" href="#local-gateway">Local Reverse Proxy</a></li>
+                <li><a class="docs-nav-link" href="#worktree-provisioning">Worktree .env Injection</a></li>
+                <li><a class="docs-nav-link" href="#audit-trail">Tamper-Evident Audit Log</a></li>
+                <li><a class="docs-nav-link" href="#desktop-studio">Desktop Workspace</a></li>
+              </ul>
+            </div>
+
+            <div class="docs-nav-group">
+              <span class="docs-group-title">Security &amp; Gates</span>
+              <ul class="docs-nav-links">
+                <li><a class="docs-nav-link" href="#security-model">Security Model</a></li>
+                <li><a class="docs-nav-link" href="#merge-gates">Merge Verification Gates</a></li>
+              </ul>
+            </div>
+          </aside>
+
+          <!-- Main Documentation Content -->
+          <main class="docs-content" id="docs-content" tabindex="-1">
+            <!-- Section 1: Overview -->
+            <section class="docs-section">
+              <h2 id="introduction">Introduction &amp; Philosophy</h2>
+              <p>
+                As AI coding agents transition from single-prompt assistants into autonomous, long-running loops (such as Claude Code, Cursor, Codex, and custom multi-agent swarms), engineering teams confront a systemic failure mode: <strong>working tree collisions</strong>.
+              </p>
+              <p>
+                When multiple agents operate concurrently within a single working directory, they overwrite each other's unstaged files, trigger false build failures, hallucinate conflicting merge resolutions, and burn tokens fighting over Git state. Furthermore, without observability, agent loops incur uncontrolled token expenditure on repetitive context and un-cached tool schemas.
+              </p>
+              <p>
+                <strong>Switchyard</strong> solves this by providing a complete, local-first multi-agent operating environment built on three complementary principles:
+              </p>
+              <ul>
+                <li><strong>Deterministic Isolation:</strong> Agents must execute in separate, isolated Git worktrees backed by atomic filesystem locks.</li>
+                <li><strong>Economic Transparency:</strong> Every prompt token, cache hit, and waste artifact must be measured against verified provider price tables.</li>
+                <li><strong>Local Governance:</strong> Traffic and credentials must route through a zero-telemetry local gateway that records an immutable audit trail before any code lands in production.</li>
+              </ul>
+
+              <div class="callout callout-note">
+                <div class="callout-title">Zero-Model Core Guarantee</div>
+                <p>
+                  Switchyard's orchestration core (<code>@switchyardhq/switchyard</code>) contains zero machine learning models. It does not invoke LLMs to decide branch merges or detect conflicts. All collision detection is mathematically calculated via Git tree intersection diffs. Orchestration remains 100% deterministic, reproducible, and verifiable.
+                </p>
+              </div>
+
+              <h3 id="three-pillars">The Three Pillars</h3>
+              <p>Switchyard unifies three foundational packages into a single developer ecosystem:</p>
+              <div class="doc-table-wrap">
+                <table class="doc-table">
+                  <thead>
+                    <tr>
+                      <th>Pillar</th>
+                      <th>Package</th>
+                      <th>Core Function</th>
+                      <th>Key Primitives</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>1. Fleet Engine</strong></td>
+                      <td><code>@switchyardhq/switchyard</code></td>
+                      <td>Worktree isolation, collision checks, merge gates</td>
+                      <td><code>fleet init</code>, <code>fleet spawn</code>, <code>fleet check</code>, <code>fleet merge</code></td>
+                    </tr>
+                    <tr>
+                      <td><strong>2. Context Economics</strong></td>
+                      <td><code>@switchyardhq/contextbill</code></td>
+                      <td>Token cost accounting, cache multipliers, waste analysis</td>
+                      <td><code>contextbill scan</code>, <code>prices.json</code>, 5m/1h TTL modeling</td>
+                    </tr>
+                    <tr>
+                      <td><strong>3. Fleet Gateway &amp; Studio</strong></td>
+                      <td><code>@switchyardhq/cortexai</code></td>
+                      <td>Local model proxy, auto-provisioning, native GUI</td>
+                      <td><code>fleet gateway</code>, <code>/v1/chat/completions</code>, <code>audit.jsonl</code></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h3 id="quickstart">Quickstart Guide</h3>
+              <p>
+                Initialize Switchyard in an existing Git repository and spawn your first isolated agent in less than two minutes:
+              </p>
+
+              <div class="code-block">
+                <div class="code-header">
+                  <span>BASH · QUICKSTART WORKFLOW</span>
+                  <button class="code-copy-btn">Copy</button>
+                </div>
+                <pre><code># 1. Install Switchyard and Contextbill globally
+npm install -g @switchyardhq/switchyard @switchyardhq/contextbill
+
+# 2. Inside your target Git repository, initialize the fleet workspace
+fleet init
+
+# 3. Start the local Fleet Gateway proxy (running at 127.0.0.1:52425)
+fleet gateway --port 52425 &amp;
+
+# 4. Spawn an isolated worktree for an API development agent
+fleet spawn worker-api --gateway
+
+# 5. Spawn an isolated worktree for a frontend authentication agent
+fleet spawn worker-auth --gateway
+
+# 6. Verify concurrent collision status across all active worktrees
+fleet check
+
+# 7. Open the local browser-based fleet review portal
+fleet dashboard --once</code></pre>
+              </div>
+            </section>
+
+            <!-- Section 2: Fleet Engine -->
+            <section class="docs-section">
+              <h2 id="worktree-isolation">Pillar 1: Fleet Worktree Engine</h2>
+              <p>
+                Switchyard manages isolated agent working environments using native <strong>Git worktrees</strong>. When you spawn an agent, Switchyard creates a linked worktree under <code>.fleet/agents/&lt;name&gt;</code> checked out to a dedicated branch (<code>fleet/&lt;name&gt;</code>).
+              </p>
+              <p>
+                This ensures that each agent operates in full filesystem isolation. Build artifacts, node_modules caches, and temporary files remain quarantined within the agent's worktree.
+              </p>
+
+              <h3 id="collision-engine">Index-Tree Collision Detection</h3>
+              <p>
+                Git allows multiple worktrees to modify files independently, but conflicts occur when two agents touch the same file or overlapping line ranges. Switchyard computes collisions prior to merging:
+              </p>
+              <ul>
+                <li><strong>Tree Intersection:</strong> Switchyard queries the Git index of each agent's branch against <code>HEAD</code> using <code>git diff-tree -r --name-only HEAD &lt;branch&gt;</code>.</li>
+                <li><strong>Conflict Classification:</strong> Files modified by only one agent are classified as <em>clean candidates</em>. Files modified by two or more agents are flagged as <em>active collisions</em> with detailed file-level ownership.</li>
+                <li><strong>Dirty Worktree Protection:</strong> If an agent has uncommitted changes in its worktree, Switchyard blocks merge operations to prevent lost work.</li>
+              </ul>
+
+              <h3 id="fleet-cli">Fleet CLI Command Reference</h3>
+
+              <div class="doc-table-wrap">
+                <table class="doc-table">
+                  <thead>
+                    <tr>
+                      <th>Command</th>
+                      <th>Arguments &amp; Flags</th>
+                      <th>Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><code>fleet init</code></td>
+                      <td><code>--force</code></td>
+                      <td>Initializes <code>.fleet/state.json</code>, acquires workspace lock, and verifies repository <code>.gitignore</code> rules.</td>
+                    </tr>
+                    <tr>
+                      <td><code>fleet spawn &lt;agent&gt;</code></td>
+                      <td><code>--branch &lt;name&gt;</code>, <code>--gateway</code></td>
+                      <td>Creates an isolated Git worktree under <code>.fleet/agents/&lt;agent&gt;</code>, configures branch <code>fleet/&lt;agent&gt;</code>, and injects <code>.env.fleet</code>.</td>
+                    </tr>
+                    <tr>
+                      <td><code>fleet check</code></td>
+                      <td><code>--agent &lt;name&gt;</code>, <code>--json</code></td>
+                      <td>Calculates tree-diff intersections across all active worktrees and outputs collision evidence.</td>
+                    </tr>
+                    <tr>
+                      <td><code>fleet diff</code></td>
+                      <td><code>--agent &lt;name&gt;</code></td>
+                      <td>Displays colored unified diffs between the agent branch and main repository <code>HEAD</code>.</td>
+                    </tr>
+                    <tr>
+                      <td><code>fleet sync</code></td>
+                      <td><code>--agent &lt;name&gt;</code></td>
+                      <td>Safely fetches and rebases the agent's branch against latest changes on the base branch.</td>
+                    </tr>
+                    <tr>
+                      <td><code>fleet validate</code></td>
+                      <td><code>--agent &lt;name&gt;</code></td>
+                      <td>Executes configured test and build gates inside the agent's isolated worktree.</td>
+                    </tr>
+                    <tr>
+                      <td><code>fleet merge &lt;agent&gt;</code></td>
+                      <td><code>--delete-branch</code></td>
+                      <td>Verifies clean status, absence of collisions, runs validation gate, and merges into base branch.</td>
+                    </tr>
+                    <tr>
+                      <td><code>fleet undo &lt;agent&gt;</code></td>
+                      <td><code>--keep-branch</code></td>
+                      <td>Tears down the agent worktree and safely cleans up ephemeral resources.</td>
+                    </tr>
+                    <tr>
+                      <td><code>fleet gateway</code></td>
+                      <td><code>--port &lt;number&gt;</code>, <code>--host &lt;ip&gt;</code></td>
+                      <td>Spawns the local reverse-proxy server at <code>127.0.0.1:52425</code> with OpenAI-compatible completions.</td>
+                    </tr>
+                    <tr>
+                      <td><code>fleet dashboard</code></td>
+                      <td><code>--port &lt;number&gt;</code>, <code>--once</code></td>
+                      <td>Launches the local browser-based fleet inspection viewer.</td>
+                    </tr>
+                    <tr>
+                      <td><code>fleet doctor</code></td>
+                      <td><code>--fix</code></td>
+                      <td>Verifies Git worktree health, stale lock files, and zombie processes.</td>
+                    </tr>
+                    <tr>
+                      <td><code>fleet mcp</code></td>
+                      <td><code>--stdio</code></td>
+                      <td>Starts the Model Context Protocol (MCP) server for Claude Code and Cursor integration.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h3 id="mcp-server">Model Context Protocol (MCP) Server</h3>
+              <p>
+                Switchyard includes a native Model Context Protocol (MCP) server that exposes worktree state, collision evidence, and gate verification directly to LLMs:
+              </p>
+              <div class="code-block">
+                <div class="code-header">
+                  <span>JSON · CLAUDE_DESKTOP_CONFIG.JSON</span>
+                  <button class="code-copy-btn">Copy</button>
+                </div>
+                <pre><code>{
+  "mcpServers": {
+    "switchyard": {
+      "command": "fleet",
+      "args": ["mcp"]
+    }
+  }
+}</code></pre>
+              </div>
+            </section>
+
+            <!-- Section 3: Context Economics -->
+            <section class="docs-section">
+              <h2 id="contextbill-overview">Pillar 2: Context Economics (Contextbill)</h2>
+              <p>
+                Modern coding agents consume hundreds of thousands of tokens per session. Without visibility into prompt caching and token distribution, engineering teams experience unexpected cost escalations.
+              </p>
+              <p>
+                <strong>Contextbill</strong> (<code>@switchyardhq/contextbill</code>) is a zero-dependency, local-first token observability engine that parses agent transcripts and attributes exact costs down to the individual tool invocation.
+              </p>
+
+              <h3 id="pricing-methodology">60-Day Verified Pricing Model</h3>
+              <p>
+                Pricing data is maintained in a strictly versioned <code>prices.json</code> catalog verified every 60 days against official provider documentation. It covers all major model families:
+              </p>
+              <ul>
+                <li><strong>Anthropic:</strong> Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus</li>
+                <li><strong>OpenAI:</strong> GPT-4o, GPT-4o-mini, o1, o3-mini</li>
+                <li><strong>Google Cloud / Gemini:</strong> Gemini 1.5 Pro, Gemini 1.5 Flash, Gemini 2.0 Flash</li>
+                <li><strong>Open Weights &amp; DeepSeek:</strong> DeepSeek V3, DeepSeek R1, Llama 3.3</li>
+              </ul>
+
+              <h3 id="cache-multipliers">Prompt Caching Mathematics</h3>
+              <p>
+                Contextbill models provider prompt caching structures with precision. For modern architectures (such as Anthropic prompt caching), the effective cost formula is calculated as:
+              </p>
+              <div class="callout callout-tip">
+                <div class="callout-title">Cost Formulation</div>
+                <p>
+                  <strong>Total Cost</strong> = (Input Tokens &times; Base Input Rate) + (Output Tokens &times; Output Rate) + (Cache Read Tokens &times; 0.10 &times; Base Input Rate) + (Cache Write Tokens &times; 1.25 &times; Base Input Rate)
+                </p>
+              </div>
+              <p>
+                Contextbill differentiates between <strong>5-minute ephemeral cache TTLs</strong> (standard conversation continuity) and <strong>1-hour persistent caching</strong>, alerting developers when an agent's pause duration causes cache evictions.
+              </p>
+
+              <h3 id="waste-detection">Context Bloat &amp; Waste Diagnostics</h3>
+              <p>
+                When scanning session logs, Contextbill flags three critical waste patterns:
+              </p>
+              <ol>
+                <li><strong>Tool Schema Duplication:</strong> Identical MCP tool definition payloads re-transmitted on consecutive turns without prompt cache activation.</li>
+                <li><strong>System Prompt Drift:</strong> Unmodified system directives sent with non-deterministic variable injection (e.g. dynamic millisecond timestamps) that bust the prompt cache.</li>
+                <li><strong>Dead Chunk Accumulation:</strong> Reading entire 2,000-line source files repeatedly instead of targeted line-range reads.</li>
+              </ol>
+
+              <div class="code-block">
+                <div class="code-header">
+                  <span>BASH · SCANNING AGENT TRANSCRIPTS</span>
+                  <button class="code-copy-btn">Copy</button>
+                </div>
+                <pre><code># Scan current directory for agent session logs and generate cost report
+contextbill scan . --format summary
+
+# Output detailed token breakdown with cache multipliers as JSON
+contextbill scan ~/.claude/projects/my-repo --format json > report.json
+
+# Check current active pricing table for Claude 3.5 Sonnet
+contextbill model claude-3-5-sonnet-20241022</code></pre>
+              </div>
+            </section>
+
+            <!-- Section 4: Gateway & Studio -->
+            <section class="docs-section">
+              <h2 id="local-gateway">Pillar 3: Fleet Gateway &amp; Studio</h2>
+              <p>
+                The <strong>Fleet Gateway</strong> (<code>@switchyardhq/cortexai</code>) is a lightweight, local reverse proxy that runs at <code>127.0.0.1:52425</code>. It exposes a standard OpenAI-compatible <code>/v1/chat/completions</code> endpoint, allowing any coding agent or CLI to route through Switchyard without modifying application code.
+              </p>
+
+              <h3 id="worktree-provisioning">Worktree .env Auto-Provisioning</h3>
+              <p>
+                When an agent worktree is spawned using <code>fleet spawn worker-api --gateway</code>, Switchyard automatically generates an isolated <code>.env.fleet</code> configuration file inside the worktree directory:
+              </p>
+              <div class="code-block">
+                <div class="code-header">
+                  <span>ENV · .ENV.FLEET GENERATED IN WORKTREE</span>
+                  <button class="code-copy-btn">Copy</button>
+                </div>
+                <pre><code># Auto-generated by Switchyard Fleet Gateway
+OPENAI_BASE_URL=http://localhost:52425/v1
+OPENAI_API_KEY=fleet-worker-api-token
+FLEET_AGENT_NAME=worker-api
+FLEET_WORKTREE_PATH=.fleet/agents/worker-api</code></pre>
+              </div>
+              <p>
+                Agent frameworks automatically discover <code>OPENAI_BASE_URL</code>, routing their completions through the gateway seamlessly.
+              </p>
+
+              <h3 id="audit-trail">Tamper-Evident Local Audit Log</h3>
+              <p>
+                Every request processed by the gateway is streamed to upstream providers while being recorded locally in <code>.fleet/audit.jsonl</code>. Each JSON line records:
+              </p>
+              <ul>
+                <li><code>timestamp</code>: ISO 8601 UTC execution time.</li>
+                <li><code>agent</code>: Name of the originating worktree agent.</li>
+                <li><code>model</code>: Upstream model identifier (e.g. <code>claude-3-5-sonnet-20241022</code>).</li>
+                <li><code>prompt_tokens</code> &amp; <code>completion_tokens</code>: Exact token consumption.</li>
+                <li><code>cost_usd</code>: Calculated monetary cost based on <code>prices.json</code>.</li>
+                <li><code>duration_ms</code>: Round-trip gateway latency.</li>
+              </ul>
+
+              <h3 id="desktop-studio">Native Desktop Workspace (PyQt5)</h3>
+              <p>
+                For developers who prefer visual interaction, Switchyard includes a native desktop workspace application (<code>cortexai.app</code>) that provides:
+              </p>
+              <ul>
+                <li>Visual multi-worktree dashboard with real-time status indicators.</li>
+                <li>Split-screen side-by-side diff viewers for reviewing candidate agent commits.</li>
+                <li>Live token consumption gauges connected to the local gateway stream.</li>
+              </ul>
+            </section>
+
+            <!-- Section 5: Security Model -->
+            <section class="docs-section">
+              <h2 id="security-model">Security &amp; Merge Verification Gates</h2>
+              <p>
+                Switchyard is engineered in compliance with strict pre-launch security principles:
+              </p>
+              <ul>
+                <li><strong>Zero Cloud Telemetry (SEC-01 &amp; SEC-02):</strong> No source code, diffs, API keys, or transcripts ever leave your workstation.</li>
+                <li><strong>Credential Quarantining:</strong> Agent worktrees inherit only the credentials explicitly provisioned in <code>.env.fleet</code>. Host environment credentials remain shielded.</li>
+                <li><strong>Deterministic Merge Gates:</strong> Before any branch is merged into the base branch via <code>fleet merge</code>, Switchyard executes a multi-stage verification gate:
+                  <ol>
+                    <li><strong>Collision Gate:</strong> Confirms that the agent branch has zero conflicting touched files with any other concurrent worktree.</li>
+                    <li><strong>Clean Tree Gate:</strong> Confirms the agent worktree has zero untracked or unstaged modifications.</li>
+                    <li><strong>Validation Gate:</strong> Executes repo-defined test suites and linters. If tests fail, the merge is rejected.</li>
+                  </ol>
+                </li>
+              </ul>
+
+              <div class="callout callout-warning">
+                <div class="callout-title">Autonomous Agent Safety Notice</div>
+                <p>
+                  Always review agent diffs before executing <code>fleet merge</code>. Switchyard prevents structural collisions and verifies automated test suites, but human oversight remains essential for validating code intent, architectural consistency, and security boundaries.
+                </p>
+              </div>
+            </section>
+          </main>
+        </div>
+      </div>
+
+      <footer class="footer">
+        <a class="brand" href="/">Switchyard</a>
+        <p>100% Local-first. Zero telemetry. Deliberate integration.</p>
+        <div class="footer-links">
+          <a href="docs.html" aria-current="page">Documentation</a>
+          <a href="review.html">Review</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="terms.html">Terms</a>
+          <a href="https://github.com/MohammedAlkindi/switchyard" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+        </div>
+      </footer>
+    </div>
+    <p id="copy-status" class="sr-only" role="status"></p>
+  </body>
+</html>

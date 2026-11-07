@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#fafaf9" />
+    <title>Privacy Policy | Switchyard</title>
+    <meta
+      name="description"
+      content="Switchyard is 100% local-first. We collect zero telemetry, no transcripts, no code, and no personal data."
+    />
+    <link rel="canonical" href="https://switchyardhq.vercel.app/privacy.html" />
+    <meta property="og:title" content="Privacy Policy | Switchyard" />
+    <meta
+      property="og:description"
+      content="Switchyard is 100% local-first. We collect zero telemetry, no transcripts, no code, and no personal data."
+    />
+    <meta property="og:url" content="https://switchyardhq.vercel.app/privacy.html" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link
+      rel="preload"
+      href="fonts/instrument-serif-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <div class="site-shell">
+      <header class="topbar">
+        <a class="brand" href="/" translate="no">
+          <svg
+            class="brand-icon"
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            aria-hidden="true"
+          >
+            <path
+              d="M5 3v10a4 4 0 0 0 4 4h6M15 3v4a4 4 0 0 1-4 4H5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <circle cx="5" cy="3" r="2" />
+            <circle cx="15" cy="3" r="2" />
+            <circle cx="15" cy="17" r="2" />
+          </svg>
+          Switchyard
+          <span class="version-chip" id="version-chip">v0.5.0</span>
+        </a>
+        <nav aria-label="Primary">
+          <a href="docs.html">Documentation</a>
+          <a href="/#pillars">Pillars</a>
+          <a href="/#architecture">Architecture</a>
+          <a href="review.html">Review</a>
+          <a href="https://github.com/MohammedAlkindi/switchyard" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+        </nav>
+      </header>
+
+      <main class="legal-shell" id="main" tabindex="-1">
+        <h1>Privacy Policy</h1>
+        <div class="legal-meta">
+          <span>Effective Date: November 7, 2026</span> · 
+          <span>Version: 1.0.0</span> · 
+          <span>Zero-Telemetry Guarantee</span>
+        </div>
+
+        <article class="legal-content">
+          <h2>1. Principle of Local Sovereignty</h2>
+          <p>
+            Switchyard is designed from the ground up as a <strong>strictly local-first developer tool</strong>. Our software runs entirely on your local workstation. Switchyard does not operate an account system, user database, remote tracking server, or cloud telemetry pipeline.
+          </p>
+
+          <h2>2. Zero Telemetry & Zero Analytics</h2>
+          <p>
+            Switchyard and its associated packages (<code>@switchyardhq/switchyard</code>, <code>@switchyardhq/contextbill</code>, <code>@switchyardhq/cortexai</code>) contain <strong>zero analytics, tracking beacons, heartbeat pings, or diagnostic phone-homes</strong>. When you execute commands in your terminal or use the browser-based review viewer:
+          </p>
+          <ul>
+            <li>No usage events, execution counts, or timestamps are sent to us or any third party.</li>
+            <li>No IP addresses, MAC addresses, machine identifiers, or hardware specifications are collected.</li>
+            <li>No crash reports or error stack traces are automatically transmitted outside your device.</li>
+          </ul>
+
+          <h2>3. Source Code, Git Worktrees & Transcripts</h2>
+          <p>
+            Your intellectual property belongs exclusively to you. When Switchyard isolates coding agents, creates Git worktrees, calculates index-tree diff collisions, or analyzes context billings:
+          </p>
+          <ul>
+            <li><strong>Source Code & Diffs:</strong> All Git operations occur strictly through local <code>git</code> subprocess invocations within your repository. Your source code never leaves your workstation.</li>
+            <li><strong>Agent Transcripts:</strong> Contextbill and Switchyard inspect session JSON logs strictly on your local disk. Transcripts are never uploaded, summarized in the cloud, or retained on remote servers.</li>
+            <li><strong>Review Viewer:</strong> The browser-based review tool (<code>review.html</code>) processes JSON reports using purely client-side JavaScript via the browser File API. No file data is uploaded over the network.</li>
+          </ul>
+
+          <h2>4. Fleet Gateway & LLM API Communications</h2>
+          <p>
+            When utilizing the local Fleet Gateway (<code>fleet gateway</code> / <code>packages/cortexai</code>), the gateway acts strictly as a <strong>local reverse proxy</strong> running at <code>127.0.0.1:52425</code>:
+          </p>
+          <ul>
+            <li><strong>Direct-to-Provider Routing:</strong> API requests generated by your agents are relayed directly from your machine to the upstream AI provider endpoint configured in your local environment (such as Anthropic, OpenAI, or a self-hosted Ollama server).</li>
+            <li><strong>Zero Intermediary Servers:</strong> Traffic does not pass through any proxy server operated by Switchyard. We never see, store, or intercept your prompts, completions, or API keys.</li>
+            <li><strong>Local Audit Trails:</strong> The gateway records request metadata and calculated costs exclusively to your local <code>.fleet/audit.jsonl</code> file for your personal auditing and transparency.</li>
+          </ul>
+
+          <h2>5. Credential & Secret Protection</h2>
+          <p>
+            Switchyard enforces strict secret hygiene:
+          </p>
+          <ul>
+            <li>API keys and provider credentials provided via <code>.env</code> or <code>.env.fleet</code> remain solely on your local filesystem and are automatically added to <code>.gitignore</code> upon initialization.</li>
+            <li>Switchyard never prints unmasked authentication tokens, authorization headers, or private keys to log outputs or CLI displays.</li>
+          </ul>
+
+          <h2>6. Website Hosting & Cookies</h2>
+          <p>
+            The Switchyard documentation website (<code>switchyardhq.vercel.app</code>) is a static website deployed on Vercel. 
+          </p>
+          <ul>
+            <li>We do not set tracking cookies, marketing cookies, or persistent profiling identifiers.</li>
+            <li>The website enforces a strict Content Security Policy (CSP), HTTP Strict Transport Security (HSTS), and standard protective HTTP security headers.</li>
+            <li>Any web server logs retained by the hosting infrastructure (such as standard CDN access logs) are handled in accordance with Vercel's privacy policies and are used solely for delivery and DDoS mitigation.</li>
+          </ul>
+
+          <h2>7. Independent Verification</h2>
+          <p>
+            Switchyard is open-source software licensed under the MIT License. The complete source code, build scripts, and dependencies are publicly auditable in our GitHub repository:
+          </p>
+          <p>
+            <a class="text-link" href="https://github.com/MohammedAlkindi/switchyard" target="_blank" rel="noopener noreferrer">https://github.com/MohammedAlkindi/switchyard ↗</a>
+          </p>
+
+          <h2>8. Contact & Security Reports</h2>
+          <p>
+            If you have questions regarding this policy or wish to report a security concern, please open an issue on the official GitHub repository or contact Mohammed Alkindi directly via the project repository.
+          </p>
+        </article>
+      </main>
+
+      <footer class="footer">
+        <a class="brand" href="/">Switchyard</a>
+        <p>100% Local-first. Zero telemetry. Deliberate integration.</p>
+        <div class="footer-links">
+          <a href="docs.html">Documentation</a>
+          <a href="review.html">Review</a>
+          <a href="privacy.html" aria-current="page">Privacy</a>
+          <a href="terms.html">Terms</a>
+          <a href="https://github.com/MohammedAlkindi/switchyard" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>

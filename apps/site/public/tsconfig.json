@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "noEmitOnError": true
   },
-  "files": ["main.ts", "report.ts", "review.ts"]
+  "files": ["main.ts", "report.ts", "review.ts", "docs.ts"]
 }

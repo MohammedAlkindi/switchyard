@@ -1,11 +1,15 @@
-/** Copy controls are shared by the landing page and the read-only report viewer. */
+/** Copy controls and interactive elements shared by the landing page and reports. */
 export async function copyText(
   text: string,
   button: HTMLButtonElement,
 ): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
+    const originalText = button.textContent;
     button.textContent = "Copied";
+    setTimeout(() => {
+      button.textContent = originalText;
+    }, 2000);
     document
       .getElementById("copy-status")
       ?.replaceChildren(document.createTextNode("Copied to clipboard."));
@@ -23,12 +27,36 @@ export async function copyText(
     }
   }
 }
+
 document.addEventListener("click", (event) => {
-  const button = (event.target as Element).closest<HTMLButtonElement>(
-    "[data-copy-target]",
-  );
-  const target =
-    button?.dataset.copyTarget &&
-    document.getElementById(button.dataset.copyTarget);
-  if (button && target) void copyText(target.textContent || "", button);
+  const target = event.target as Element;
+
+  // Handle data-copy-target buttons
+  const copyButton = target.closest<HTMLButtonElement>("[data-copy-target]");
+  if (copyButton) {
+    const codeTarget =
+      copyButton.dataset.copyTarget &&
+      document.getElementById(copyButton.dataset.copyTarget);
+    if (codeTarget) {
+      void copyText(codeTarget.textContent || "", copyButton);
+    }
+    return;
+  }
+
+  // Handle terminal / showcase tab switcher
+  const tabBtn = target.closest<HTMLButtonElement>("[data-tab-target]");
+  if (tabBtn) {
+    const targetId = tabBtn.dataset.tabTarget;
+    const tabContainer = tabBtn.closest("[data-tabs]");
+    if (!tabContainer || !targetId) return;
+
+    tabContainer.querySelectorAll<HTMLButtonElement>("[data-tab-target]").forEach((btn) => {
+      btn.setAttribute("aria-selected", btn === tabBtn ? "true" : "false");
+    });
+
+    tabContainer.querySelectorAll<HTMLElement>("[data-panel-id]").forEach((panel) => {
+      const match = panel.dataset.panelId === targetId;
+      panel.setAttribute("aria-hidden", match ? "false" : "true");
+    });
+  }
 });
