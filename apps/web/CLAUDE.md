@@ -167,10 +167,10 @@ Five deploys failed before this settled. Each setting fixes a specific one:
 
 | Setting | Value | Without it |
 | ------- | ----- | ---------- |
-| Root Directory | `web` | Vercel detects the framework from the deployment root's `package.json`. At the repo root that is the CLI package: "No Next.js version detected". |
-| Source files outside root | enabled | `..` is not uploaded, so `prebuild` exits 254 and `../prices.json` is missing. |
-| Install command | `npm --prefix .. install` | Only the web workspace installs, the root `tsc` cannot find `@types/node`, prebuild exits 2. |
-| Root `vercel.json` | must not exist | A `buildCommand` there stops Vercel using its own Next builder. The build then succeeds and the **output upload** fails. |
+| Root Directory | `apps/web` | Vercel detects the framework from the deployment root's `package.json`. At the repo root that is the monorepo manifest: "No Next.js version detected". |
+| Source files outside root | enabled | `../..` is not uploaded, so `prebuild` exits 254 and `../../packages/contextbill/prices.json` is missing. |
+| Install command | `npm --prefix ../.. install` | Only the web workspace installs, the core `tsc` cannot find `@types/node`, prebuild exits 2. |
+| `apps/web/vercel.json` | `framework: nextjs`, the install command above, `buildCommand: npm run build` | Without it Vercel applies the repo-root `vercel.json`, which belongs to `apps/site`: its `buildCommand` ran `node apps/site/scripts/build-site.mjs` inside `apps/web` (MODULE_NOT_FOUND, 2026-11-11) and its `framework: null` would skip the Next builder. |
 
 Two traps worth remembering:
 
