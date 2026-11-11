@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 version is `0.x`, a minor bump may contain breaking changes; those are listed first.
 
+## [0.4.1] - 2026-11-11
+
+### Changed
+
+- The source now lives in the switchyard monorepo at `packages/contextbill`. The
+  standalone `MohammedAlkindi/contextbill` repository has been deleted. The published
+  package, its CLI and its analysis are unchanged from 0.4.0.
+- The hosted app, now in `apps/web`, is served from contextbill.vercel.app.
+
 ## [0.4.0] - 2026-09-10
 
 Figures in this section come from one frozen copy of a 2,424-transcript,
