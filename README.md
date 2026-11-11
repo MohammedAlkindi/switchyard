@@ -295,7 +295,7 @@ A malformed config file is a hard error with the offending key named; a missing 
 
 Switchyard is organized as a unified workspace for multi-agent software engineering:
 - **`packages/switchyard`** (`@switchyardhq/switchyard`): The core `fleet` CLI for worktree isolation, agent tracking, and merge collision detection.
-- **`packages/contextbill`** (`@switchyardhq/contextbill`): Local-first token cost and context-window billing engine.
+- **`packages/contextbill`** (npm `contextbill`): Local-first token cost and context-window billing engine.
 - **`packages/cortexai`** (`@switchyardhq/cortexai`): Desktop AI workspace and local proxy gateway (`/v1/completions`) routing to Claude, OpenAI, and local models with unified billing.
 - **`apps/web`**: Web dashboard for transcript analysis and fleet reporting.
 - **`apps/site`**: Marketing website and browser fleet review deployed at [switchyardhq.vercel.app](https://switchyardhq.vercel.app).

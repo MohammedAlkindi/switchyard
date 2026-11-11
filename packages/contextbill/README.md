@@ -6,7 +6,7 @@ see where your tokens and dollars are going.
 A hosted version runs at [contextbill.vercel.app](https://contextbill.vercel.app). It
 parses transcripts in your browser and saves only aggregate figures and per-session
 metadata (project name, start time) to your account, never message content. The source
-is in [`web/`](web/).
+is in [`apps/web/`](../../apps/web/).
 
 ```console
 $ npx contextbill

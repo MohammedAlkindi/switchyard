@@ -12,7 +12,7 @@ A modular AI chat desktop application built with PyQt5, supporting Claude (Anthr
 - **REST API** — FastAPI server exposing `/v1/completions` and `/v1/models`
 - **Audit log** — exportable compliance log of all interactions
 - **Plugin system** — extensible plugin loader
-- **Switchyard Integration** — model cost metering unified with `@switchyardhq/contextbill`
+- **Switchyard Integration** — model cost metering unified with `contextbill`
 
 ## Requirements
 

@@ -170,7 +170,7 @@
                     </tr>
                     <tr>
                       <td><strong>2. Context Economics</strong></td>
-                      <td><code>@switchyardhq/contextbill</code></td>
+                      <td><code>contextbill</code></td>
                       <td>Token cost accounting, cache multipliers, waste analysis</td>
                       <td><code>contextbill scan</code>, <code>prices.json</code>, 5m/1h TTL modeling</td>
                     </tr>
@@ -195,7 +195,7 @@
                   <button class="code-copy-btn">Copy</button>
                 </div>
                 <pre><code># 1. Install Switchyard and Contextbill globally
-npm install -g @switchyardhq/switchyard @switchyardhq/contextbill
+npm install -g @switchyardhq/switchyard contextbill
 
 # 2. Inside your target Git repository, initialize the fleet workspace
 fleet init
@@ -340,7 +340,7 @@ fleet dashboard --once</code></pre>
                 Modern coding agents consume hundreds of thousands of tokens per session. Without visibility into prompt caching and token distribution, engineering teams experience unexpected cost escalations.
               </p>
               <p>
-                <strong>Contextbill</strong> (<code>@switchyardhq/contextbill</code>) is a zero-dependency, local-first token observability engine that parses agent transcripts and attributes exact costs down to the individual tool invocation.
+                <strong>Contextbill</strong> (<code>contextbill</code>) is a zero-dependency, local-first token observability engine that parses agent transcripts and attributes exact costs down to the individual tool invocation.
               </p>
 
               <h3 id="pricing-methodology">60-Day Verified Pricing Model</h3>
