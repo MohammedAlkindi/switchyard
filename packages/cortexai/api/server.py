@@ -2,6 +2,8 @@ import hashlib
 import json
 import logging
 import os
+import queue
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -12,7 +14,7 @@ log = logging.getLogger("CortexAI")
 try:
     from fastapi import FastAPI, Header, Request
     from fastapi.middleware.cors import CORSMiddleware
-    from fastapi.responses import JSONResponse
+    from fastapi.responses import JSONResponse, StreamingResponse
     HAS_FASTAPI = True
 except ImportError:
     HAS_FASTAPI = False
@@ -38,6 +40,64 @@ def find_fleet_state(start_dir: Optional[Path] = None) -> Optional[Dict[str, Any
 def estimate_tokens(text: str) -> int:
     """Rough token count estimation (approx 4 chars per token)."""
     return max(1, len(text) // 4)
+
+
+def _pick_client(core: Optional[Any], model: str) -> Optional[Any]:
+    """Same routing as the non-streaming path: model prefix first, then any ready client."""
+    if not core:
+        return None
+    if model.startswith("claude-") and hasattr(core, "anthropic_client"):
+        return core.anthropic_client
+    if model.startswith(("gpt-", "o1", "o3")) and hasattr(core, "openai_client"):
+        return core.openai_client
+    for name in ("anthropic_client", "openai_client"):
+        client = getattr(core, name, None)
+        if client is not None and getattr(client, "ready", False):
+            return client
+    return None
+
+
+def iter_stream_text(client: Optional[Any], messages: List[Dict], model: str, max_tokens: int, simulated: str):
+    """Yield text chunks. Runs the client's callback-based stream_chat in a thread."""
+    if client is None or not hasattr(client, "stream_chat"):
+        for word in simulated.split(" "):
+            yield word + " "
+        return
+    q: "queue.Queue[Any]" = queue.Queue()
+    done = object()
+    cancelled = threading.Event()
+
+    def work():
+        try:
+            client.stream_chat(
+                messages,
+                "",
+                model,
+                max_tokens,
+                on_token=q.put,
+                stop_check=cancelled.is_set,
+            )
+        except Exception as e:  # surfaced to the consumer below
+            q.put(e)
+        finally:
+            q.put(done)
+
+    threading.Thread(target=work, daemon=True).start()
+    try:
+        while True:
+            item = q.get()
+            if item is done:
+                return
+            if isinstance(item, Exception):
+                raise item
+            yield item
+    finally:
+        cancelled.set()
+
+
+def sse_event(data: Any) -> str:
+    payload = data if isinstance(data, str) else json.dumps(data)
+    return f"data: {payload}\n\n"
 
 
 def create_api_app(ai_core: Optional[Any] = None) -> Any:
@@ -124,6 +184,42 @@ def create_api_app(ai_core: Optional[Any] = None) -> Any:
 
         response_text = ""
         core = get_core()
+
+        if body.get("stream"):
+            chat_id = f"chatcmpl-{hashlib.md5((prompt_text + str(time.time())).encode()).hexdigest()[:12]}"
+            created = int(time.time())
+            simulated = f"[Switchyard Gateway Simulation] Responding from model {model} for agent {agent_id}."
+            client = _pick_client(core, model)
+
+            def chunk(delta: Dict[str, Any], finish: Optional[str] = None) -> Dict[str, Any]:
+                return {
+                    "id": chat_id,
+                    "object": "chat.completion.chunk",
+                    "created": created,
+                    "model": model,
+                    "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
+                }
+
+            def event_stream():
+                collected: List[str] = []
+                yield sse_event(chunk({"role": "assistant"}))
+                try:
+                    for text in iter_stream_text(client, messages, model, max_tokens, simulated):
+                        collected.append(text)
+                        yield sse_event(chunk({"content": text}))
+                except Exception as e:
+                    log.error(f"Streaming error: {e}", exc_info=True)
+                    yield sse_event({"error": {"message": str(e), "type": "gateway_error"}})
+                    yield sse_event("[DONE]")
+                    return
+                completion_tokens = estimate_tokens("".join(collected))
+                if core and hasattr(core, "billing"):
+                    cost = core.billing.calculate_cost(model, prompt_tokens, completion_tokens)
+                    core.billing.log_usage(agent_id, model, prompt_tokens + completion_tokens, cost)
+                yield sse_event(chunk({}, "stop"))
+                yield sse_event("[DONE]")
+
+            return StreamingResponse(event_stream(), media_type="text/event-stream")
         try:
             if model.startswith("claude-") and core and hasattr(core, "anthropic_client"):
                 response_text = core.anthropic_client.chat(messages, model=model, max_tokens=max_tokens)
