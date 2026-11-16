@@ -7,17 +7,27 @@ from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("CortexAI")
 
-try:
-    from transformers import pipeline
-    HAS_TRANSFORMERS = True
-except ImportError:
-    HAS_TRANSFORMERS = False
+# Lazy imports for optional ML dependencies to avoid Windows C++ DLL deadlocks during module collection
+HAS_TRANSFORMERS = False
+CUDA_AVAILABLE = False
 
-try:
-    import torch
-    CUDA_AVAILABLE = torch.cuda.is_available()
-except ImportError:
-    CUDA_AVAILABLE = False
+
+def _init_local_ml():
+    global HAS_TRANSFORMERS, CUDA_AVAILABLE
+    if HAS_TRANSFORMERS or CUDA_AVAILABLE:
+        return HAS_TRANSFORMERS
+    try:
+        import torch
+        CUDA_AVAILABLE = bool(torch.cuda.is_available())
+    except (ImportError, Exception):
+        CUDA_AVAILABLE = False
+
+    try:
+        from transformers import pipeline  # noqa: F401
+        HAS_TRANSFORMERS = True
+    except (ImportError, Exception):
+        HAS_TRANSFORMERS = False
+    return HAS_TRANSFORMERS
 
 
 class ModelType(Enum):
@@ -62,9 +72,10 @@ class ModelManager:
         self._lock = threading.Lock()
 
     def load_model(self, name: str, pipeline_type: str, model_path: str):
-        if not HAS_TRANSFORMERS:
+        if not HAS_TRANSFORMERS and not _init_local_ml():
             log.warning("transformers not installed — cannot load model.")
             return
+        from transformers import pipeline
         with self._lock:
             if name not in self._models:
                 log.info(f"Loading model: {name}")

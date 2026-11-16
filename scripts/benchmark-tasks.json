@@ -1,0 +1,296 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "switchyard-multiagent-benchmark-suite",
+  "version": "1.0.0",
+  "metadata": {
+    "generatedAt": "2026-11-15T23:40:00Z",
+    "curator": "dataset-curator",
+    "purpose": "Empirical comparison of 1 single agent vs 2 parallel agents under Switchyard fleet spawn & fleet check",
+    "evaluationFocus": {
+      "arm1": "Single agent sequential baseline",
+      "arm2": "Two parallel agents under Git worktree isolation with in-memory Git ORT speculative collision detection"
+    }
+  },
+  "comparisonAnalysis": {
+    "title": "SWE-bench Lite vs. CodeNib Symbol Graph Tasks for Multi-Agent Concurrency Evaluation",
+    "sweBenchLite": {
+      "corpus": "300 selected issues across 12 Python repositories (Django, SymPy, Pytest, Matplotlib, etc.)",
+      "granularity": "Heavily localized; >70% of issues touch 1 file and <20 lines of code (Agentless, Xia et al. 2024)",
+      "parallelizationViability": "Low. Because fixes are localized to a single function or file, spawning two parallel agents produces redundant work, prompt duplication, or artificial text thrashing without natural subtask decomposition.",
+      "collisionDetectionSuitability": "Poor. Parallel agents either execute identical text edits in the same function (trivial merge conflicts) or diverge completely. Fails to simulate realistic cross-module feature decomposition.",
+      "runtimeOverhead": "High. Requires heavy Docker containers (several GB each) with complex Conda environments and legacy Python toolchains, making local multi-agent worktree execution slow and brittle."
+    },
+    "codeNibSymbolGraph": {
+      "corpus": "Multi-file symbol graph tasks derived from CodeNib (sysevol-ai/CodeNib) and Switchyard (MohammedAlkindi/switchyard)",
+      "granularity": "Multi-file structural tasks spanning typed definition-reference graphs, caller-callee hierarchies, interface-implementation boundaries, and regression suites.",
+      "parallelizationViability": "High. Tasks decompose into natural orthogonal subtasks (e.g. Agent A updates core domain/interface schema; Agent B updates consumer commands, formatters, or integration tests).",
+      "collisionDetectionSuitability": "Ideal. Systematically exercises all three critical multi-agent concurrency regimes: (1) Disjoint clean merges, (2) Textual merge collisions on shared entrypoints/barrels, and (3) Cross-file semantic breaking collisions where textual merge succeeds (Exit 0) but compiler/tests fail.",
+      "runtimeOverhead": "Low. Deterministic local execution via Vitest/Node and Pytest in <2-5 seconds per test run with zero Docker container overhead."
+    },
+    "selectionVerdict": "Selected CodeNib & Switchyard symbol-graph tasks over SWE-bench Lite to enable fast, reproducible local execution, clean subtask decomposition, and rigorous evaluation of Git ORT textual collisions vs cross-file semantic breakages."
+  },
+  "tasks": [
+    {
+      "taskId": "switchyard-01-mcp-status-filter",
+      "repo": "MohammedAlkindi/switchyard",
+      "workingDirectory": "packages/switchyard",
+      "baseCommit": "cd77f28",
+      "parallelizationCategory": "disjoint_clean_merge",
+      "collisionType": "none",
+      "problemStatement": "Extend MCP status and jsonrpc reporting with filtered worktree statuses. Subtask A modifies MCP schema validation and tool handler in packages/switchyard/src/lib/mcp.ts to accept an optional 'statusFilter' array (e.g. ['active', 'stale']). Subtask B updates packages/switchyard/src/commands/status.ts and tests/mcp.test.ts to apply the filter logic and verify serialization.",
+      "subtasks": {
+        "agentA": {
+          "name": "mcp_tool_schema_filter",
+          "targetFiles": [
+            "packages/switchyard/src/lib/mcp.ts"
+          ],
+          "objective": "Add statusFilter parameter schema and tool argument validation"
+        },
+        "agentB": {
+          "name": "status_filter_handler_and_tests",
+          "targetFiles": [
+            "packages/switchyard/src/commands/status.ts",
+            "packages/switchyard/tests/mcp.test.ts"
+          ],
+          "objective": "Implement filter filtering on worktree list and add unit assertions"
+        }
+      },
+      "affectedFiles": [
+        "packages/switchyard/src/lib/mcp.ts",
+        "packages/switchyard/src/commands/status.ts",
+        "packages/switchyard/tests/mcp.test.ts"
+      ],
+      "testCommand": "npx vitest run tests/mcp.test.ts tests/status.test.ts",
+      "validationCriteria": "Disjoint file edits allow in-memory Git ORT speculative merge to succeed with Exit 0; all test assertions in tests/mcp.test.ts pass with zero regressions; parallel agent execution achieves speedup over sequential baseline."
+    },
+    {
+      "taskId": "switchyard-02-contextbill-csv-export",
+      "repo": "MohammedAlkindi/switchyard",
+      "workingDirectory": "packages/contextbill",
+      "baseCommit": "cd77f28",
+      "parallelizationCategory": "textual_conflict_shared_cli",
+      "collisionType": "textual_interval_overlap",
+      "problemStatement": "Add CSV and JSONL telemetry export options to ContextBill CLI. Subtask A implements the CSV/JSONL serialization pipeline in packages/contextbill/src/report.ts and re-exports it in packages/contextbill/src/index.ts. Subtask B updates packages/contextbill/src/cli.ts and packages/contextbill/src/__tests__/cli.test.ts to add the '--export <format>' option and verify CLI invocation output.",
+      "subtasks": {
+        "agentA": {
+          "name": "csv_jsonl_serializer",
+          "targetFiles": [
+            "packages/contextbill/src/report.ts",
+            "packages/contextbill/src/index.ts"
+          ],
+          "objective": "Build formatTelemetryExport supporting csv, jsonl, and json formats"
+        },
+        "agentB": {
+          "name": "cli_flag_integration",
+          "targetFiles": [
+            "packages/contextbill/src/cli.ts",
+            "packages/contextbill/src/__tests__/cli.test.ts"
+          ],
+          "objective": "Parse --export CLI flag and route to telemetry report generator"
+        }
+      },
+      "affectedFiles": [
+        "packages/contextbill/src/report.ts",
+        "packages/contextbill/src/index.ts",
+        "packages/contextbill/src/cli.ts",
+        "packages/contextbill/src/__tests__/cli.test.ts"
+      ],
+      "testCommand": "npm test -- src/__tests__/cli.test.ts",
+      "validationCriteria": "Line-interval diff in packages/contextbill/src/cli.ts triggers speculative collision alert in fleet check when both agents register options simultaneously; fleet check detects conflict correctly (True Positive)."
+    },
+    {
+      "taskId": "switchyard-03-fleet-speculative-depth",
+      "repo": "MohammedAlkindi/switchyard",
+      "workingDirectory": "packages/switchyard",
+      "baseCommit": "cd77f28",
+      "parallelizationCategory": "semantic_breaking_interface",
+      "collisionType": "semantic_interface_drift",
+      "problemStatement": "Refactor checkCollisions in packages/switchyard/src/lib/mergetree.ts to accept a structured CheckOptions configuration object ({ maxHunkDistance: number, detectRenames: boolean }) instead of positional boolean parameters. Subtask A refactors the definition and implementation in mergetree.ts. Subtask B implements parallel work in packages/switchyard/src/commands/check.ts assuming the legacy positional parameter signature.",
+      "subtasks": {
+        "agentA": {
+          "name": "mergetree_options_refactor",
+          "targetFiles": [
+            "packages/switchyard/src/lib/mergetree.ts"
+          ],
+          "objective": "Refactor checkCollisions signature to use structured CheckOptions interface"
+        },
+        "agentB": {
+          "name": "check_command_feature_update",
+          "targetFiles": [
+            "packages/switchyard/src/commands/check.ts",
+            "packages/switchyard/tests/check.test.ts"
+          ],
+          "objective": "Enhance collision reporting output assuming original positional signature"
+        }
+      },
+      "affectedFiles": [
+        "packages/switchyard/src/lib/mergetree.ts",
+        "packages/switchyard/src/commands/check.ts",
+        "packages/switchyard/tests/check.test.ts"
+      ],
+      "testCommand": "npx vitest run tests/check.test.ts tests/mergetree.test.ts",
+      "validationCriteria": "Git ORT and textual diffs report clean merge (Exit 0, false negative in pure textual collision detection); TypeScript build (tsc) or vitest detects TS2554 argument count/type mismatch; validates empirical semantic gap."
+    },
+    {
+      "taskId": "switchyard-04-waste-threshold-decay",
+      "repo": "MohammedAlkindi/switchyard",
+      "workingDirectory": "packages/contextbill",
+      "baseCommit": "cd77f28",
+      "parallelizationCategory": "disjoint_clean_merge",
+      "collisionType": "none",
+      "problemStatement": "Implement exponential sliding-window decay for token waste thresholds to prevent stale historical turns from inflating immediate session waste flags. Subtask A implements computeDecayedWaste in packages/contextbill/src/waste.ts. Subtask B updates packages/contextbill/src/__tests__/waste-thresholds.test.ts with parameterized test vectors.",
+      "subtasks": {
+        "agentA": {
+          "name": "waste_decay_algorithm",
+          "targetFiles": [
+            "packages/contextbill/src/waste.ts"
+          ],
+          "objective": "Implement sliding-window exponential decay on cumulative waste scores"
+        },
+        "agentB": {
+          "name": "decay_test_suite",
+          "targetFiles": [
+            "packages/contextbill/src/__tests__/waste-thresholds.test.ts"
+          ],
+          "objective": "Add unit tests verifying half-life decay on 10, 50, and 100 turn sessions"
+        }
+      },
+      "affectedFiles": [
+        "packages/contextbill/src/waste.ts",
+        "packages/contextbill/src/__tests__/waste-thresholds.test.ts"
+      ],
+      "testCommand": "npm test -- src/__tests__/waste-thresholds.test.ts",
+      "validationCriteria": "Disjoint file edits; in-memory Git merge completes with 0 conflicts; all 16+ tests pass; demonstrates clean parallel speedup."
+    },
+    {
+      "taskId": "switchyard-05-gateway-sse-streaming",
+      "repo": "MohammedAlkindi/switchyard",
+      "workingDirectory": "packages/switchyard",
+      "baseCommit": "cd77f28",
+      "parallelizationCategory": "textual_conflict_shared_cli",
+      "collisionType": "textual_interval_overlap",
+      "problemStatement": "Add SSE streaming support and chunk buffering to the CortexAI gateway inside Switchyard. Subtask A creates packages/switchyard/src/lib/gateway-stream.ts with SSE chunk decoder and backpressure handling. Subtask B integrates the stream handler into packages/switchyard/src/commands/gateway.ts and adds streaming assertions to tests/gateway.test.ts.",
+      "subtasks": {
+        "agentA": {
+          "name": "sse_stream_decoder",
+          "targetFiles": [
+            "packages/switchyard/src/lib/gateway-stream.ts"
+          ],
+          "objective": "Implement decodeSSEStream generator with event chunking"
+        },
+        "agentB": {
+          "name": "gateway_route_integration",
+          "targetFiles": [
+            "packages/switchyard/src/commands/gateway.ts",
+            "packages/switchyard/tests/gateway.test.ts"
+          ],
+          "objective": "Hook streaming endpoint in gateway route handler and assert test responses"
+        }
+      },
+      "affectedFiles": [
+        "packages/switchyard/src/lib/gateway-stream.ts",
+        "packages/switchyard/src/commands/gateway.ts",
+        "packages/switchyard/tests/gateway.test.ts"
+      ],
+      "testCommand": "npx vitest run tests/gateway.test.ts",
+      "validationCriteria": "Concurrent edits on gateway route registration in packages/switchyard/src/commands/gateway.ts trigger line-interval collision in fleet check; test suite passes once resolved."
+    },
+    {
+      "taskId": "codenib-01-payload-bounding-resilience",
+      "repo": "sysevol-ai/CodeNib",
+      "workingDirectory": "C:/Users/alkin/worktree/codenib",
+      "baseCommit": "353ccc5a",
+      "parallelizationCategory": "disjoint_clean_merge",
+      "collisionType": "none",
+      "problemStatement": "Harden bounded graph payload binary search in CodeNib against cases where root-incident edges alone exceed the 36 KB payload threshold. Subtask A modifies codenib/mcp/tools/dependency.py to truncate identifier names on root-incident edges when necessary. Subtask B adds unit tests in test/guard/test_dependency_bounding.py to assert that payload size strictly respects <= 36864 bytes.",
+      "subtasks": {
+        "agentA": {
+          "name": "dependency_bounding_edge_truncation",
+          "targetFiles": [
+            "codenib/mcp/tools/dependency.py"
+          ],
+          "objective": "Add fallback identifier truncation when root-incident edges exceed 36KB"
+        },
+        "agentB": {
+          "name": "bounding_test_verification",
+          "targetFiles": [
+            "test/guard/test_dependency_bounding.py"
+          ],
+          "objective": "Construct dense root graph test fixtures asserting byte limit invariants"
+        }
+      },
+      "affectedFiles": [
+        "codenib/mcp/tools/dependency.py",
+        "test/guard/test_dependency_bounding.py"
+      ],
+      "testCommand": "pytest test/guard/test_dependency_bounding.py -v",
+      "validationCriteria": "Zero file overlap between implementation and new test fixture; Git ORT merges cleanly; payload strictly bounded under 36 KB."
+    },
+    {
+      "taskId": "codenib-02-hca-ast-canonical-anchor",
+      "repo": "sysevol-ai/CodeNib",
+      "workingDirectory": "C:/Users/alkin/worktree/codenib",
+      "baseCommit": "353ccc5a",
+      "parallelizationCategory": "semantic_breaking_interface",
+      "collisionType": "semantic_interface_drift",
+      "problemStatement": "Replace text-based SHA256 definition hash in codenib.guard.notes with AST-canonicalized hashing. Subtask A modifies definition_hash in codenib/guard/notes.py to parse source with ast.parse and strip comments/docstrings before hashing. Subtask B updates callers in codenib/guard/report.py and test cases in test/guard/test_notes.py.",
+      "subtasks": {
+        "agentA": {
+          "name": "ast_canonical_hashing",
+          "targetFiles": [
+            "codenib/guard/notes.py"
+          ],
+          "objective": "Implement AST canonicalization to eliminate cosmetic formatting false positives"
+        },
+        "agentB": {
+          "name": "guard_report_and_tests",
+          "targetFiles": [
+            "codenib/guard/report.py",
+            "test/guard/test_notes.py"
+          ],
+          "objective": "Integrate AST hash in verification reports and assert comment-invariant hashing"
+        }
+      },
+      "affectedFiles": [
+        "codenib/guard/notes.py",
+        "codenib/guard/report.py",
+        "test/guard/test_notes.py"
+      ],
+      "testCommand": "pytest test/guard/test_notes.py -v",
+      "validationCriteria": "If Agent B updates report assertions assuming the old string SHA256 output format, textual merge succeeds cleanly but pytest fails on assertion mismatch; resolves when canonical hash contract is respected."
+    },
+    {
+      "taskId": "switchyard-06-multiprocess-lock-lease",
+      "repo": "MohammedAlkindi/switchyard",
+      "workingDirectory": "packages/switchyard",
+      "baseCommit": "cd77f28",
+      "parallelizationCategory": "disjoint_clean_merge",
+      "collisionType": "none",
+      "problemStatement": "Extend file locking in packages/switchyard/src/lib/lock.ts with explicit lease expiration timeouts and process heartbeat tokens to prevent deadlock from killed agent processes. Subtask A updates acquireLock and releaseLock in lock.ts with leaseDurationMs. Subtask B updates call sites in packages/switchyard/src/commands/spawn.ts and tests/lock.test.ts.",
+      "subtasks": {
+        "agentA": {
+          "name": "lock_lease_heartbeat",
+          "targetFiles": [
+            "packages/switchyard/src/lib/lock.ts"
+          ],
+          "objective": "Add lease expiration and heartbeat timestamp verification to avoid stale locks"
+        },
+        "agentB": {
+          "name": "spawn_lock_integration_tests",
+          "targetFiles": [
+            "packages/switchyard/src/commands/spawn.ts",
+            "packages/switchyard/tests/lock.test.ts"
+          ],
+          "objective": "Pass lease options during fleet spawn and add lease expiry unit tests"
+        }
+      },
+      "affectedFiles": [
+        "packages/switchyard/src/lib/lock.ts",
+        "packages/switchyard/src/commands/spawn.ts",
+        "packages/switchyard/tests/lock.test.ts"
+      ],
+      "testCommand": "npx vitest run tests/lock.test.ts tests/spawn.test.ts",
+      "validationCriteria": "Disjoint file edits; in-memory Git merge passes cleanly; tests verify lease expiration after simulated process crash."
+    }
+  ]
+}

@@ -45,13 +45,16 @@ def create_api_app(ai_core: Optional[Any] = None) -> Any:
         log.warning("FastAPI not installed. Run: pip install fastapi uvicorn")
         return None
 
-    if ai_core is None:
-        try:
-            from core.ai_core import AICore
-            ai_core = AICore()
-        except Exception as e:
-            log.warning(f"Could not initialize full AICore: {e}")
-            ai_core = None
+    def get_core() -> Optional[Any]:
+        nonlocal ai_core
+        if ai_core is None:
+            try:
+                from core.ai_core import AICore
+                ai_core = AICore()
+            except Exception as e:
+                log.warning(f"Could not initialize full AICore: {e}")
+                ai_core = None
+        return ai_core
 
     app = FastAPI(
         title="Switchyard Fleet & CortexAI Gateway",
@@ -100,8 +103,9 @@ def create_api_app(ai_core: Optional[Any] = None) -> Any:
             {"id": "gpt-4o", "object": "model", "owned_by": "openai"},
             {"id": "gpt-4o-mini", "object": "model", "owned_by": "openai"},
         ]
-        if ai_core and hasattr(ai_core, "model_manager"):
-            extra = ai_core.model_manager.list_models()
+        core = get_core()
+        if core and hasattr(core, "model_manager"):
+            extra = core.model_manager.list_models()
             for m in extra:
                 default_models.append({"id": m, "object": "model", "owned_by": "local"})
         return {"object": "list", "data": default_models}
@@ -119,15 +123,16 @@ def create_api_app(ai_core: Optional[Any] = None) -> Any:
         prompt_tokens = estimate_tokens(prompt_text)
 
         response_text = ""
+        core = get_core()
         try:
-            if model.startswith("claude-") and ai_core and hasattr(ai_core, "anthropic_client"):
-                response_text = ai_core.anthropic_client.chat(messages, model=model, max_tokens=max_tokens)
-            elif (model.startswith("gpt-") or model.startswith("o1") or model.startswith("o3")) and ai_core and hasattr(ai_core, "openai_client"):
-                response_text = ai_core.openai_client.chat(messages, model=model, max_tokens=max_tokens)
-            elif ai_core and hasattr(ai_core, "anthropic_client") and ai_core.anthropic_client.ready:
-                response_text = ai_core.anthropic_client.chat(messages, model=model, max_tokens=max_tokens)
-            elif ai_core and hasattr(ai_core, "openai_client") and ai_core.openai_client.ready:
-                response_text = ai_core.openai_client.chat(messages, model=model, max_tokens=max_tokens)
+            if model.startswith("claude-") and core and hasattr(core, "anthropic_client"):
+                response_text = core.anthropic_client.chat(messages, model=model, max_tokens=max_tokens)
+            elif (model.startswith("gpt-") or model.startswith("o1") or model.startswith("o3")) and core and hasattr(core, "openai_client"):
+                response_text = core.openai_client.chat(messages, model=model, max_tokens=max_tokens)
+            elif core and hasattr(core, "anthropic_client") and core.anthropic_client.ready:
+                response_text = core.anthropic_client.chat(messages, model=model, max_tokens=max_tokens)
+            elif core and hasattr(core, "openai_client") and core.openai_client.ready:
+                response_text = core.openai_client.chat(messages, model=model, max_tokens=max_tokens)
             else:
                 response_text = f"[Switchyard Gateway Simulation] Responding from model {model} for agent {agent_id}."
 
@@ -135,9 +140,9 @@ def create_api_app(ai_core: Optional[Any] = None) -> Any:
             total_tokens = prompt_tokens + completion_tokens
 
             # Meter usage and cost via contextbill-synchronized billing manager
-            if ai_core and hasattr(ai_core, "billing"):
-                cost = ai_core.billing.calculate_cost(model, prompt_tokens, completion_tokens)
-                ai_core.billing.log_usage(agent_id, model, total_tokens, cost)
+            if core and hasattr(core, "billing"):
+                cost = core.billing.calculate_cost(model, prompt_tokens, completion_tokens)
+                core.billing.log_usage(agent_id, model, total_tokens, cost)
 
             chat_id = f"chatcmpl-{hashlib.md5((prompt_text + str(time.time())).encode()).hexdigest()[:12]}"
             return {
@@ -176,20 +181,21 @@ def create_api_app(ai_core: Optional[Any] = None) -> Any:
         messages = [{"role": "user", "content": prompt}]
         prompt_tokens = estimate_tokens(prompt)
 
+        core = get_core()
         try:
-            if ai_core and hasattr(ai_core, "anthropic_client") and ai_core.anthropic_client.ready:
-                response_text = ai_core.anthropic_client.chat(messages, model=model, max_tokens=max_tokens)
-            elif ai_core and hasattr(ai_core, "openai_client") and ai_core.openai_client.ready:
-                response_text = ai_core.openai_client.chat(messages, model=model, max_tokens=max_tokens)
+            if core and hasattr(core, "anthropic_client") and core.anthropic_client.ready:
+                response_text = core.anthropic_client.chat(messages, model=model, max_tokens=max_tokens)
+            elif core and hasattr(core, "openai_client") and core.openai_client.ready:
+                response_text = core.openai_client.chat(messages, model=model, max_tokens=max_tokens)
             else:
                 response_text = f"[Switchyard Gateway Simulation] Completion for model {model}."
 
             completion_tokens = estimate_tokens(response_text)
             total_tokens = prompt_tokens + completion_tokens
 
-            if ai_core and hasattr(ai_core, "billing"):
-                cost = ai_core.billing.calculate_cost(model, prompt_tokens, completion_tokens)
-                ai_core.billing.log_usage(agent_id, model, total_tokens, cost)
+            if core and hasattr(core, "billing"):
+                cost = core.billing.calculate_cost(model, prompt_tokens, completion_tokens)
+                core.billing.log_usage(agent_id, model, total_tokens, cost)
 
             cmpl_id = f"cmpl-{hashlib.md5(prompt.encode()).hexdigest()[:8]}"
             return {

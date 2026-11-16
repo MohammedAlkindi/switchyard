@@ -1,6 +1,7 @@
 {
   "name": "switchyard-monorepo",
   "private": true,
+  "type": "module",
   "description": "Switchyard monorepo: multi-agent git isolation and transcript cost accounting",
   "workspaces": [
     "packages/*",
@@ -10,6 +11,7 @@
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc --noEmit -p scripts/tsconfig.json",
+    "benchmark": "node --experimental-strip-types scripts/benchmark-harness.ts"
   }
 }
