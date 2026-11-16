@@ -1,11 +1,11 @@
 {
   "suite": "switchyard-multiagent-benchmark",
-  "timestamp": "2026-11-16T00:07:53.370Z",
+  "timestamp": "2026-11-16T00:17:53.817Z",
   "totalTasks": 8,
   "overallSummary": {
-    "arm1TotalWallClockMs": 8203.57,
-    "arm2TotalWallClockMs": 43826.32,
-    "meanSpeedup": 0.19,
+    "arm1TotalWallClockMs": 8200.87,
+    "arm2TotalWallClockMs": 45595.77,
+    "meanSpeedup": 0.18,
     "arm1TotalCostUsd": 1.6062,
     "arm2TotalCostUsd": 1.3728,
     "costMultiplier": 0.85,
@@ -25,7 +25,7 @@
       "arm1": {
         "arm": "arm1_single",
         "turns": 2,
-        "wallClockMs": 1031.0956,
+        "wallClockMs": 958.7612000000001,
         "telemetry": {
           "inputTokens": 29700,
           "cachedReadTokens": 11000,
@@ -39,7 +39,7 @@
       "arm2": {
         "arm": "arm2_parallel",
         "turns": 2,
-        "wallClockMs": 5998.089499999999,
+        "wallClockMs": 7118.3482,
         "telemetry": {
           "inputTokens": 20600,
           "cachedReadTokens": 0,
@@ -52,7 +52,7 @@
         "collisionDetected": false,
         "collisions": [],
         "cleanMerges": [],
-        "checkLatencyMs": 1469.7084000000004,
+        "checkLatencyMs": 1884.5936999999994,
         "mergeOutcomes": {
           "agentA": {
             "merged": true
@@ -66,7 +66,7 @@
           "details": "Semantic checks passed without interface regressions."
         }
       },
-      "speedup": 0.17,
+      "speedup": 0.13,
       "costDeltaPercent": -14.53,
       "collisionVerdict": "clean_disjoint"
     },
@@ -77,7 +77,7 @@
       "arm1": {
         "arm": "arm1_single",
         "turns": 2,
-        "wallClockMs": 1011.3209999999999,
+        "wallClockMs": 1149.982899999999,
         "telemetry": {
           "inputTokens": 29700,
           "cachedReadTokens": 11000,
@@ -91,7 +91,7 @@
       "arm2": {
         "arm": "arm2_parallel",
         "turns": 2,
-        "wallClockMs": 5421.826000000001,
+        "wallClockMs": 5305.831099999999,
         "telemetry": {
           "inputTokens": 20600,
           "cachedReadTokens": 0,
@@ -114,7 +114,7 @@
           }
         ],
         "cleanMerges": [],
-        "checkLatencyMs": 1629.0115999999998,
+        "checkLatencyMs": 1200.7314000000006,
         "mergeOutcomes": {
           "agentA": {
             "merged": false,
@@ -130,7 +130,7 @@
           "details": "Fleet check successfully intercepted textual interval conflict."
         }
       },
-      "speedup": 0.19,
+      "speedup": 0.22,
       "costDeltaPercent": -14.53,
       "collisionVerdict": "true_positive"
     },
@@ -141,7 +141,7 @@
       "arm1": {
         "arm": "arm1_single",
         "turns": 2,
-        "wallClockMs": 1329.6777000000002,
+        "wallClockMs": 949.6287000000011,
         "telemetry": {
           "inputTokens": 29700,
           "cachedReadTokens": 11000,
@@ -155,7 +155,7 @@
       "arm2": {
         "arm": "arm2_parallel",
         "turns": 2,
-        "wallClockMs": 5716.3315,
+        "wallClockMs": 6195.2161000000015,
         "telemetry": {
           "inputTokens": 20600,
           "cachedReadTokens": 0,
@@ -168,7 +168,7 @@
         "collisionDetected": false,
         "collisions": [],
         "cleanMerges": [],
-        "checkLatencyMs": 1238.8469000000005,
+        "checkLatencyMs": 1155.643,
         "mergeOutcomes": {
           "agentA": {
             "merged": true
@@ -180,10 +180,10 @@
         "semanticValidation": {
           "passed": false,
           "errorType": "TS2554_ARGUMENT_COUNT_MISMATCH",
-          "details": "Git ORT reported clean merge (Exit 0), but compiler/AST validation detected caller-callee signature mismatch."
+          "details": "[Semantic Gate Intercepted] Agent agent_a modified contract of function \"checkCollisions\" in packages/switchyard/src/lib/mergetree.ts ((fast: boolean, detectRenames: boolean): boolean -> (options: CheckOptions): boolean), which is used in packages/switchyard/src/commands/check.ts by agent_b."
         }
       },
-      "speedup": 0.23,
+      "speedup": 0.15,
       "costDeltaPercent": -14.53,
       "collisionVerdict": "semantic_false_negative"
     },
@@ -194,7 +194,7 @@
       "arm1": {
         "arm": "arm1_single",
         "turns": 2,
-        "wallClockMs": 991.8333999999995,
+        "wallClockMs": 1110.2114999999976,
         "telemetry": {
           "inputTokens": 29700,
           "cachedReadTokens": 11000,
@@ -208,7 +208,7 @@
       "arm2": {
         "arm": "arm2_parallel",
         "turns": 2,
-        "wallClockMs": 5644.407599999999,
+        "wallClockMs": 6075.7634000000035,
         "telemetry": {
           "inputTokens": 20600,
           "cachedReadTokens": 0,
@@ -221,7 +221,7 @@
         "collisionDetected": false,
         "collisions": [],
         "cleanMerges": [],
-        "checkLatencyMs": 1166.998599999999,
+        "checkLatencyMs": 1127.333900000005,
         "mergeOutcomes": {
           "agentA": {
             "merged": true
@@ -246,7 +246,7 @@
       "arm1": {
         "arm": "arm1_single",
         "turns": 2,
-        "wallClockMs": 882.7546000000002,
+        "wallClockMs": 1029.567799999997,
         "telemetry": {
           "inputTokens": 29700,
           "cachedReadTokens": 11000,
@@ -260,7 +260,7 @@
       "arm2": {
         "arm": "arm2_parallel",
         "turns": 2,
-        "wallClockMs": 4175.477400000003,
+        "wallClockMs": 4914.671000000002,
         "telemetry": {
           "inputTokens": 20600,
           "cachedReadTokens": 0,
@@ -283,7 +283,7 @@
           }
         ],
         "cleanMerges": [],
-        "checkLatencyMs": 1055.2534000000014,
+        "checkLatencyMs": 1217.304400000001,
         "mergeOutcomes": {
           "agentA": {
             "merged": false,
@@ -310,7 +310,7 @@
       "arm1": {
         "arm": "arm1_single",
         "turns": 2,
-        "wallClockMs": 897.8314000000028,
+        "wallClockMs": 1029.1299999999974,
         "telemetry": {
           "inputTokens": 29700,
           "cachedReadTokens": 11000,
@@ -324,7 +324,7 @@
       "arm2": {
         "arm": "arm2_parallel",
         "turns": 2,
-        "wallClockMs": 5726.810500000007,
+        "wallClockMs": 4936.927100000001,
         "telemetry": {
           "inputTokens": 20600,
           "cachedReadTokens": 0,
@@ -337,7 +337,7 @@
         "collisionDetected": false,
         "collisions": [],
         "cleanMerges": [],
-        "checkLatencyMs": 976.6713000000018,
+        "checkLatencyMs": 921.7253999999957,
         "mergeOutcomes": {
           "agentA": {
             "merged": true
@@ -351,7 +351,7 @@
           "details": "Semantic checks passed without interface regressions."
         }
       },
-      "speedup": 0.16,
+      "speedup": 0.21,
       "costDeltaPercent": -14.53,
       "collisionVerdict": "clean_disjoint"
     },
@@ -362,7 +362,7 @@
       "arm1": {
         "arm": "arm1_single",
         "turns": 2,
-        "wallClockMs": 1083.778099999996,
+        "wallClockMs": 1018.4747000000061,
         "telemetry": {
           "inputTokens": 29700,
           "cachedReadTokens": 11000,
@@ -376,7 +376,7 @@
       "arm2": {
         "arm": "arm2_parallel",
         "turns": 2,
-        "wallClockMs": 5851.098600000005,
+        "wallClockMs": 5457.220999999998,
         "telemetry": {
           "inputTokens": 20600,
           "cachedReadTokens": 0,
@@ -389,7 +389,7 @@
         "collisionDetected": false,
         "collisions": [],
         "cleanMerges": [],
-        "checkLatencyMs": 1134.8494999999966,
+        "checkLatencyMs": 972.2259999999951,
         "mergeOutcomes": {
           "agentA": {
             "merged": true
@@ -415,7 +415,7 @@
       "arm1": {
         "arm": "arm1_single",
         "turns": 2,
-        "wallClockMs": 975.2770999999993,
+        "wallClockMs": 955.1100000000006,
         "telemetry": {
           "inputTokens": 29700,
           "cachedReadTokens": 11000,
@@ -429,7 +429,7 @@
       "arm2": {
         "arm": "arm2_parallel",
         "turns": 2,
-        "wallClockMs": 5292.276799999992,
+        "wallClockMs": 5591.796900000001,
         "telemetry": {
           "inputTokens": 20600,
           "cachedReadTokens": 0,
@@ -442,7 +442,7 @@
         "collisionDetected": false,
         "collisions": [],
         "cleanMerges": [],
-        "checkLatencyMs": 1003.2762999999977,
+        "checkLatencyMs": 968.2011999999959,
         "mergeOutcomes": {
           "agentA": {
             "merged": true
@@ -456,7 +456,7 @@
           "details": "Semantic checks passed without interface regressions."
         }
       },
-      "speedup": 0.18,
+      "speedup": 0.17,
       "costDeltaPercent": -14.53,
       "collisionVerdict": "clean_disjoint"
     }

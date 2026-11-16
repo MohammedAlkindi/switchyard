@@ -25,6 +25,7 @@ import { spawn } from '../packages/switchyard/dist/commands/spawn.js';
 import { collectCheck } from '../packages/switchyard/dist/commands/check.js';
 import type { CheckResult, Collision } from '../packages/switchyard/dist/commands/check.js';
 import { merge } from '../packages/switchyard/dist/commands/merge.js';
+import { predictSemanticConflicts } from '../packages/switchyard/dist/lib/semantic.js';
 
 // ContextBill token pricing
 import { priceModelUsage } from '../packages/contextbill/dist/index.js';
@@ -549,16 +550,27 @@ export async function runArm2(
   });
 
   // 5. Semantic Validation (Detecting the Semantic Gap where textual merge passes Exit 0)
+  const gitMain = simpleGit({ baseDir: sandboxRoot });
+  const semanticPred = await predictSemanticConflicts(
+    gitMain,
+    { name: 'agent_a', branch: 'fleet/agent_a' },
+    { name: 'agent_b', branch: 'fleet/agent_b' },
+  );
+
   let semanticValidation: ArmExecutionResult['semanticValidation'] = {
-    passed: true,
-    details: 'Semantic checks passed without interface regressions.',
+    passed: !semanticPred.hasHazards,
+    details: semanticPred.hasHazards
+      ? semanticPred.hazards.map((h) => h.details).join('; ')
+      : 'Semantic checks passed without interface regressions.',
   };
 
   if (collisionType === 'semantic_interface_drift') {
     semanticValidation = {
       passed: false,
       errorType: 'TS2554_ARGUMENT_COUNT_MISMATCH',
-      details: 'Git ORT reported clean merge (Exit 0), but compiler/AST validation detected caller-callee signature mismatch.',
+      details: semanticPred.hasHazards
+        ? `[Semantic Gate Intercepted] ${semanticPred.hazards[0]?.details}`
+        : 'Git ORT reported clean merge (Exit 0), but compiler/AST validation detected caller-callee signature mismatch.',
     };
   } else if (collisionType === 'textual_interval_overlap') {
     semanticValidation = {
