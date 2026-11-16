@@ -165,7 +165,7 @@ Without a global install, use `"command": "npx", "args": ["-y", "@switchyardhq/s
 | --- | --- | --- |
 | `fleet_list` | — | Every active agent: branch, base, worktree path, ahead/behind, uncommitted count, last activity |
 | `fleet_status` | `agent` | One agent in detail: record, ahead/behind, uncommitted files, diffstat vs base |
-| `fleet_check` | `lines?`, `filesOnly?` | Files touched by more than one agent, with merge-simulation verdicts |
+| `fleet_check` | `lines?`, `semantic?`, `filesOnly?` | Files touched by more than one agent, with merge-simulation verdicts and AST semantic hazard analysis |
 | `fleet_lock_status` | — | Whether a `fleet` command is currently mutating the repo |
 
 Each returns the same object the matching `--json` flag prints, so the CLI and

@@ -36,6 +36,8 @@ export interface MergeOptions {
   deleteBranch?: boolean;
   /** commander maps --no-clean to clean: false. Default: full cleanup. */
   clean?: boolean;
+  /** Refuse merge if AST symbol hazards exist with concurrent agents. */
+  semantic?: boolean;
   cwd?: string;
 }
 
@@ -96,7 +98,7 @@ async function mergeLocked(
   // files. Reuses `fleet check` (which prints its table) rather than a second
   // implementation of the cross-reference.
   if (Object.keys(state.agents).length >= 2) {
-    const { collisions } = await check({ cwd: repoRoot });
+    const { collisions, semanticHazards } = await check({ cwd: repoRoot, semantic: options.semantic });
     const blocking = collisions.filter((c) => c.agents.includes(name));
     if (blocking.length > 0) {
       const lines = blocking
@@ -107,6 +109,19 @@ async function mergeLocked(
           `${lines}\n` +
           'Merge or remove those agents first (or resolve the overlap), then re-run.',
       );
+    }
+    if (options.semantic && semanticHazards && semanticHazards.length > 0) {
+      const blockingHazards = semanticHazards.filter(
+        (h) => h.providerAgent === name || h.consumerAgent === name,
+      );
+      if (blockingHazards.length > 0) {
+        const hazardLines = blockingHazards.map((h) => `  - [${h.type}] ${h.details}`).join('\n');
+        throw new FleetError(
+          `Refusing to merge "${name}": ${plural(blockingHazards.length, 'semantic hazard')} detected with concurrent agents:\n` +
+            `${hazardLines}\n` +
+            'Resolve contract modifications or synchronise concurrent agents before merging.',
+        );
+      }
     }
   }
 

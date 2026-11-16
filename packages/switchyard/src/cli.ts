@@ -106,12 +106,18 @@ program
   .command('check')
   .description('flag files touched by more than one agent (exits 1 if any are found)')
   .option('--lines', 'only count files whose edited line ranges actually overlap')
+  .option('--semantic', 'predict semantic symbol hazards (breaking contract changes or deleted exports)')
   .option('--files-only', 'skip merge simulation; flag any shared file (v0.1 behavior)')
   .option('--json', 'print machine-readable JSON instead of a table')
-  .action((opts: { lines?: boolean; filesOnly?: boolean; json?: boolean }) =>
+  .action((opts: { lines?: boolean; semantic?: boolean; filesOnly?: boolean; json?: boolean }) =>
     run(async () => {
       const result = await check(opts);
-      if (result.collisions.length > 0) process.exitCode = 1;
+      if (
+        result.collisions.length > 0 ||
+        (opts.semantic && (result.semanticHazards?.length ?? 0) > 0)
+      ) {
+        process.exitCode = 1;
+      }
     }),
   );
 
@@ -227,7 +233,8 @@ program
   .argument('<agent-name>', 'agent to merge')
   .option('--delete-branch', 'delete the branch after merging (already the default cleanup)')
   .option('--no-clean', 'keep the worktree and branch after merging')
-  .action((name: string, opts: { deleteBranch?: boolean; clean?: boolean }) =>
+  .option('--semantic', 'refuse merge if AST symbol hazards exist with concurrent agents')
+  .action((name: string, opts: { deleteBranch?: boolean; clean?: boolean; semantic?: boolean }) =>
     run(() => merge(name, opts)),
   );
 

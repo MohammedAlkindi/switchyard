@@ -107,6 +107,12 @@ export function buildTools(cwd: string): McpTool[] {
               'Skip merge simulation and flag any shared file. Coarser, but works on ' +
               'git older than 2.38.',
           },
+          semantic: {
+            type: 'boolean',
+            description:
+              'Run in-memory AST symbol conflict prediction to detect breaking contract ' +
+              'modifications and deleted exports across agents.',
+          },
         },
         additionalProperties: false,
       },
@@ -115,6 +121,7 @@ export function buildTools(cwd: string): McpTool[] {
           cwd,
           lines: args.lines === true,
           filesOnly: args.filesOnly === true,
+          semantic: args.semantic === true,
         }),
     },
     {

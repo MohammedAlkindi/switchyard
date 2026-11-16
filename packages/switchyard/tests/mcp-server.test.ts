@@ -196,6 +196,14 @@ describe('fleet mcp over stdio', () => {
     expect(check.agentsChecked).toBe(2);
     expect(check.collisions.map((c) => c.file)).toContain('shared.txt');
 
+    const checkSemantic = (await client.callTool('fleet_check', { semantic: true })) as {
+      collisions: { file: string; agents: string[] }[];
+      semanticHazards?: unknown[];
+      agentsChecked: number;
+    };
+    expect(checkSemantic.agentsChecked).toBe(2);
+    expect(Array.isArray(checkSemantic.semanticHazards)).toBe(true);
+
     const lock = (await client.callTool('fleet_lock_status')) as { state: string };
     expect(lock.state).toBe('none');
   });

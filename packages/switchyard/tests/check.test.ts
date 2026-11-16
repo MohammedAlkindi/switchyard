@@ -68,6 +68,55 @@ describe('fleet check', () => {
     });
   });
 
+  it('--semantic predicts breaking symbol contract modifications across agents', async () => {
+    // Seed base file in repo root
+    await commitFile(
+      repo.root,
+      'service.ts',
+      'export function calculate(a: number, b: number): number { return a + b; }\n',
+      'feat: add service',
+    );
+    await commitFile(
+      repo.root,
+      'consumer.ts',
+      'import { calculate } from "./service";\nexport function run() { return calculate(1, 2); }\n',
+      'feat: add consumer',
+    );
+
+    await spawn('alice', { cwd: repo.root });
+    await spawn('bob', { cwd: repo.root });
+
+    // Alice mutates the signature of calculate to take only 1 parameter
+    await commitFile(
+      worktreePath(repo.root, 'alice'),
+      'service.ts',
+      'export function calculate(a: number): number { return a * 2; }\n',
+      'feat: update calculate signature',
+    );
+
+    // Bob modifies consumer.ts still using calculate
+    await commitFile(
+      worktreePath(repo.root, 'bob'),
+      'consumer.ts',
+      'import { calculate } from "./service";\nexport function run() { return calculate(5, 10); }\n',
+      'feat: update consumer calculation',
+    );
+
+    const result = await check({ semantic: true, cwd: repo.root });
+
+    expect(result.semanticHazards).toBeDefined();
+    expect(result.semanticHazards!.length).toBeGreaterThan(0);
+    const hazard = result.semanticHazards![0];
+    expect(hazard.symbol).toBe('calculate');
+    expect(hazard.type).toBe('breaking_contract_change');
+    expect(hazard.providerAgent).toBe('alice');
+    expect(hazard.consumerAgent).toBe('bob');
+
+    const report = buildCheckReport(result, { semantic: true, capable: true });
+    expect(report).toContain('semantic hazard');
+    expect(report).toContain('calculate');
+  });
+
   it('--json prints the result as parseable JSON', async () => {
     await spawn('alice', { cwd: repo.root });
     await spawn('bob', { cwd: repo.root });

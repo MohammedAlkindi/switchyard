@@ -12,6 +12,8 @@ import {
 import { formatRanges, parseUnifiedDiff, rangesOverlap } from '../lib/lines.js';
 import type { FileRanges } from '../lib/lines.js';
 import { predictMergeConflicts } from '../lib/mergetree.js';
+import { predictSemanticConflicts } from '../lib/semantic.js';
+import type { SemanticHazard } from '../lib/semantic.js';
 import { readState, worktreeAbsPath } from '../lib/state.js';
 import type { AgentRecord } from '../lib/state.js';
 
@@ -23,6 +25,11 @@ export interface CheckOptions {
    * ranges actually overlap; report disjoint same-file edits separately.
    */
   lines?: boolean;
+  /**
+   * AST-level semantic hazard prediction: detect breaking contract mutations
+   * or deleted exports across agents.
+   */
+  semantic?: boolean;
   /** Skip merge simulation entirely; flag any shared file (v0.1 behavior). */
   filesOnly?: boolean;
   cwd?: string;
@@ -46,6 +53,8 @@ export interface CheckResult {
   disjoint?: Collision[];
   /** merge-tree mode only: shared files whose committed changes auto-merge. */
   cleanMerges?: Collision[];
+  /** --semantic only: breaking contract mutations or deleted exports across agents. */
+  semanticHazards?: SemanticHazard[];
   /** Which detection semantics ran. */
   prediction: 'merge-tree' | 'files';
   agentsChecked: number;
@@ -211,9 +220,26 @@ export async function collectCheck(options: CheckOptions = {}): Promise<CheckRes
     collisions = working;
   }
 
+  let semanticHazards: SemanticHazard[] | undefined;
+  if (options.semantic && agents.length >= 2) {
+    semanticHazards = [];
+    for (let i = 0; i < agents.length; i += 1) {
+      for (let j = i + 1; j < agents.length; j += 1) {
+        const a = agents[i];
+        const b = agents[j];
+        if (!a || !b || unsimulatable.has(a.name) || unsimulatable.has(b.name)) continue;
+        const res = await predictSemanticConflicts(git, a, b);
+        if (res.hasHazards) {
+          semanticHazards.push(...res.hazards);
+        }
+      }
+    }
+  }
+
   const result: CheckResult = { collisions, prediction, agentsChecked: agents.length, agentFiles };
   if (disjoint !== undefined) result.disjoint = disjoint;
   if (cleanMerges !== undefined) result.cleanMerges = cleanMerges;
+  if (semanticHazards !== undefined) result.semanticHazards = semanticHazards;
   return result;
 }
 
@@ -224,9 +250,9 @@ export async function collectCheck(options: CheckOptions = {}): Promise<CheckRes
  */
 export function buildCheckReport(
   result: CheckResult,
-  opts: { lines?: boolean; capable: boolean },
+  opts: { lines?: boolean; semantic?: boolean; capable: boolean },
 ): string {
-  const { collisions, disjoint, cleanMerges, prediction, agentsChecked } = result;
+  const { collisions, disjoint, cleanMerges, semanticHazards, prediction, agentsChecked } = result;
   const useMergeTree = prediction === 'merge-tree';
 
   if (agentsChecked < 2) {
@@ -288,6 +314,25 @@ export function buildCheckReport(
     }
   }
 
+  if (semanticHazards && semanticHazards.length > 0) {
+    out.push('');
+    out.push(fail(`${plural(semanticHazards.length, 'semantic hazard')} detected:`));
+    out.push(
+      table(
+        ['TYPE', 'SYMBOL', 'PROVIDER', 'CONSUMER'],
+        semanticHazards.map((h) => [
+          h.type,
+          h.symbol,
+          `${h.providerAgent} (${h.providerFile})`,
+          `${h.consumerAgent} (${h.consumerFile})`,
+        ]),
+      ),
+    );
+    for (const h of semanticHazards) {
+      out.push(dim(`  - ${h.details}`));
+    }
+  }
+
   return out.join('\n');
 }
 
@@ -306,7 +351,7 @@ export async function check(options: CheckOptions = {}): Promise<CheckResult> {
   }
 
   const capable = await supportsMergeTree(gitAt(repoRoot));
-  console.log(buildCheckReport(result, { lines: options.lines, capable }));
+  console.log(buildCheckReport(result, { lines: options.lines, semantic: options.semantic, capable }));
   return result;
 }
 
