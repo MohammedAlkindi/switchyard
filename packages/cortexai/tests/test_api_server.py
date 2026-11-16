@@ -116,3 +116,59 @@ def test_chat_completions_stream_error_event():
     events = _sse_data(res)
     assert "boom" in events[-2]
     assert events[-1] == "[DONE]"
+
+
+def test_chat_completions_stream_include_usage_chunk():
+    def fake_stream(messages, system, model, max_tokens, on_token, stop_check):
+        for t in ["Hello ", "world"]:
+            on_token(t)
+
+    mock_core = MagicMock()
+    mock_core.anthropic_client.stream_chat.side_effect = fake_stream
+    mock_core.billing.calculate_cost.return_value = 0.0
+    client = TestClient(create_api_app(mock_core))
+    res = client.post("/v1/chat/completions", json={"model": "claude-x", "stream": True,
+                      "stream_options": {"include_usage": True},
+                      "messages": [{"role": "user", "content": "hi there"}]})
+    events = _sse_data(res)
+    assert events[-1] == "[DONE]"
+    chunks = [json.loads(e) for e in events[:-1]]
+    final = chunks[-1]
+    assert final["choices"] == []
+    assert final["usage"]["total_tokens"] == final["usage"]["prompt_tokens"] + final["usage"]["completion_tokens"]
+    assert final["usage"]["completion_tokens"] > 0
+    assert all(c["usage"] is None for c in chunks[:-1])
+    assert chunks[-2]["choices"][0]["finish_reason"] == "stop"
+    assert mock_core.billing.log_usage.call_count == 1
+
+
+def test_chat_completions_stream_without_include_usage_has_no_usage_field():
+    mock_core = MagicMock()
+    mock_core.anthropic_client.ready = False
+    mock_core.openai_client.ready = False
+    mock_core.billing.calculate_cost.return_value = 0.0
+    client = TestClient(create_api_app(mock_core))
+    res = client.post("/v1/chat/completions", json={"model": "local-x", "stream": True,
+                      "messages": [{"role": "user", "content": "hi"}]})
+    chunks = [json.loads(e) for e in _sse_data(res)[:-1]]
+    assert all("usage" not in c for c in chunks)
+
+
+def test_chat_completions_stream_error_bills_partial_output_once():
+    def fake_stream(messages, system, model, max_tokens, on_token, stop_check):
+        on_token("partial output ")
+        raise RuntimeError("upstream reset")
+
+    mock_core = MagicMock()
+    mock_core.anthropic_client.stream_chat.side_effect = fake_stream
+    mock_core.billing.calculate_cost.return_value = 0.0
+    client = TestClient(create_api_app(mock_core))
+    res = client.post("/v1/chat/completions", json={"model": "claude-x", "stream": True,
+                      "messages": [{"role": "user", "content": "hi"}]})
+    events = _sse_data(res)
+    err = json.loads(events[-2])
+    assert err["error"]["message"] == "upstream reset"
+    assert err["choices"][0]["finish_reason"] == "error"
+    assert mock_core.billing.log_usage.call_count == 1
+    total_tokens = mock_core.billing.log_usage.call_args[0][2]
+    assert total_tokens > estimate_tokens("hi")

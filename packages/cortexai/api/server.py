@@ -191,33 +191,69 @@ def create_api_app(ai_core: Optional[Any] = None) -> Any:
             simulated = f"[Switchyard Gateway Simulation] Responding from model {model} for agent {agent_id}."
             client = _pick_client(core, model)
 
+            # OpenAI `stream_options.include_usage`: every chunk carries
+            # `usage: null`, and one extra chunk with empty `choices` carries
+            # the totals just before [DONE].
+            stream_options = body.get("stream_options") or {}
+            include_usage = bool(isinstance(stream_options, dict) and stream_options.get("include_usage"))
+
             def chunk(delta: Dict[str, Any], finish: Optional[str] = None) -> Dict[str, Any]:
-                return {
+                c = {
                     "id": chat_id,
                     "object": "chat.completion.chunk",
                     "created": created,
                     "model": model,
                     "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
                 }
+                if include_usage:
+                    c["usage"] = None
+                return c
 
             def event_stream():
                 collected: List[str] = []
-                yield sse_event(chunk({"role": "assistant"}))
+                billed = False
+
+                def bill() -> Dict[str, int]:
+                    # Bill whatever was generated, also on error or client
+                    # disconnect: the provider charged for those tokens.
+                    nonlocal billed
+                    completion_tokens = estimate_tokens("".join(collected)) if collected else 0
+                    if not billed and core and hasattr(core, "billing"):
+                        billed = True
+                        cost = core.billing.calculate_cost(model, prompt_tokens, completion_tokens)
+                        core.billing.log_usage(agent_id, model, prompt_tokens + completion_tokens, cost)
+                    return {
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": completion_tokens,
+                        "total_tokens": prompt_tokens + completion_tokens,
+                    }
+
                 try:
-                    for text in iter_stream_text(client, messages, model, max_tokens, simulated):
-                        collected.append(text)
-                        yield sse_event(chunk({"content": text}))
-                except Exception as e:
-                    log.error(f"Streaming error: {e}", exc_info=True)
-                    yield sse_event({"error": {"message": str(e), "type": "gateway_error"}})
+                    yield sse_event(chunk({"role": "assistant"}))
+                    try:
+                        for text in iter_stream_text(client, messages, model, max_tokens, simulated):
+                            collected.append(text)
+                            yield sse_event(chunk({"content": text}))
+                    except Exception as e:
+                        log.error(f"Streaming error: {e}", exc_info=True)
+                        # Mid-stream error: an error object plus a terminal
+                        # choice with finish_reason "error" (OpenRouter's shape).
+                        err = chunk({}, "error")
+                        err["error"] = {"message": str(e), "type": "gateway_error"}
+                        bill()
+                        yield sse_event(err)
+                        yield sse_event("[DONE]")
+                        return
+                    usage = bill()
+                    yield sse_event(chunk({}, "stop"))
+                    if include_usage:
+                        final = chunk({})
+                        final["choices"] = []
+                        final["usage"] = usage
+                        yield sse_event(final)
                     yield sse_event("[DONE]")
-                    return
-                completion_tokens = estimate_tokens("".join(collected))
-                if core and hasattr(core, "billing"):
-                    cost = core.billing.calculate_cost(model, prompt_tokens, completion_tokens)
-                    core.billing.log_usage(agent_id, model, prompt_tokens + completion_tokens, cost)
-                yield sse_event(chunk({}, "stop"))
-                yield sse_event("[DONE]")
+                finally:
+                    bill()  # no-op unless the client disconnected mid-stream
 
             return StreamingResponse(event_stream(), media_type="text/event-stream")
         try:
