@@ -106,7 +106,7 @@ describe('fleet check', () => {
 
     expect(result.semanticHazards).toBeDefined();
     expect(result.semanticHazards!.length).toBeGreaterThan(0);
-    const hazard = result.semanticHazards![0];
+    const hazard = result.semanticHazards![0]!;
     expect(hazard.symbol).toBe('calculate');
     expect(hazard.type).toBe('breaking_contract_change');
     expect(hazard.providerAgent).toBe('alice');
