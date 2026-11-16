@@ -16,3 +16,6 @@ coverage/
 npm-debug.log*
 .vercel
 .env*
+
+# P3 evaluation: per-shard intermediates (merged results are committed)
+scripts/p3/results/shards/
