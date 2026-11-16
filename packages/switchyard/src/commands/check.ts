@@ -12,7 +12,7 @@ import {
 import { formatRanges, parseUnifiedDiff, rangesOverlap } from '../lib/lines.js';
 import type { FileRanges } from '../lib/lines.js';
 import { predictMergeConflicts } from '../lib/mergetree.js';
-import { predictSemanticConflicts } from '../lib/semantic.js';
+import { PRECISE_SEMANTIC, predictSemanticConflicts } from '../lib/semantic.js';
 import type { SemanticHazard } from '../lib/semantic.js';
 import { readState, worktreeAbsPath } from '../lib/state.js';
 import type { AgentRecord } from '../lib/state.js';
@@ -228,7 +228,7 @@ export async function collectCheck(options: CheckOptions = {}): Promise<CheckRes
         const a = agents[i];
         const b = agents[j];
         if (!a || !b || unsimulatable.has(a.name) || unsimulatable.has(b.name)) continue;
-        const res = await predictSemanticConflicts(git, a, b);
+        const res = await predictSemanticConflicts(git, a, b, PRECISE_SEMANTIC, { cwd: repoRoot });
         if (res.hasHazards) {
           semanticHazards.push(...res.hazards);
         }
