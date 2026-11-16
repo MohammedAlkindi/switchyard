@@ -30,6 +30,11 @@ def _init_local_ml():
     return HAS_TRANSFORMERS
 
 
+def has_transformers() -> bool:
+    """Probe for transformers on first call, so importing this module never loads torch."""
+    return _init_local_ml()
+
+
 class ModelType(Enum):
     AUTO = auto()
     OPENAI = auto()

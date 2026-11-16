@@ -13,7 +13,7 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from clients.anthropic_client import AnthropicClient
 from core.conversation import ConversationEntry
 from core.metrics_worker import MetricsWorker
-from core.model_manager import HAS_TRANSFORMERS, ModelManager
+from core.model_manager import ModelManager, has_transformers
 from services.billing import BillingManager
 from services.compliance import ComplianceManager
 from services.plugin_manager import PluginManager
@@ -134,7 +134,7 @@ class AICore(QObject):
             return self._translation_cache[cache_key]
         model_name = "translation"
         model = self.model_manager.get_model(model_name)
-        if model is None and HAS_TRANSFORMERS:
+        if model is None and has_transformers():
             self.model_manager.load_model(
                 model_name, "translation",
                 self.config["models"].get("translation", "Helsinki-NLP/opus-mt-en-fr"),
@@ -155,7 +155,7 @@ class AICore(QObject):
         if key in self._sentiment_cache:
             return self._sentiment_cache[key]
         model = self.model_manager.get_model("sentiment")
-        if model is None and HAS_TRANSFORMERS:
+        if model is None and has_transformers():
             self.model_manager.load_model(
                 "sentiment", "sentiment-analysis",
                 self.config["models"].get("sentiment", "distilbert-base-uncased-finetuned-sst-2-english"),
@@ -173,7 +173,7 @@ class AICore(QObject):
 
     def summarize(self, text: str, max_length: int = 100) -> str:
         model = self.model_manager.get_model("summarization")
-        if model is None and HAS_TRANSFORMERS:
+        if model is None and has_transformers():
             self.model_manager.load_model(
                 "summarization", "summarization",
                 self.config["models"].get("summarization", "facebook/bart-large-cnn"),
