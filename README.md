@@ -291,6 +291,13 @@ A malformed config file is a hard error with the offending key named; a missing 
 
 `fleet spawn` runs `git worktree add` under the hood: each agent gets a real, separate directory with its own checkout of a dedicated `fleet/<agent>` branch, so one agent's `git reset` physically cannot touch another agent's files. A single gitignored `.fleet/state.json` in the main repo maps each agent to its branch, base, and worktree, and `fleet check` uses it to diff every agent branch against its base (`git diff base...branch`, plus uncommitted edits) and cross-reference the changed files. Switchyard also adds `.fleet/` to `.git/info/exclude` automatically, so it never dirties the repos it manages. Design rationale and limitations live in [docs/architecture.md](docs/architecture.md).
 
+### Concurrency and verification boundaries
+
+Switchyard is designed as a fast, local coordination harness rather than a formal verification engine. Keep two operational boundaries in mind:
+
+1. **Textual vs. Semantic Collisions:** `fleet check` uses Git 2.38+ `merge-tree --write-tree` (in-memory ORT) to simulate whether edits can be integrated textually without conflict markers. It is not an AST-level or type-level non-interference prover: if Agent A modifies an exported function signature in one file and Agent B introduces an old-signature call in a separate file, Git considers this a clean textual merge. To prevent semantic regressions, configure `validate` (e.g. `npm test` or `tsc --noEmit`) in `.fleetrc.json` so `fleet merge` enforces build and test gates.
+2. **Local Machine Scope:** The `.fleet/lock` mutual exclusion mechanism relies on atomic file renames and OS PID checks (`process.kill(pid, 0)`). This protects concurrent agent processes running on the same host, but is not a distributed lock across network filesystems (NFS/SMB) or isolated container PID namespaces.
+
 ## Monorepo Packages
 
 Switchyard is organized as a unified workspace for multi-agent software engineering:
