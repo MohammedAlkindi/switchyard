@@ -15,19 +15,45 @@ this package.
   `fleet merge` and `fleet mcp` can now flag two agents changing the same symbol
   or a symbol the other side depends on, not only the same file or line.
   It is a heuristic filter, not a proof of semantic compatibility.
+- The symbol filter reads Python (`.py`) as well as TypeScript/JavaScript,
+  with a dependency-free extractor (`src/lib/pysymbols.ts`).
 - Multi-agent benchmark harness and an 8-task suite (`npm run benchmark`).
+- P3 evaluation of the symbol filter on perturbed SWE-bench Lite traces
+  (`scripts/p3/`): precision, recall and latency per detector, produced by
+  code in the repo.
 
 ### Changed
 
+- `fleet check --semantic` (and `merge --semantic`, MCP `semantic`) uses
+  precise rules: a reference counts only if the other agent added or changed
+  the line, resolved through an import of the provider module or in the same
+  file; only changes that can break an existing caller count (an added optional
+  parameter does not); constructor changes reach `Class(...)` callers; a deleted
+  file deletes its symbols. The first rules stay available as
+  `LEGACY_SEMANTIC` for comparison.
 - Docs state the scope plainly: Switchyard detects textual collisions and, with
   the symbol filter, some semantic ones. It does not guarantee a merge is
   correct. See `docs/architecture.md`.
+- Semantic checks read all blobs through one `git cat-file --batch` process
+  instead of one `git show` per file.
+
+### Fixed
+
+- The CLI no longer imports `typescript` at startup. It is a devDependency, so
+  an installed CLI would have crashed on every command, `--version` included, with
+  `ERR_MODULE_NOT_FOUND`. It is now loaded on first TS/JS semantic check, with
+  a clear error if it is missing. A packaging test fails if `dist/` statically
+  imports anything outside the runtime dependencies.
 
 ### CortexAI gateway (`packages/cortexai`, not published)
 
 - `POST /v1/chat/completions` accepts `"stream": true` and returns OpenAI-style
   server-sent events, ending with `data: [DONE]`. Usage is billed once the
   stream finishes.
+- Streaming honours `stream_options.include_usage`: chunks carry
+  `usage: null` and a final chunk with empty `choices` carries the totals.
+  A mid-stream error ends with `finish_reason: "error"`, and partial output
+  is billed once on error or client disconnect instead of not at all.
 - Local model support (`torch`, `transformers`) is probed on first use instead
   of at import time, so importing the package no longer loads them. This also
   fixes the transformers check in `AICore`, which read a value that stayed
