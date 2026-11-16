@@ -9,6 +9,30 @@ this package.
 
 ## [Unreleased]
 
+### Added
+
+- In-memory AST symbol conflict filter (`src/lib/semantic.ts`). `fleet check`,
+  `fleet merge` and `fleet mcp` can now flag two agents changing the same symbol
+  or a symbol the other side depends on, not only the same file or line.
+  It is a heuristic filter, not a proof of semantic compatibility.
+- Multi-agent benchmark harness and an 8-task suite (`npm run benchmark`).
+
+### Changed
+
+- Docs state the scope plainly: Switchyard detects textual collisions and, with
+  the symbol filter, some semantic ones. It does not guarantee a merge is
+  correct. See `docs/architecture.md`.
+
+### CortexAI gateway (`packages/cortexai`, not published)
+
+- `POST /v1/chat/completions` accepts `"stream": true` and returns OpenAI-style
+  server-sent events, ending with `data: [DONE]`. Usage is billed once the
+  stream finishes.
+- Local model support (`torch`, `transformers`) is probed on first use instead
+  of at import time, so importing the package no longer loads them. This also
+  fixes the transformers check in `AICore`, which read a value that stayed
+  `False`.
+
 ### Website
 
 - Rebuilt the public site around a read-only fleet review: browser-local import
