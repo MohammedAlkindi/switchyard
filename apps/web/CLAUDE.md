@@ -274,8 +274,11 @@ Three changes would make the page false without breaking a test:
 
 - Adding any column that can hold free-form text (see the schema section above).
 - Adding an analytics script, a font loaded from a third-party origin, or any embed. Note
-  that `next/font` self-hosts at build time, which is why the page can say a page load does
-  not report the visitor to Google. A `<link>` to a font CDN would end that.
+  that the font files are checked in under `app/fonts` and served by `next/font/local`,
+  which is why the page can say a page load does not report the visitor to Google. A
+  `<link>` to a font CDN would end that. Do not switch back to `next/font/google`: it
+  fetches from Google on every build, and Turbopack fails the build when a font URL in
+  Google's CSS contains `&` (CI, 2026-11-16).
 - Sending a raw transcript line anywhere, for debugging or otherwise.
 
 *Reversing it:* if any of those happens, edit this page in the same commit. A privacy policy

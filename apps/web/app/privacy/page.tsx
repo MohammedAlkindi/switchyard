@@ -113,8 +113,8 @@ export default function PrivacyPage() {
           protection. If that ever changes, a real consent banner appears here first.
         </p>
         <p>
-          Web fonts are served from our own domain. <code className="mono">next/font</code>{' '}
-          downloads them at build time, so loading a page does not tell Google you visited.
+          Web fonts are served from our own domain. The font files ship with the site, so
+          loading a page does not tell Google you visited.
         </p>
 
         <h2>Who else processes your data</h2>
